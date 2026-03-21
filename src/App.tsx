@@ -1,19 +1,21 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ToastProvider } from './lib/toast'
-import Layout      from './components/Layout'
-import Dashboard   from './pages/Dashboard'
-import Tracker     from './pages/Tracker'
-import Prospects   from './pages/Prospects'
-import Finance     from './pages/Finance'
-import Outreach    from './pages/Outreach'
-import Sprints     from './pages/Sprints'
+import Layout       from './components/Layout'
+import Dashboard    from './pages/Dashboard'
+import Tracker      from './pages/Tracker'
+import Prospects    from './pages/Prospects'
+import Finance      from './pages/Finance'
+import Outreach     from './pages/Outreach'
+import Sprints      from './pages/Sprints'
 import SprintDetail from './pages/SprintDetail'
-import Templates   from './pages/Templates'
-import Capital     from './pages/Capital'
-import Sops        from './pages/Sops'
+import Templates    from './pages/Templates'
+import Capital      from './pages/Capital'
+import Sops         from './pages/Sops'
 import SettingsPage from './pages/Settings'
-import { Clients, Portal } from './pages/Stubs'
-import Studio from './pages/Studio'
+import Studio       from './pages/Studio'
+import Clients      from './pages/Clients'
+import Scraper      from './pages/Scraper'
+import { Portal }   from './pages/Stubs'
 
 export default function App() {
   return (
@@ -25,6 +27,7 @@ export default function App() {
             <Route path="dashboard"   element={<Dashboard />} />
             <Route path="tracker"     element={<Tracker />} />
             <Route path="prospects"   element={<Prospects />} />
+            <Route path="scraper"     element={<Scraper />} />
             <Route path="outreach"    element={<Outreach />} />
             <Route path="clients"     element={<Clients />} />
             <Route path="sprints"     element={<Sprints />} />

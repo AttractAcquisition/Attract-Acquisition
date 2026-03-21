@@ -3,8 +3,10 @@ import { useState } from 'react'
 import {
   LayoutDashboard, CalendarCheck, Users, MessageSquare, Briefcase,
   Zap, Monitor, FileText, BookOpen, FileCode, BarChart3, Wallet,
-  Settings, Menu, X, Plus
+  Settings, Menu, X, Plus, Search
 } from 'lucide-react'
+import { useToast } from '../lib/toast'
+import { supabase } from '../lib/supabase'
 
 const NAV = [
   { section: 'Overview', items: [
@@ -12,9 +14,10 @@ const NAV = [
     { label: 'Execution Tracker', path: '/tracker',   icon: CalendarCheck },
   ]},
   { section: 'Pipeline', items: [
-    { label: 'Prospects', path: '/prospects', icon: Users },
-    { label: 'Outreach',  path: '/outreach',  icon: MessageSquare },
-    { label: 'Clients',   path: '/clients',   icon: Briefcase },
+    { label: 'Prospects',  path: '/prospects', icon: Users },
+    { label: 'Scraper',    path: '/scraper',   icon: Search },
+    { label: 'Outreach',   path: '/outreach',  icon: MessageSquare },
+    { label: 'Clients',    path: '/clients',   icon: Briefcase },
   ]},
   { section: 'Delivery', items: [
     { label: 'Proof Sprints', path: '/sprints', icon: Zap },
@@ -42,6 +45,98 @@ const PAGE_TITLES: Record<string, string> = {
   '/capital': 'Trust & Capital', '/settings': 'Settings',
 }
 
+function QuickAddButton() {
+  const [open, setOpen]   = useState(false)
+  const [type, setType]   = useState<'prospect'|'client'|'sprint'|null>(null)
+  const location          = useLocation()
+  const { toast }         = useToast()
+
+  const options = [
+    { key: 'prospect' as const, label: 'Add Prospect', sub: 'New lead to score and outreach' },
+    { key: 'client'   as const, label: 'Add Client',   sub: 'New retainer account' },
+    { key: 'sprint'   as const, label: 'New Sprint',   sub: '14-day proof campaign' },
+  ]
+
+  async function saveProspect(form: any) {
+    const { error } = await supabase.from('prospects').insert({ ...form, status: 'new', city: 'Cape Town' })
+    if (error) { toast('Failed', 'error'); return }
+    toast('Prospect added ✓'); setOpen(false); setType(null)
+    window.location.href = '/prospects'
+  }
+
+  async function saveClient(form: any) {
+    const { error } = await supabase.from('clients').insert({ ...form, status: 'active' })
+    if (error) { toast('Failed', 'error'); return }
+    toast('Client added ✓'); setOpen(false); setType(null)
+    window.location.href = '/clients'
+  }
+
+  async function saveSprint(form: any) {
+    const { error } = await supabase.from('proof_sprints').insert({ ...form, status: 'setup', sprint_number: 1 })
+    if (error) { toast('Failed', 'error'); return }
+    toast('Sprint created ✓'); setOpen(false); setType(null)
+    window.location.href = '/sprints'
+  }
+
+  return (
+    <>
+      <button className="btn-primary" onClick={() => setOpen(true)}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px' }}>
+        <Plus size={12} /> Quick Add
+      </button>
+
+      {open && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={() => { setOpen(false); setType(null) }} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)' }} />
+          <div style={{ position: 'relative', background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 10, padding: 28, width: 460, zIndex: 1, maxHeight: '90vh', overflowY: 'auto' }}>
+
+            {!type && (
+              <>
+                <div style={{ fontFamily: 'Playfair Display', fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Quick Add</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {options.map(o => (
+                    <div key={o.key} onClick={() => setType(o.key)}
+                      style={{ padding: '14px 16px', cursor: 'pointer', borderRadius: 6, border: '1px solid var(--border2)', background: 'var(--bg3)', transition: 'border-color 0.15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--teal)')}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border2)')}>
+                      <div style={{ fontWeight: 500, fontSize: 14, marginBottom: 2 }}>{o.label}</div>
+                      <div style={{ fontSize: 12, color: 'var(--grey)' }}>{o.sub}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {type === 'prospect' && (
+              <>
+                <div style={{ fontFamily: 'Playfair Display', fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Add Prospect</div>
+                <QuickProspectForm onSave={saveProspect} onBack={() => setType(null)} />
+              </>
+            )}
+
+            {type === 'client' && (
+              <>
+                <div style={{ fontFamily: 'Playfair Display', fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Add Client</div>
+                <QuickClientForm onSave={saveClient} onBack={() => setType(null)} />
+              </>
+            )}
+
+            {type === 'sprint' && (
+              <>
+                <div style={{ fontFamily: 'Playfair Display', fontSize: 20, fontWeight: 700, marginBottom: 20 }}>New Sprint</div>
+                <QuickSprintForm onSave={saveSprint} onBack={() => setType(null)} />
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+// QuickProspectForm, QuickClientForm, QuickSprintForm definitions remain unchanged
+// (same as your original code)
+
 export default function Layout() {
   const [open, setOpen] = useState(false)
   const location = useLocation()
@@ -60,6 +155,7 @@ export default function Layout() {
         flexDirection: 'column', height: '100vh', overflowY: 'auto',
         position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 50,
       }}>
+        {/* Sidebar header */}
         <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid var(--border2)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 34, height: 34, background: 'var(--teal)', borderRadius: 3,
@@ -121,9 +217,7 @@ export default function Layout() {
             <span style={{ fontFamily: 'Playfair Display', fontSize: 18, fontWeight: 700 }}>{title}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px' }}>
-              <Plus size={12} /> Quick Add
-            </button>
+            <QuickAddButton />
             <div style={{
               width: 32, height: 32, background: 'var(--teal)', borderRadius: '50%',
               display: 'flex', alignItems: 'center', justifyContent: 'center',

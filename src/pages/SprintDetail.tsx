@@ -209,8 +209,44 @@ export default function SprintDetail() {
             onBlur={async e => { await supabase.from('proof_sprints').update({ talking_points: e.target.value }).eq('id', id!) }}
             style={{ resize: 'vertical', fontFamily: 'DM Mono', fontSize: 12 }} />
         </div>
-        <button className="btn-secondary" style={{ marginTop: 14, width: '100%' }}>Generate Results Report (Stage 7) →</button>
+        <GenerateReportButton sprintId={id!} sprint={sprint} logs={logs} />
       </div>
+    </div>
+  )
+}
+function GenerateReportButton({ sprintId, sprint, logs }: { sprintId: string; sprint: any; logs: any[] }) {
+  const [report, setReport]         = useState('')
+  const [generating, setGenerating] = useState(false)
+  const { toast }                   = useToast()
+
+  async function generate() {
+    setGenerating(true)
+    setReport('')
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-sprint-report', {
+        body: { sprint, logs }
+      })
+      if (error) throw error
+      setReport(data.report)
+      await supabase.from('proof_sprints').update({ talking_points: data.report }).eq('id', sprintId)
+      toast('Results report generated ✓')
+    } catch {
+      toast('Generation failed — check Supabase Edge Functions', 'error')
+    }
+    setGenerating(false)
+  }
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      <button className="btn-primary" onClick={generate} disabled={generating}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+        {generating ? 'Generating...' : '✦ Generate Results Report →'}
+      </button>
+      {report && (
+        <div style={{ marginTop: 16, background: 'var(--bg3)', border: '1px solid var(--teal-border)', borderRadius: 6, padding: 18, fontSize: 13, color: 'var(--white)', lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>
+          {report}
+        </div>
+      )}
     </div>
   )
 }

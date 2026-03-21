@@ -10,4 +10,3 @@ function Stub({ title, sub }: { title: string; sub: string }) {
 
 export function Clients() { return <Stub title="Clients" sub="Active retainer clients, health indicators, sprint history and financials per account." /> }
 export function Portal()  { return <Stub title="AA Portal" sub="Client-facing portal view. Select any active client to see their live pipeline and Meta Ads performance." /> }
-export function Studio()  { return <Stub title="MJR Studio" sub="AI-powered Missed Jobs Report builder. Input prospect data, generate report, copy WhatsApp message." /> }

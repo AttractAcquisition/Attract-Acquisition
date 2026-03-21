@@ -12,7 +12,8 @@ import Templates   from './pages/Templates'
 import Capital     from './pages/Capital'
 import Sops        from './pages/Sops'
 import SettingsPage from './pages/Settings'
-import { Clients, Portal, Studio } from './pages/Stubs'
+import { Clients, Portal } from './pages/Stubs'
+import Studio from './pages/Studio'
 
 export default function App() {
   return (

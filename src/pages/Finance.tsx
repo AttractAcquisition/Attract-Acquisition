@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase, MonthlyRevenue } from '../lib/supabase'
+import { supabasev } from '../lib/supabase'
+import type { MonthlyRevenue } from '../lib/supabase'
 import { formatRand, monthLabel } from '../lib/utils'
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 

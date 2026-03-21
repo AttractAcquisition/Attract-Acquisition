@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase, Task } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
+import type { Task } from '../lib/supabase'
 import { catBadgeClass } from '../lib/utils'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useToast } from '../lib/toast'

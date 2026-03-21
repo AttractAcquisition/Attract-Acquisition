@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase, Prospect } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
+import type { Prospect } from '../lib/supabase'
 import { formatDate, tierLabel, statusBadge } from '../lib/utils'
 import { Search, Plus, RefreshCw, X, ChevronRight } from 'lucide-react'
 import { useToast } from '../lib/toast'

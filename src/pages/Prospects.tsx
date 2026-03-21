@@ -16,6 +16,7 @@ export default function Prospects() {
   const [filterStatus, setFilterStatus]     = useState('')
   const [filterVertical, setFilterVertical] = useState('')
   const [selected, setSelected]   = useState<Prospect | null>(null)
+  const [showAdd, setShowAdd]     = useState(false)
   const { toast }                 = useToast()
 
   useEffect(() => { load() }, [filterTier, filterStatus, filterVertical])
@@ -95,7 +96,7 @@ export default function Prospects() {
         <button className="btn-secondary" onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <RefreshCw size={11} /> Refresh
         </button>
-        <button className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button className="btn-primary" onClick={() => setShowAdd(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Plus size={11} /> Add Prospect
         </button>
       </div>
@@ -109,7 +110,7 @@ export default function Prospects() {
               <div className="empty-state">
                 <h3>No prospects yet</h3>
                 <p>Add your first prospect or run Apify to scrape Cape Town businesses.</p>
-                <button className="btn-primary">Add Prospect</button>
+                <button className="btn-primary" onClick={() => setShowAdd(true)}>Add Prospect</button>
               </div>
             )
             : (
@@ -237,6 +238,63 @@ export default function Prospects() {
           </div>
         </div>
       )}
+
+      {/* Add Prospect Modal */}
+      {showAdd && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={() => setShowAdd(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)' }} />
+          <div style={{ position: 'relative', background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 8, padding: 28, width: 480, zIndex: 1 }}>
+            <div style={{ fontFamily: 'Playfair Display', fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Add Prospect</div>
+            <AddProspectForm onSave={p => { setProspects(prev => [p, ...prev]); setShowAdd(false); toast('Prospect added') }} onCancel={() => setShowAdd(false)} />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Add Prospect Form Component
+function AddProspectForm({ onSave, onCancel }: { onSave: (p: any) => void; onCancel: () => void }) {
+  const [form, setForm] = useState({ business_name: '', owner_name: '', vertical: '', suburb: '', phone: '', whatsapp: '' })
+  const [saving, setSaving] = useState(false)
+
+  async function save() {
+    if (!form.business_name) return
+    setSaving(true)
+    const { data, error } = await supabase.from('prospects').insert({ ...form, status: 'new', city: 'Cape Town' }).select().single()
+    setSaving(false)
+    if (error || !data) return
+    onSave(data)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {[
+        { label: 'Business Name *', field: 'business_name', placeholder: 'e.g. Cape Town Auto Detailing' },
+        { label: 'Owner Name',      field: 'owner_name',    placeholder: 'e.g. John Smith' },
+        { label: 'Suburb',          field: 'suburb',        placeholder: 'e.g. Woodstock' },
+        { label: 'Phone',           field: 'phone',         placeholder: '+27 82 000 0000' },
+        { label: 'WhatsApp',        field: 'whatsapp',      placeholder: '+27 82 000 0000' },
+      ].map(f => (
+        <div key={f.field}>
+          <div className="label">{f.label}</div>
+          <input className="input" placeholder={f.placeholder} value={(form as any)[f.field]}
+            onChange={e => setForm(prev => ({ ...prev, [f.field]: e.target.value }))} />
+        </div>
+      ))}
+      <div>
+        <div className="label">Vertical</div>
+        <select className="input" value={form.vertical} onChange={e => setForm(prev => ({ ...prev, vertical: e.target.value }))}>
+          <option value="">Select vertical</option>
+          {VERTICALS.map(v => <option key={v} value={v}>{v}</option>)}
+        </select>
+      </div>
+      <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+        <button className="btn-primary" onClick={save} disabled={saving || !form.business_name} style={{ flex: 1 }}>
+          {saving ? 'Saving...' : 'Add Prospect →'}
+        </button>
+        <button className="btn-ghost" onClick={onCancel} style={{ flex: 1 }}>Cancel</button>
+      </div>
     </div>
   )
 }

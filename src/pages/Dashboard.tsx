@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { formatRand, formatDate, catBadgeClass } from '../lib/utils'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { TrendingUp, Users, Zap, DollarSign } from 'lucide-react'
-ç
+
 const SCHEDULE_D = [
   { month: 'Oct 26', target: 25000 },  { month: 'Nov 26', target: 25000 },
   { month: 'Dec 26', target: 25000 },  { month: 'Jan 27', target: 55000 },

@@ -4,6 +4,7 @@ import type { Sop } from '../lib/supabase'
 import { formatDate } from '../lib/utils'
 import { Edit2, ChevronRight, Save, X } from 'lucide-react'
 import { useToast } from '../lib/toast'
+import ReactMarkdown from 'react-markdown'
 
 const CATEGORIES = ['Cold Outreach', 'Pipeline & Sales', 'Proof Sprint', 'Client Delivery']
 const STATUS_COLORS: Record<string, string> = {
@@ -141,10 +142,33 @@ export default function Sops() {
                 style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--white)', fontFamily: 'Barlow', fontSize: 14, lineHeight: 1.8, padding: '16px', resize: 'none', outline: 'none' }}
                 placeholder="Write SOP content here. Use plain text or Markdown formatting.&#10;&#10;Start with: Purpose, Trigger, Steps (numbered), Outputs, Notes" />
             ) : (
-              <div style={{ flex: 1, overflowY: 'auto' }}>
+              <div style={{ flex: 1, overflowY: 'auto', paddingRight: 8 }}>
                 {selected.content ? (
-                  <div style={{ fontSize: 14, lineHeight: 1.9, color: 'var(--white)', whiteSpace: 'pre-wrap', fontFamily: 'Barlow' }}>
-                    {selected.content}
+                  <div style={{ fontSize: 14, lineHeight: 1.9, color: 'var(--grey)' }}>
+                    <ReactMarkdown
+                      components={{
+                        h1: ({node, ...props}) => <h1 style={{ fontSize: 26, fontWeight: 700, marginTop: 20, marginBottom: 12, color: 'var(--white)' }} {...props} />,
+                        h2: ({node, ...props}) => <h2 style={{ fontSize: 22, fontWeight: 700, marginTop: 16, marginBottom: 10, color: 'var(--white)' }} {...props} />,
+                        h3: ({node, ...props}) => <h3 style={{ fontSize: 18, fontWeight: 600, marginTop: 14, marginBottom: 8, color: 'var(--white)' }} {...props} />,
+                        p: ({node, ...props}) => <p style={{ marginBottom: 12 }} {...props} />,
+                        ul: ({node, ...props}) => <ul style={{ marginLeft: 24, marginBottom: 12, listStyleType: 'disc' }} {...props} />,
+                        ol: ({node, ...props}) => <ol style={{ marginLeft: 24, marginBottom: 12, listStyleType: 'decimal' }} {...props} />,
+                        li: ({node, ...props}) => <li style={{ marginBottom: 6 }} {...props} />,
+                        code: ({node, inline, ...props}: any) => inline ? (
+                          <code style={{ background: 'var(--bg)', padding: '2px 6px', borderRadius: 3, fontFamily: 'DM Mono', fontSize: 12, color: 'var(--teal)' }} {...props} />
+                        ) : (
+                          <pre style={{ background: 'var(--bg)', padding: 12, borderRadius: 4, overflow: 'auto', marginBottom: 12, fontFamily: 'DM Mono', fontSize: 12 }} {...props} />
+                        ),
+                        blockquote: ({node, ...props}) => <blockquote style={{ borderLeft: '4px solid var(--teal)', paddingLeft: 12, marginLeft: 0, marginBottom: 12, color: 'var(--grey2)', fontStyle: 'italic' }} {...props} />,
+                        a: ({node, ...props}: any) => <a style={{ color: 'var(--teal)', textDecoration: 'underline' }} {...props} />,
+                        hr: ({node, ...props}) => <hr style={{ borderTop: '1px solid var(--border2)', marginBottom: 12, marginTop: 12 }} {...props} />,
+                        table: ({node, ...props}) => <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }} {...props} />,
+                        th: ({node, ...props}) => <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid var(--border2)', fontWeight: 600 }} {...props} />,
+                        td: ({node, ...props}) => <td style={{ padding: 8, borderBottom: '1px solid var(--border2)' }} {...props} />,
+                      }}
+                    >
+                      {selected.content}
+                    </ReactMarkdown>
                   </div>
                 ) : (
                   <div className="empty-state" style={{ paddingTop: 40 }}>

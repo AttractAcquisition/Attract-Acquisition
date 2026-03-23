@@ -206,7 +206,7 @@ export default function Clients() {
                     </div>
                     <div>
                       <div className="label">Status</div>
-                      <select className="input" value={selected.status}
+                      <select className="input" value={selected.status ?? ''}
                         onChange={e => saveField(selected.id, 'status', e.target.value)}>
                         <option value="active">Active</option>
                         <option value="paused">Paused</option>

@@ -137,8 +137,8 @@ export default function Prospects() {
                   </thead>
                   <tbody>
                     {filtered.map(p => {
-                      const tier = tierLabel(p.icp_tier)
-                      const stat = statusBadge(p.status)
+                      const tier = tierLabel(p.icp_tier ?? '')
+                      const stat = statusBadge(p.status ?? '')
                       return (
                         <tr key={p.id} onClick={() => openSlide(p)}>
                           <td>
@@ -309,7 +309,7 @@ export default function Prospects() {
                     <span style={{ fontFamily: 'DM Mono', fontSize: 18, color: 'var(--teal)' }}>
                       {selected.icp_total_score ?? '—'}/25
                       <span style={{ fontSize: 13, marginLeft: 10, color: selected.icp_tier === '★★★' ? 'var(--teal)' : selected.icp_tier === '★★' ? 'var(--amber)' : 'var(--grey)' }}>
-                        {tierLabel(selected.icp_tier).label}
+                        {tierLabel(selected.icp_tier ?? '').label}
                       </span>
                     </span>
                   </div>
@@ -323,7 +323,7 @@ export default function Prospects() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <div>
                       <div className="label">Status</div>
-                      <select className="input" value={selected.status}
+                      <select className="input" value={selected.status ?? ''}
                         onChange={e => saveField(selected.id, 'status', e.target.value)}>
                         {STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
                       </select>

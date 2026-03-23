@@ -1,7 +1,7 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { ToastProvider } from './lib/toast'
-import { AuthProvider, useAuth } from './lib/auth'
+import { useAuth } from './lib/auth'
 
 import Layout       from './components/Layout'
 import Login        from './pages/Login'

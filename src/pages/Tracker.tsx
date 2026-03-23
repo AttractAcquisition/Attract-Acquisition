@@ -49,12 +49,29 @@ export default function Tracker() {
 
   async function toggleTask(task: Task) {
     const newStatus = task.status === 'complete' ? 'pending' : 'complete'
-    const { error } = await supabase.from('tasks')
-      .update({ status: newStatus, completed_at: newStatus === 'complete' ? new Date().toISOString() : null })
+
+    const updateData = {
+      status: newStatus,
+      completed_at: newStatus === 'complete'
+        ? new Date().toISOString()
+        : null as string | null
+    }
+
+    const { error } = await supabase
+      .from('tasks')
+      .update(updateData)
       .eq('id', task.id)
-    if (error) { toast('Failed to update task', 'error'); return }
+
+    if (error) {
+      toast('Failed to update task', 'error')
+      return
+    }
+
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t))
-    toast(newStatus === 'complete' ? 'Task complete ✓' : 'Task reopened', newStatus === 'complete' ? 'success' : 'info')
+    toast(
+      newStatus === 'complete' ? 'Task complete ✓' : 'Task reopened',
+      newStatus === 'complete' ? 'success' : 'info'
+    )
   }
 
   const grouped: Record<number, Task[]> = {}
@@ -70,12 +87,14 @@ export default function Tracker() {
   const pct   = total ? Math.round(done / total * 100) : 0
 
   function dayName(day: number) {
-    const [y, m] = currentMonth.key.split('-').map(Number)
+    const key = currentMonth.key || ''
+    const [y, m] = key.split('-').map(s => parseInt(s || '0'))
     return DAY_NAMES[new Date(y, m - 1, day).getDay()]
   }
 
   function isToday(day: number) {
-    const [y, m] = currentMonth.key.split('-').map(Number)
+    const key = currentMonth.key || ''
+    const [y, m] = key.split('-').map(s => parseInt(s || '0'))
     return y === today.getFullYear() && m === today.getMonth() + 1 && day === today.getDate()
   }
 
@@ -171,7 +190,8 @@ export default function Tracker() {
                   }}>
                     {task.title}
                   </div>
-                  <span className={`badge ${catBadgeClass(task.category)}`} style={{ marginTop: 2 }}>
+                  {/* Fixed nullable argument error here */}
+                  <span className={`badge ${catBadgeClass(task.category || '')}`} style={{ marginTop: 2 }}>
                     {task.category}
                   </span>
                 </div>

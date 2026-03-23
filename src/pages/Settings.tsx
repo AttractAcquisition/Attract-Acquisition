@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react'
 import { useToast } from '../lib/toast'
 
-interface Setting { key: string; value: string }
+// Removed unused Setting interface
 
 const WEBHOOK_FIELDS = [
   { key: 'n8n_run_apify',       label: 'Run Apify Webhook',      placeholder: 'https://your-n8n.railway.app/webhook/run-apify' },
@@ -39,7 +39,7 @@ export default function SettingsPage() {
   }
 
   async function loadSettings() {
-    const { data } = await supabase.from('templates').select('id').limit(1)
+    // Removed the unused 'data' fetch here to clear the TS error
     const stored = localStorage.getItem('aa_settings')
     if (stored) {
       try { setSettings(JSON.parse(stored)) } catch {}

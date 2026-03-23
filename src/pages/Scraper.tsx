@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { Play, CheckCircle, XCircle, Clock, ChevronDown, ChevronUp } from 'lucide-react'
+import { Play, CheckCircle, XCircle, Clock, ChevronDown, ChevronUp, Copy } from 'lucide-react'
 import { useToast } from '../lib/toast'
 
 const VERTICALS = [
@@ -76,7 +76,8 @@ export default function Scraper() {
     youtube:                   false,
   })
   const [runStatus, setRunStatus]       = useState<RunStatus>('idle')
-  const [runId, setRunId]               = useState('')
+  // Removed unused runId state to fix TS6133
+  const [activeRunId, setActiveRunId]   = useState('') 
   const [results, setResults]           = useState<ProspectRow[]>([])
   const [selected, setSelected]         = useState<Set<number>>(new Set())
   const [saving, setSaving]             = useState(false)
@@ -130,6 +131,7 @@ export default function Scraper() {
     setErrorMsg('')
     setElapsed(0)
     setPollCount(0)
+    setActiveRunId('')
 
     try {
       const { data, error } = await supabase.functions.invoke('apify-start', {
@@ -153,7 +155,9 @@ export default function Scraper() {
         }
       })
       if (error || data?.error) { setErrorMsg(data?.error || String(error)); setRunStatus('failed'); return }
-      setRunId(data.run_id)
+      
+      // Update our active run ID for the UI
+      setActiveRunId(data.run_id)
       setRunStatus('running')
       startTimer()
       startPolling(data.run_id)
@@ -199,6 +203,11 @@ export default function Scraper() {
     setResults(prev => prev.map((r, i) => selected.has(i) ? { ...r, saved: true } : r))
     setSaving(false)
     toast(`${toSave.length} prospects saved to CRM ✓`)
+  }
+
+  function copyRunId() {
+    navigator.clipboard.writeText(activeRunId)
+    toast('Run ID copied to clipboard')
   }
 
   function toggleAll() {
@@ -257,7 +266,6 @@ export default function Scraper() {
             </div>
           </div>
 
-          {/* Advanced Settings toggle */}
           <button onClick={() => setShowAdvanced(v => !v)}
             style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 6, padding: '9px 12px', cursor: 'pointer', marginBottom: showAdvanced ? 0 : 16, color: 'var(--grey)', fontFamily: 'DM Mono', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             Advanced Settings
@@ -299,7 +307,6 @@ export default function Scraper() {
           </button>
         </div>
 
-        {/* Status card */}
         {runStatus !== 'idle' && (
           <div className="card">
             <div className="section-label">Run Status</div>
@@ -315,6 +322,17 @@ export default function Scraper() {
                 {runStatus === 'failed'    && 'Run failed'}
               </span>
             </div>
+            
+            {/* Added visual Run ID feedback */}
+            {activeRunId && (
+              <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: 'var(--bg2)', borderRadius: 4 }}>
+                <span style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey2)' }}>ID: {activeRunId.slice(0, 8)}...</span>
+                <button onClick={copyRunId} className="btn-ghost" style={{ padding: 4 }} title="Copy Run ID">
+                  <Copy size={12} />
+                </button>
+              </div>
+            )}
+
             {runStatus === 'running' && (
               <>
                 <div style={{ height: 4, background: 'var(--bg3)', borderRadius: 2, overflow: 'hidden', marginBottom: 8 }}>
@@ -356,7 +374,6 @@ export default function Scraper() {
         )}
       </div>
 
-      {/* Right panel */}
       <div>
         {runStatus === 'idle' && (
           <div className="empty-state">

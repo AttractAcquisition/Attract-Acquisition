@@ -4,7 +4,17 @@ import { formatDate } from '../lib/utils'
 import { Plus, Copy, Save } from 'lucide-react'
 import { useToast } from '../lib/toast'
 
-interface Template { id: string; created_at: string; updated_at: string; title: string; category: string; content: string; variables: string[]; char_count: number }
+// Updated interface to match Supabase's nullable return types
+interface Template { 
+  id: string; 
+  created_at: string | null; 
+  updated_at: string | null; 
+  title: string; 
+  category: string | null; 
+  content: string | null; 
+  variables: string[] | null; 
+  char_count: number | null 
+}
 
 const CATEGORIES = [
   { key: 'whatsapp',     label: 'WhatsApp' },
@@ -26,15 +36,24 @@ export default function Templates() {
   useEffect(() => { load() }, [catFilter])
 
   async function load() {
-    const { data } = await supabase.from('templates').select('*').eq('category', catFilter).order('updated_at', { ascending: false })
-    setTemplates(data || [])
+    const { data } = await supabase
+      .from('templates')
+      .select('*')
+      .eq('category', catFilter)
+      .order('updated_at', { ascending: false })
+    
+    setTemplates((data as Template[]) || [])
     setSelected(null)
     setIsNew(false)
   }
 
   function selectTemplate(t: Template) {
     setSelected(t)
-    setEditForm({ title: t.title, category: t.category, content: t.content || '' })
+    setEditForm({ 
+      title: t.title || '', 
+      category: t.category || 'whatsapp', 
+      content: t.content || '' 
+    })
     setIsNew(false)
   }
 
@@ -45,20 +64,37 @@ export default function Templates() {
   }
 
   async function save() {
-    if (!editForm.title || !editForm.content) { toast('Title and content required', 'error'); return }
+    if (!editForm.title || !editForm.content) { 
+      toast('Title and content required', 'error')
+      return 
+    }
     setSaving(true)
-    const payload = { ...editForm, char_count: editForm.content.length, updated_at: new Date().toISOString() }
+    
+    const payload = { 
+      ...editForm, 
+      char_count: editForm.content.length, 
+      updated_at: new Date().toISOString() 
+    }
+
     if (isNew) {
       const { data, error } = await supabase.from('templates').insert(payload).select().single()
-      if (error || !data) { toast('Failed to save', 'error'); setSaving(false); return }
-      setTemplates(prev => [data, ...prev])
-      setSelected(data)
+      if (error || !data) { 
+        toast('Failed to save', 'error')
+        setSaving(false)
+        return 
+      }
+      setTemplates(prev => [data as Template, ...prev])
+      setSelected(data as Template)
       setIsNew(false)
     } else if (selected) {
       const { data, error } = await supabase.from('templates').update(payload).eq('id', selected.id).select().single()
-      if (error || !data) { toast('Failed to save', 'error'); setSaving(false); return }
-      setTemplates(prev => prev.map(t => t.id === data.id ? data : t))
-      setSelected(data)
+      if (error || !data) { 
+        toast('Failed to save', 'error')
+        setSaving(false)
+        return 
+      }
+      setTemplates(prev => prev.map(t => t.id === data.id ? (data as Template) : t))
+      setSelected(data as Template)
     }
     setSaving(false)
     toast('Template saved ✓')
@@ -104,7 +140,7 @@ export default function Templates() {
               <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3 }}>{t.title}</div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey2)' }}>{t.char_count || 0} chars</span>
-                <span style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey2)' }}>{formatDate(t.updated_at || t.created_at)}</span>
+                <span style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey2)' }}>{formatDate(t.updated_at || t.created_at || '')}</span>
               </div>
             </div>
           ))}

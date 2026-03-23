@@ -14,19 +14,29 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default function Sops() {
-  const [sops, setSops]         = useState<Sop[]>([])
+  const [sops, setSops] = useState<Sop[]>([])
   const [selected, setSelected] = useState<Sop | null>(null)
-  const [editing, setEditing]   = useState(false)
-  const [content, setContent]   = useState('')
-  const [saving, setSaving]     = useState(false)
-  const [filter, setFilter]     = useState('')
-  const { toast }               = useToast()
+  const [editing, setEditing] = useState(false)
+  const [content, setContent] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [filter, setFilter] = useState('')
+  const { toast } = useToast()
 
   useEffect(() => { load() }, [])
 
   async function load() {
     const { data } = await supabase.from('sops').select('*').order('sop_number')
-    setSops(data || [])
+    const normalized: Sop[] = (data || []).map((s: any) => ({
+      ...s,
+      content: s.content || '',
+      version: s.version || '1.0',
+      last_reviewed_at: s.last_reviewed_at || '',
+      category: s.category || '',
+      status: s.status || 'draft',
+      sop_number: s.sop_number || 0,
+      title: s.title || 'Untitled SOP',
+    }))
+    setSops(normalized)
   }
 
   function selectSop(s: Sop) {
@@ -39,8 +49,14 @@ export default function Sops() {
     if (!selected) return
     setSaving(true)
     const { data, error } = await supabase.from('sops')
-      .update({ content, updated_at: new Date().toISOString(), last_reviewed_at: new Date().toISOString().split('T')[0] })
-      .eq('id', selected.id).select().single()
+      .update({
+        content,
+        updated_at: new Date().toISOString(),
+        last_reviewed_at: new Date().toISOString().split('T')[0],
+      })
+      .eq('id', selected.id)
+      .select()
+      .single()
     if (error || !data) { toast('Save failed', 'error'); setSaving(false); return }
     setSops(prev => prev.map(s => s.id === data.id ? data : s))
     setSelected(data)
@@ -68,8 +84,14 @@ export default function Sops() {
       {/* Left panel */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', gap: 16, marginBottom: 4 }}>
-          <div><span className="stat-num" style={{ fontSize: 22 }}>{activeCount}</span><div style={{ fontFamily: 'DM Mono', fontSize: 9, color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Active</div></div>
-          <div><span className="stat-num" style={{ fontSize: 22, color: 'var(--grey)' }}>{draftCount}</span><div style={{ fontFamily: 'DM Mono', fontSize: 9, color: 'var(--grey)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Draft</div></div>
+          <div>
+            <span className="stat-num" style={{ fontSize: 22 }}>{activeCount}</span>
+            <div style={{ fontFamily: 'DM Mono', fontSize: 9, color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Active</div>
+          </div>
+          <div>
+            <span className="stat-num" style={{ fontSize: 22, color: 'var(--grey)' }}>{draftCount}</span>
+            <div style={{ fontFamily: 'DM Mono', fontSize: 9, color: 'var(--grey)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Draft</div>
+          </div>
         </div>
 
         <select className="input" value={filter} onChange={e => setFilter(e.target.value)}>
@@ -88,7 +110,7 @@ export default function Sops() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: 32 }}>
                 <span style={{ fontFamily: 'DM Mono', fontSize: 9, color: 'var(--grey2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.category}</span>
-                <span className={`badge ${STATUS_COLORS[s.status] || 'badge-new'}`}>{s.status}</span>
+                <span className={`badge ${STATUS_COLORS[s.status!]}`}>{s.status}</span>
               </div>
             </div>
           ))}
@@ -103,7 +125,7 @@ export default function Sops() {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                   <span style={{ fontFamily: 'DM Mono', fontSize: 11, color: 'var(--grey2)' }}>SOP {String(selected.sop_number).padStart(2,'0')}</span>
-                  <span className={`badge ${STATUS_COLORS[selected.status]}`}>{selected.status}</span>
+                  <span className={`badge ${STATUS_COLORS[selected.status!]}`}>{selected.status}</span>
                 </div>
                 <div style={{ fontFamily: 'Playfair Display', fontSize: 22, fontWeight: 700 }}>{selected.title}</div>
                 <div style={{ fontFamily: 'DM Mono', fontSize: 11, color: 'var(--grey)', marginTop: 4 }}>

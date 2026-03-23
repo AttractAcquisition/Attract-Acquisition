@@ -4,9 +4,15 @@ import { formatRand, monthLabel } from '../lib/utils'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
 interface CapitalRow {
-  id: string; month: string; personal_cash_balance: number
-  trust_balance_end: number; schedule_d_mrr_target: number
-  gross_mrr: number; principal_draw: number; trust_deployment: number; notes: string
+  id: string
+  month: string
+  personal_cash_balance: number | null
+  trust_balance_end: number | null
+  schedule_d_mrr_target: number | null
+  gross_mrr: number | null
+  principal_draw: number | null
+  trust_deployment: number | null
+  notes: string | null
 }
 
 const TRUST_SCHEDULE = [
@@ -29,8 +35,8 @@ export default function Capital() {
       setRows(data || [])
       setLoading(false)
       if (data && data.length > 0) {
-        const latest = data.filter(r => r.personal_cash_balance).slice(-1)[0]
-        if (latest?.personal_cash_balance) setSavings(latest.personal_cash_balance)
+        const latest = data.filter(r => r.personal_cash_balance !== null).slice(-1)[0]
+        if (latest?.personal_cash_balance !== null) setSavings(latest.personal_cash_balance)
       }
     })
   }, [])
@@ -54,7 +60,7 @@ export default function Capital() {
       .upsert({ month: form.month + '-01', personal_cash_balance: form.personal_cash_balance, trust_balance_end: form.trust_balance_end }, { onConflict: 'month' })
     const { data } = await supabase.from('monthly_revenue').select('*').order('month')
     setRows(data || [])
-    setSavings(form.personal_cash_balance || savings)
+    setSavings(form.personal_cash_balance ?? savings)
     setSaving(false)
   }
 

@@ -6,20 +6,32 @@ import { useToast } from '../lib/toast'
 import { useNavigate } from 'react-router-dom'
 
 interface Sprint {
-  id: string; created_at: string; client_id: string; start_date: string
-  status: string; client_ad_budget: number; actual_ad_spend: number
-  leads_generated: number; cpl: number; results_meeting_date: string
-  client_name: string; vertical: string
+  id: string
+  created_at: string | null          // fixed: allow null from Supabase
+  client_id: string
+  start_date: string
+  status: string
+  client_ad_budget: number
+  actual_ad_spend: number
+  leads_generated: number
+  cpl: number                        // computed / fallback only
+  results_meeting_date: string
+  client_name: string
+  vertical: string
 }
 
-interface Client { id: string; business_name: string; tier: string }
+interface Client {
+  id: string
+  business_name: string
+  tier: string
+}
 
 const COLUMNS = [
-  { key: 'setup',           label: 'Setup',           sub: 'Days 1–3' },
-  { key: 'active',          label: 'Running',         sub: 'Days 4–13' },
+  { key: 'setup', label: 'Setup', sub: 'Days 1–3' },
+  { key: 'active', label: 'Running', sub: 'Days 4–13' },
   { key: 'results_meeting', label: 'Results Meeting', sub: 'Day 14–15' },
-  { key: 'closed_won',      label: 'Won',             sub: '' },
-  { key: 'closed_lost',     label: 'Lost',            sub: '' },
+  { key: 'closed_won', label: 'Won', sub: '' },
+  { key: 'closed_lost', label: 'Lost', sub: '' },
 ]
 
 function dayX(startDate: string) {
@@ -35,17 +47,47 @@ function cplColor(cpl: number) {
 }
 
 export default function Sprints() {
-  const [sprints, setSprints]   = useState<Sprint[]>([])
-  const [clients, setClients]   = useState<Client[]>([])
-  const [showNew, setShowNew]   = useState(false)
-  const [dragId, setDragId]     = useState<string | null>(null)
-  const [loading, setLoading]   = useState(true)
-  const { toast }               = useToast()
-  const navigate                = useNavigate()
+  const [sprints, setSprints] = useState<Sprint[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [showNew, setShowNew] = useState(false)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const { toast } = useToast()
+  const navigate = useNavigate()
 
   useEffect(() => {
-    supabase.from('proof_sprints').select('*').order('created_at', { ascending: false }).then(({ data }) => { setSprints(data || []); setLoading(false) })
-    supabase.from('clients').select('id, business_name, tier').eq('status', 'active').then(({ data }) => setClients(data || []))
+    async function loadData() {
+      const [{ data: sprintData }, { data: clientData }] = await Promise.all([
+        supabase.from('proof_sprints').select('*').order('created_at', { ascending: false }),
+        supabase.from('clients').select('id, business_name, tier').eq('status', 'active')
+      ])
+
+      // Map sprintData with safe defaults — do NOT read s.cpl (doesn't exist in table)
+      const mappedSprints: Sprint[] = (sprintData || []).map(s => ({
+        id: s.id,
+        created_at: s.created_at ?? null,
+        client_id: s.client_id || '',
+        start_date: s.start_date || new Date().toISOString().split('T')[0],
+        status: s.status || 'setup',
+        client_ad_budget: s.client_ad_budget ?? 0,
+        actual_ad_spend: s.actual_ad_spend ?? 0,
+        leads_generated: s.leads_generated ?? 0,
+        cpl: 0,                             // computed field — use 0 or calculate if needed
+        results_meeting_date: s.results_meeting_date || '',
+        client_name: s.client_name || '',
+        vertical: s.vertical || ''
+      }))
+
+      const mappedClients: Client[] = (clientData || []).map(c => ({
+        id: c.id,
+        business_name: c.business_name,
+        tier: c.tier || 'standard'
+      }))
+
+      setSprints(mappedSprints)
+      setClients(mappedClients)
+    }
+
+    loadData()
   }, [])
 
   async function moveSprint(id: string, status: string) {
@@ -55,20 +97,45 @@ export default function Sprints() {
   }
 
   async function createSprint(form: { client_id: string; start_date: string; client_ad_budget: number; client_name: string; vertical: string }) {
-    const { data, error } = await supabase.from('proof_sprints').insert({ ...form, status: 'setup', sprint_number: 1 }).select().single()
-    if (error || !data) { toast('Failed to create sprint', 'error'); return }
-    setSprints(prev => [data, ...prev])
+    const { data, error } = await supabase
+      .from('proof_sprints')
+      .insert({ ...form, status: 'setup', sprint_number: 1 })
+      .select()
+      .single()
+
+    if (error || !data) {
+      toast('Failed to create sprint', 'error')
+      return
+    }
+
+    const newSprint: Sprint = {
+      id: data.id,
+      created_at: data.created_at ?? null,
+      client_id: data.client_id || '',
+      start_date: data.start_date || new Date().toISOString().split('T')[0],
+      status: data.status || 'setup',
+      client_ad_budget: data.client_ad_budget ?? 0,
+      actual_ad_spend: data.actual_ad_spend ?? 0,
+      leads_generated: data.leads_generated ?? 0,
+      cpl: 0,                                 // computed — no column in table
+      results_meeting_date: data.results_meeting_date || '',
+      client_name: data.client_name || '',
+      vertical: data.vertical || ''
+    }
+
+    setSprints(prev => [newSprint, ...prev])
     setShowNew(false)
     toast('Sprint created ✓')
   }
 
   return (
     <div>
+      {/* Top Stats */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div style={{ display: 'flex', gap: 24 }}>
           {[
             { label: 'Active sprints', value: sprints.filter(s => s.status === 'active' || s.status === 'setup').length },
-            { label: 'Won this month',  value: sprints.filter(s => s.status === 'closed_won').length },
+            { label: 'Won this month', value: sprints.filter(s => s.status === 'closed_won').length },
           ].map(s => (
             <div key={s.label}>
               <div className="stat-num" style={{ fontSize: 26 }}>{s.value}</div>
@@ -81,7 +148,7 @@ export default function Sprints() {
         </button>
       </div>
 
-      {/* Kanban */}
+      {/* Kanban Board */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, alignItems: 'start' }}>
         {COLUMNS.map(col => (
           <div key={col.key}
@@ -95,7 +162,7 @@ export default function Sprints() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {sprints.filter(s => s.status === col.key).map(sprint => {
                 const day = dayX(sprint.start_date)
-                const cpl = sprint.cpl || 0
+                const cplValue = sprint.cpl ?? 0   // safe access
                 return (
                   <div key={sprint.id} draggable onDragStart={() => setDragId(sprint.id)}
                     onClick={() => navigate(`/sprints/${sprint.id}`)}
@@ -106,9 +173,9 @@ export default function Sprints() {
                     {sprint.vertical && <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{sprint.vertical}</div>}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontFamily: 'DM Mono', fontSize: 11, color: 'var(--teal)' }}>Day {day}/14</span>
-                      {cpl > 0 && (
-                        <span style={{ fontFamily: 'DM Mono', fontSize: 11, color: cplColor(cpl), background: cplColor(cpl) + '15', padding: '2px 7px', borderRadius: 3 }}>
-                          CPL {formatRand(cpl)}
+                      {cplValue > 0 && (
+                        <span style={{ fontFamily: 'DM Mono', fontSize: 11, color: cplColor(cplValue), background: cplColor(cplValue) + '15', padding: '2px 7px', borderRadius: 3 }}>
+                          CPL {formatRand(cplValue)}
                         </span>
                       )}
                     </div>

@@ -46,17 +46,16 @@ export default function Prospects() {
     setLoading(false)
   }
 
-  const filtered = prospects.filter(p => {
+  const filtered = prospects.filter((p: Prospect) => {
     if (!search) return true
     const q = search.toLowerCase()
     return [p.business_name, p.owner_name, p.suburb, p.vertical].some(f => f?.toLowerCase().includes(q))
   })
 
   const total = prospects.length
-  const tier3 = prospects.filter(p => p.icp_tier === '★★★').length
-  const tier2 = prospects.filter(p => p.icp_tier === '★★').length
+  const tier3 = prospects.filter((p: Prospect) => p.icp_tier === '★★★').length
+  const tier2 = prospects.filter((p: Prospect) => p.icp_tier === '★★').length
 
-  // Helper to calculate total and tier based on the 5 score fields
   function calculateICP(p: any) {
     const score = (Number(p.score_visual_transformability) || 0) +
                   (Number(p.score_ticket_size) || 0) +
@@ -74,9 +73,8 @@ export default function Prospects() {
   async function saveField(id: string, field: string, value: any) {
     let updates: any = { [field]: value };
 
-    // Auto-calculate ICP if a score slider is moved
     if (field.startsWith('score_')) {
-      const current = prospects.find(p => p.id === id);
+      const current = prospects.find((p: Prospect) => p.id === id);
       if (current) {
         const { score, tier } = calculateICP({ ...current, [field]: value });
         updates.icp_total_score = score;
@@ -87,7 +85,7 @@ export default function Prospects() {
     const { error } = await supabase.from('prospects').update(updates).eq('id', id)
     if (error) { toast(`Failed to save ${field}`, 'error'); return }
     
-    setProspects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p))
+    setProspects(prev => prev.map((p: Prospect) => p.id === id ? { ...p, ...updates } : p))
     setSelected(prev => prev ? { ...prev, ...updates } : prev)
   }
 
@@ -95,7 +93,7 @@ export default function Prospects() {
     if (!window.confirm('Permanently delete this prospect?')) return
     const { error } = await supabase.from('prospects').delete().eq('id', id)
     if (error) { toast('Delete failed', 'error'); return }
-    setProspects(prev => prev.filter(p => p.id !== id))
+    setProspects(prev => prev.filter((p: Prospect) => p.id !== id))
     setSelected(null)
     toast('Prospect deleted')
   }
@@ -107,7 +105,6 @@ export default function Prospects() {
 
   return (
     <div>
-      {/* KPI bar */}
       <div style={{ display: 'flex', gap: 28, marginBottom: 20 }}>
         {[
           { label: 'Total',        value: total },
@@ -121,7 +118,6 @@ export default function Prospects() {
         ))}
       </div>
 
-      {/* Controls */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <Search size={13} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--grey2)' }} />
@@ -150,7 +146,6 @@ export default function Prospects() {
         </button>
       </div>
 
-      {/* Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {loading
           ? <div style={{ padding: 24 }}>{[1,2,3,4,5].map(i => <div key={i} className="skeleton" style={{ height: 44, marginBottom: 8 }} />)}</div>
@@ -165,7 +160,7 @@ export default function Prospects() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(p => {
+                  {filtered.map((p: Prospect) => {
                     const tier = tierLabel(p.icp_tier ?? '')
                     const stat = statusBadge(p.status ?? '')
                     return (
@@ -195,7 +190,6 @@ export default function Prospects() {
         }
       </div>
 
-      {/* Slide-over */}
       {selected && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', justifyContent: 'flex-end' }}>
           <div onClick={() => setSelected(null)} style={{ flex: 1, background: 'rgba(0,0,0,0.5)' }} />
@@ -234,14 +228,14 @@ export default function Prospects() {
               {slideTab === 'business' && (
                 <>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <F label="Business Name *" field="business_name" value={selected.business_name} onSave={v => saveField(selected.id, 'business_name', v)} />
-                    <F label="Owner Name" field="owner_name" value={selected.owner_name} onSave={v => saveField(selected.id, 'owner_name', v)} />
-                    <F label="Phone" field="phone" value={selected.phone} onSave={v => saveField(selected.id, 'phone', v)} />
-                    <F label="WhatsApp" field="whatsapp" value={selected.whatsapp} onSave={v => saveField(selected.id, 'whatsapp', v)} />
-                    <F label="Email" field="email" value={selected.email} onSave={v => saveField(selected.id, 'email', v)} type="email" />
-                    <F label="Website" field="website" value={selected.website} onSave={v => saveField(selected.id, 'website', v)} />
-                    <F label="Suburb" field="suburb" value={selected.suburb} onSave={v => saveField(selected.id, 'suburb', v)} />
-                    <F label="City" field="city" value={selected.city} onSave={v => saveField(selected.id, 'city', v)} />
+                    <F label="Business Name *" field="business_name" value={selected.business_name} onSave={(v: string) => saveField(selected.id, 'business_name', v)} />
+                    <F label="Owner Name" field="owner_name" value={selected.owner_name} onSave={(v: string) => saveField(selected.id, 'owner_name', v)} />
+                    <F label="Phone" field="phone" value={selected.phone} onSave={(v: string) => saveField(selected.id, 'phone', v)} />
+                    <F label="WhatsApp" field="whatsapp" value={selected.whatsapp} onSave={(v: string) => saveField(selected.id, 'whatsapp', v)} />
+                    <F label="Email" field="email" value={selected.email} onSave={(v: string) => saveField(selected.id, 'email', v)} type="email" />
+                    <F label="Website" field="website" value={selected.website} onSave={(v: string) => saveField(selected.id, 'website', v)} />
+                    <F label="Suburb" field="suburb" value={selected.suburb} onSave={(v: string) => saveField(selected.id, 'suburb', v)} />
+                    <F label="City" field="city" value={selected.city} onSave={(v: string) => saveField(selected.id, 'city', v)} />
                   </div>
                   <div style={{ gridColumn: 'span 2' }}>
                     <div className="label">Vertical</div>
@@ -249,10 +243,6 @@ export default function Prospects() {
                       <option value="">Select vertical</option>
                       {VERTICALS.map(v => <option key={v} value={v}>{v}</option>)}
                     </select>
-                  </div>
-                  <div>
-                    <div className="label">Address</div>
-                    <input className="input" defaultValue={selected.address as any || ''} onBlur={e => saveField(selected.id, 'address', e.target.value)} placeholder="Full street address" />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <div>
@@ -281,15 +271,11 @@ export default function Prospects() {
                 <>
                   <div className="section-label">Digital Presence</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <F label="Instagram Handle" field="instagram_handle" value={selected.instagram_handle} onSave={v => saveField(selected.id, 'instagram_handle', v)} placeholder="@handle" />
-                    <F label="Followers" field="instagram_followers" value={selected.instagram_followers} onSave={v => saveField(selected.id, 'instagram_followers', Number(v))} type="number" />
-                    <div>
-                      <div className="label">Last Instagram Post</div>
-                      <input className="input" type="date" defaultValue={selected.instagram_last_post_date || ''} onBlur={e => saveField(selected.id, 'instagram_last_post_date', e.target.value)} />
-                    </div>
-                    <F label="Google Rating" field="google_rating" value={selected.google_rating} onSave={v => saveField(selected.id, 'google_rating', Number(v))} type="number" />
-                    <F label="Review Count" field="google_review_count" value={selected.google_review_count} onSave={v => saveField(selected.id, 'google_review_count', Number(v))} type="number" />
-                    <div>
+                    <F label="Instagram Handle" field="instagram_handle" value={selected.instagram_handle} onSave={(v: string) => saveField(selected.id, 'instagram_handle', v)} />
+                    <F label="Followers" field="instagram_followers" value={selected.instagram_followers} onSave={(v: string) => saveField(selected.id, 'instagram_followers', Number(v))} type="number" />
+                    <F label="Google Rating" field="google_rating" value={selected.google_rating} onSave={(v: string) => saveField(selected.id, 'google_rating', Number(v))} type="number" />
+                    <F label="Review Count" field="google_review_count" value={selected.google_review_count} onSave={(v: string) => saveField(selected.id, 'google_review_count', Number(v))} type="number" />
+                    <div style={{ gridColumn: 'span 2' }}>
                       <div className="label">Meta Ads Running</div>
                       <button onClick={() => saveField(selected.id, 'has_meta_ads', !selected.has_meta_ads)}
                         style={{ width: '100%', padding: '10px 14px', borderRadius: 6, border: `1px solid ${selected.has_meta_ads ? 'var(--teal)' : 'var(--border2)'}`, background: selected.has_meta_ads ? 'var(--teal-faint)' : 'var(--bg3)', color: selected.has_meta_ads ? 'var(--teal)' : 'var(--grey)', cursor: 'pointer', fontFamily: 'DM Mono', fontSize: 12, textAlign: 'left' }}>
@@ -324,7 +310,7 @@ export default function Prospects() {
                     <span style={{ fontFamily: 'DM Mono', fontSize: 18, color: 'var(--teal)' }}>
                       {selected.icp_total_score ?? 0}/25
                       <span style={{ fontSize: 13, marginLeft: 10, color: selected.icp_tier === '★★★' ? 'var(--teal)' : selected.icp_tier === '★★' ? 'var(--amber)' : 'var(--grey)' }}>
-                        {tierLabel(selected.icp_tier ?? '').label}
+                        {selected.icp_tier}
                       </span>
                     </span>
                   </div>
@@ -351,11 +337,10 @@ export default function Prospects() {
                     </div>
                   </div>
                   <div className="section-label" style={{ marginTop: 4 }}>MJR Data</div>
-                  <F label="Estimated Monthly Missed Revenue (R)" field="mjr_estimated_monthly_missed_revenue" value={selected.mjr_estimated_monthly_missed_revenue} type="number" onSave={v => saveField(selected.id, 'mjr_estimated_monthly_missed_revenue', Number(v))} />
+                  <F label="Monthly Missed Revenue (R)" field="mjr_estimated_monthly_missed_revenue" value={selected.mjr_estimated_monthly_missed_revenue} onSave={(v: string) => saveField(selected.id, 'mjr_estimated_monthly_missed_revenue', Number(v))} type="number" />
                   <textarea className="input" rows={4} defaultValue={selected.mjr_notes || ''} onBlur={e => saveField(selected.id, 'mjr_notes', e.target.value)} placeholder="MJR Notes..." style={{ resize: 'vertical' }} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
                     <button className="btn-primary" onClick={() => navigate('/studio', { state: { prospect: selected } })}>Generate MJR →</button>
-                    <button className="btn-secondary" onClick={() => navigate('/clients', { state: { importProspect: selected } })}>Convert to Client →</button>
                   </div>
                 </>
               )}
@@ -371,11 +356,11 @@ export default function Prospects() {
       )}
 
       {showAdd && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div onClick={() => setShowAdd(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)' }} />
-          <div style={{ position: 'relative', background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 8, padding: 28, width: 480 }}>
-            <div style={{ fontFamily: 'Playfair Display', fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Add Prospect</div>
-            <AddProspectForm onSave={p => { setProspects([p, ...prospects]); setShowAdd(false); toast('Prospect added') }} onCancel={() => setShowAdd(false)} />
+          <div style={{ position: 'relative', background: 'var(--bg2)', padding: 28, width: 480, borderRadius: 8 }}>
+             <div style={{ fontFamily: 'Playfair Display', fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Add Prospect</div>
+             <AddProspectForm onSave={(p: Prospect) => { setProspects([p, ...prospects]); setShowAdd(false); toast('Prospect added') }} onCancel={() => setShowAdd(false)} />
           </div>
         </div>
       )}
@@ -383,29 +368,25 @@ export default function Prospects() {
   )
 }
 
-function F({ label, field, value, onSave, type = 'text', placeholder = '' }: any) {
+function F({ label, field, value, onSave, type = 'text' }: any) {
   return (
     <div>
       <div className="label">{label}</div>
-      <input className="input" type={type} placeholder={placeholder} defaultValue={value ?? ''} key={`${field}-${value}`} onBlur={e => { if (String(e.target.value) !== String(value ?? '')) onSave(e.target.value) }} />
+      <input className="input" type={type} defaultValue={value ?? ''} key={`${field}-${value}`} onBlur={e => { if (String(e.target.value) !== String(value ?? '')) onSave(e.target.value) }} />
     </div>
   )
 }
 
 function AddProspectForm({ onSave, onCancel }: any) {
-  const [form, setForm] = useState({ business_name: '', suburb: '', vertical: '' })
+  const [name, setName] = useState('')
   async function save() {
-    const { data } = await supabase.from('prospects').insert({ ...form, status: 'new', city: 'Cape Town' }).select().single()
+    if (!name) return
+    const { data } = await supabase.from('prospects').insert({ business_name: name, status: 'new', city: 'Cape Town' }).select().single()
     if (data) onSave(data)
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <input className="input" placeholder="Business Name" onChange={e => setForm({ ...form, business_name: e.target.value })} />
-      <input className="input" placeholder="Suburb" onChange={e => setForm({ ...form, suburb: e.target.value })} />
-      <select className="input" onChange={e => setForm({ ...form, vertical: e.target.value })}>
-        <option value="">Select Vertical</option>
-        {VERTICALS.map(v => <option key={v} value={v}>{v}</option>)}
-      </select>
+      <input className="input" placeholder="Business Name" value={name} onChange={e => setName(e.target.value)} />
       <button className="btn-primary" onClick={save}>Add Prospect →</button>
       <button className="btn-ghost" onClick={onCancel}>Cancel</button>
     </div>

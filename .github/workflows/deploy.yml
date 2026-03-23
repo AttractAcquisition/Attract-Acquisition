@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+# Sets the environment variable for the entire workflow to satisfy the 2026 Node 24 requirement
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: read
   pages: write
@@ -19,7 +23,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v4
         with:
-          node-version: 24 # Updated to 24
+          node-version: 24
 
       - name: Install dependencies
         run: npm install
@@ -27,7 +31,6 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # Opt into the new standard
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
@@ -45,4 +48,5 @@ jobs:
     steps:
       - name: Deploy
         id: deployment
+        # Note: If v5 is released by June 2026, you can update this to @v5
         uses: actions/deploy-pages@v4

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Prospect } from '../lib/supabase'
 import { formatDate, tierLabel, statusBadge } from '../lib/utils'
-import { Search, Plus, RefreshCw, X, ChevronRight } from 'lucide-react'
+import { Search, Plus, RefreshCw, X, ChevronRight, Trash2 } from 'lucide-react'
 import { useToast } from '../lib/toast'
 import { useNavigate } from 'react-router-dom'
 
@@ -24,13 +24,13 @@ export default function Prospects() {
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [loading, setLoading]     = useState(true)
   const [search, setSearch]       = useState('')
-  const [filterTier, setFilterTier]         = useState('')
+  const [filterTier, setFilterTier]           = useState('')
   const [filterStatus, setFilterStatus]     = useState('')
   const [filterVertical, setFilterVertical] = useState('')
   const [selected, setSelected]   = useState<Prospect | null>(null)
   const [slideTab, setSlideTab]   = useState<SlideTab>('business')
   const [showAdd, setShowAdd]     = useState(false)
-  const { toast }                 = useToast()
+  const { toast }                  = useToast()
   const navigate                  = useNavigate()
 
   useEffect(() => { load() }, [filterTier, filterStatus, filterVertical])
@@ -61,6 +61,21 @@ export default function Prospects() {
     if (error) { toast(`Failed to save ${field}`, 'error'); return }
     setProspects(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p))
     setSelected(prev => prev ? { ...prev, [field]: value } : prev)
+  }
+
+  async function deleteProspect(id: string) {
+    if (!window.confirm('Are you sure you want to delete this prospect? This action cannot be undone.')) return
+
+    const { error } = await supabase.from('prospects').delete().eq('id', id)
+    
+    if (error) {
+      toast('Failed to delete prospect', 'error')
+      return
+    }
+
+    setProspects(prev => prev.filter(p => p.id !== id))
+    setSelected(null)
+    toast('Prospect deleted successfully')
   }
 
   function openSlide(p: Prospect) {
@@ -192,7 +207,7 @@ export default function Prospects() {
                 {([
                   { key: 'business', label: 'Business Info' },
                   { key: 'digital',  label: 'Digital & ICP' },
-                  { key: 'mjr',      label: 'MJR & Pipeline' },
+                  { key: 'mjr',       label: 'MJR & Pipeline' },
                 ] as { key: SlideTab; label: string }[]).map(t => (
                   <button key={t.key} onClick={() => setSlideTab(t.key)}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Mono', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '10px 16px', color: slideTab === t.key ? 'var(--teal)' : 'var(--grey)', borderBottom: slideTab === t.key ? '2px solid var(--teal)' : '2px solid transparent', marginBottom: -1 }}>
@@ -288,8 +303,8 @@ export default function Prospects() {
                     { label: 'Visual Transformability', field: 'score_visual_transformability' },
                     { label: 'Ticket Size (R5k+)',       field: 'score_ticket_size' },
                     { label: 'Owner Accessibility',      field: 'score_owner_accessibility' },
-                    { label: 'Digital Weakness',         field: 'score_digital_weakness' },
-                    { label: 'Growth Hunger',            field: 'score_growth_hunger' },
+                    { label: 'Digital Weakness',          field: 'score_digital_weakness' },
+                    { label: 'Growth Hunger',             field: 'score_growth_hunger' },
                   ].map(s => (
                     <div key={s.field}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -378,6 +393,17 @@ export default function Prospects() {
                   </div>
                 </>
               )}
+
+              {/* Global Delete Button at bottom of popup */}
+              <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid var(--border2)' }}>
+                <button 
+                  className="btn-ghost" 
+                  onClick={() => deleteProspect(selected.id)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#ff4d4d' }}
+                >
+                  <Trash2 size={14} /> Delete Prospect
+                </button>
+              </div>
             </div>
           </div>
         </div>

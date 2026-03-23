@@ -1,4 +1,4 @@
-# attract-acquisition — OS Repository
+# Attract-Acquisition — OS Repository
 
 > Internal operating system for Attract Acquisition (Pty) Ltd  
 > Principal: Alexander Anderson | Cape Town → Rome | Oct 2026 – Mar 2028

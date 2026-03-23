@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Prospect } from '../lib/supabase'
 import { formatDate, statusBadge } from '../lib/utils'
-import { Send, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
+import { Send, RefreshCw } from 'lucide-react'
 import { useToast } from '../lib/toast'
 
 interface Template { id: string; title: string; category: string; content: string; variables: string[] }

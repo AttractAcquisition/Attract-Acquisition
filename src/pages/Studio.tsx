@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Prospect } from '../lib/supabase'
 import { formatRand } from '../lib/utils'
-import { Search, Zap, Copy, Download } from 'lucide-react'
+import { Search, Zap, Copy } from 'lucide-react'
 import { useToast } from '../lib/toast'
 
 interface MJRReport {

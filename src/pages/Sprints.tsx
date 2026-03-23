@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { formatRand, formatDate } from '../lib/utils'
+import { formatRand } from '../lib/utils'
 import { Plus, X } from 'lucide-react'
 import { useToast } from '../lib/toast'
 import { useNavigate } from 'react-router-dom'

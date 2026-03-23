@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { formatRand, formatDate, monthLabel } from '../lib/utils'
+import { formatRand, monthLabel } from '../lib/utils'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
 interface CapitalRow {
@@ -163,7 +163,7 @@ export default function Capital() {
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
                 <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--grey)', fontFamily: 'DM Mono' }} />
                 <YAxis tickFormatter={v => `R${(v/1000).toFixed(0)}k`} tick={{ fontSize: 10, fill: 'var(--grey)', fontFamily: 'DM Mono' }} />
-                <Tooltip formatter={(v: any, name: string) => [formatRand(v), name]}
+                <Tooltip formatter={(v: any, n: any) => [formatRand(v), String(n ?? 'Value')]}
                   contentStyle={{ background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 4, fontFamily: 'DM Mono', fontSize: 12, color: 'var(--white)' }} />
                 <Area type="monotone" dataKey="Cash"  stroke="var(--teal)"   fill="rgba(0,229,195,0.1)"  strokeWidth={2} />
                 <Area type="monotone" dataKey="Trust" stroke="var(--amber)"  fill="rgba(239,159,39,0.08)" strokeWidth={2} />

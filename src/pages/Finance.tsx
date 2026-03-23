@@ -61,7 +61,7 @@ export default function Finance() {
                 <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--grey)', fontFamily: 'DM Mono' }} />
                 <YAxis tickFormatter={v => `R${(v/1000).toFixed(0)}k`} tick={{ fontSize: 10, fill: 'var(--grey)', fontFamily: 'DM Mono' }} />
                 <Tooltip
-                  formatter={(v: any, name: string) => [formatRand(v), name]}
+                  formatter={(v: any, n: any) => [formatRand(v), String(n ?? 'Value')]}
                   contentStyle={{ background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 4, fontFamily: 'DM Mono', fontSize: 12, color: 'var(--white)' }}
                 />
                 <Bar dataKey="MRR" fill="var(--teal)" opacity={0.8} />

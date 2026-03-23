@@ -4,5 +4,5 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/', // This ensures paths work on your custom domain
+  base: '', // Using an empty string makes paths "completely relative"
 })

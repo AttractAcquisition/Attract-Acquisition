@@ -26,26 +26,41 @@ export default function Sops() {
 
   const canEdit = role === 'admin'
 
-  useEffect(() => { load() }, [role])
+  useEffect(() => { 
+    load() 
+  }, [role])
 
-  async function load() {
-    let q = supabase.from('sops').select('*').order('sop_number')
-    if (role !== 'admin') {
-      q = q.eq('status', 'active')
-    }
-    const { data } = await q
-    const normalized: Sop[] = (data || []).map((s: any) => ({
-      ...s,
-      content:         s.content         || '',
-      version:         s.version         || '1.0',
-      last_reviewed_at: s.last_reviewed_at || '',
-      category:        s.category        || '',
-      status:          s.status          || 'draft',
-      sop_number:      s.sop_number      || 0,
-      title:           s.title           || 'Untitled SOP',
-    }))
-    setSops(normalized)
+async function load() {
+  let q = supabase.from('sops').select('*').order('sop_number')
+
+  // Role-Based Category Filtering
+  if (role === 'delivery') {
+    // Delivery only sees the technical fulfillment categories
+    q = q.in('category', ['Proof Sprint', 'Client Delivery', 'General'])
+  } else if (role === 'distribution') {
+    // Distribution only sees the front-end acquisition categories
+    q = q.in('category', ['Cold Outreach', 'Pipeline & Sales', 'General'])
   }
+
+  if (role !== 'admin') {
+    // Everyone except Admin only sees 'active' (published) SOPs
+    q = q.eq('status', 'active')
+  }
+
+  const { data } = await q
+  
+  // Mapping logic remains the same...
+  const normalized: Sop[] = (data || []).map((s: any) => ({
+    ...s,
+    content: s.content || '',
+    version: s.version || '1.0',
+    category: s.category || '',
+    status: s.status || 'draft',
+    title: s.title || 'Untitled SOP',
+  }))
+
+  setSops(normalized)
+}
 
   function selectSop(s: Sop) {
     setSelected(s)
@@ -57,10 +72,20 @@ export default function Sops() {
     if (!selected) return
     setSaving(true)
     const { data, error } = await supabase.from('sops')
-      .update({ content, updated_at: new Date().toISOString(), last_reviewed_at: new Date().toISOString().split('T')[0] })
+      .update({ 
+        content, 
+        updated_at: new Date().toISOString(), 
+        last_reviewed_at: new Date().toISOString().split('T')[0] 
+      })
       .eq('id', selected.id)
       .select().single()
-    if (error || !data) { toast('Save failed', 'error'); setSaving(false); return }
+
+    if (error || !data) { 
+      toast('Save failed', 'error'); 
+      setSaving(false); 
+      return 
+    }
+
     setSops(prev => prev.map(s => s.id === data.id ? data : s))
     setSelected(data)
     setEditing(false)

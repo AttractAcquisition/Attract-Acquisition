@@ -13,31 +13,34 @@ const ADMIN_OPERATOR_NAV = [
   {
     section: 'Overview',
     items: [
-      { label: 'Dashboard',         path: '/dashboard', icon: LayoutDashboard, roles: ['admin','operator'] },
-      { label: 'Execution Tracker', path: '/tracker',   icon: CalendarCheck,   roles: ['admin','operator'] },
+      { label: 'Dashboard',         path: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'delivery', 'distribution'] },
+      { label: 'Execution Tracker', path: '/tracker',   icon: CalendarCheck,   roles: ['admin', 'delivery', 'distribution'] },
     ],
   },
   {
-    section: 'Pipeline',
+    section: 'Distribution Hub',
     items: [
-      { label: 'Prospects',  path: '/prospects', icon: Users,         roles: ['admin','operator'] },
-      { label: 'Scraper',    path: '/scraper',   icon: Search,        roles: ['admin'] },
-      { label: 'Outreach',   path: '/outreach',  icon: MessageSquare, roles: ['admin','operator'] },
-      { label: 'Clients',    path: '/clients',   icon: Briefcase,     roles: ['admin','operator'] },
+      { label: 'Scraper',    path: '/scraper',   icon: Search,        roles: ['admin', 'distribution'] },
+      { label: 'Prospects',  path: '/prospects', icon: Users,         roles: ['admin', 'distribution'] },
+      { label: 'Outreach',   path: '/outreach',  icon: MessageSquare, roles: ['admin', 'distribution'] },
+      { label: 'CRM Pipeline', path: '/crm', icon: LayoutDashboard, roles: ['admin', 'distribution'] }, 
+      { label: 'Clients',      path: '/clients', icon: Briefcase,     roles: ['admin', 'delivery'] },
     ],
   },
   {
-    section: 'Delivery',
+    section: 'Delivery Engine',
     items: [
-      { label: 'Proof Sprints', path: '/sprints', icon: Zap,      roles: ['admin','operator'] },
-      { label: 'MJR Studio',   path: '/studio',  icon: FileText,  roles: ['admin','operator'] },
+      { label: 'MJR Studio',    path: '/studio',    icon: FileText,  roles: ['admin', 'distribution'] },
+      { label: 'Proof Sprints',  path: '/sprints',   icon: Zap,       roles: ['admin', 'delivery'] },
+      { label: 'Proof Brand',    path: '/proof',     icon: BookOpen,  roles: ['admin', 'delivery'] },
+      { label: 'Authority Brand', path: '/authority', icon: Shield,    roles: ['admin', 'delivery'] },
     ],
   },
   {
     section: 'Build',
     items: [
-      { label: 'SOP Library', path: '/sops',      icon: BookOpen,  roles: ['admin','operator'] },
-      { label: 'Templates',   path: '/templates', icon: FileCode,  roles: ['admin','operator'] },
+      { label: 'SOP Library', path: '/sops',      icon: BookOpen,  roles: ['admin', 'delivery', 'distribution'] },
+      { label: 'Templates',   path: '/templates', icon: FileCode,  roles: ['admin'] },
     ],
   },
   {
@@ -48,10 +51,10 @@ const ADMIN_OPERATOR_NAV = [
     ],
   },
   {
-  section: 'System',
-  items: [
-    { label: 'Command Center', path: '/admin', icon: Shield, roles: ['admin'] }
-  ]
+    section: 'System',
+    items: [
+      { label: 'Command Center', path: '/admin', icon: Shield, roles: ['admin'] }
+    ]
   },
   {
     section: 'Settings',
@@ -69,14 +72,9 @@ const CLIENT_NAV = [
       { label: 'Execution Tracker', path: '/tracker',   icon: CalendarCheck   },
     ],
   },
-  {
-    section: 'My Project',
-    items: [
-      { label: 'Proof Sprints', path: '/sprints', icon: Zap      },
-      { label: 'SOP Library',  path: '/sops',    icon: BookOpen  },
-    ],
-  },
 ]
+
+// ... Rest of the helper constants (PAGE_TITLES, VERTICALS) remain the same ...
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -92,15 +90,18 @@ const PAGE_TITLES: Record<string, string> = {
   '/finance':   'MRR Dashboard',
   '/capital':   'Trust & Capital',
   '/settings':  'Settings',
+  '/authority': 'Authority Brand',
+  '/proof':     'Proof Brand',
+  '/admin':     'Command Center'
 }
 
 const VERTICALS = [
-  'Auto Detailing','Vehicle Wrapping','Car Wash','Pet Grooming','Pet Salon',
-  'Trailer Manufacturing','Metal Fabrication','Engineering Shop',
-  'Home Renovation','Landscaping','Plumbing','Electrical','HVAC',
-  'Courier','Logistics','Physiotherapy','Wellness Studio',
-  'Dental Clinic','Personal Training','Industrial','Other'
-]
+  'Auto Detailing', 'Vehicle Wrapping', 'Car Wash', 'Pet Grooming', 'Pet Salon',
+  'Trailer Manufacturing', 'Metal Fabrication', 'Engineering Shop',
+  'Home Renovation', 'Landscaping', 'Plumbing', 'Electrical', 'HVAC',
+  'Courier', 'Logistics', 'Physiotherapy', 'Wellness Studio',
+  'Dental Clinic', 'Personal Training', 'Industrial', 'Other'
+];
 
 export default function Layout() {
   const [open, setOpen] = useState(false)
@@ -119,12 +120,13 @@ export default function Layout() {
     : ADMIN_OPERATOR_NAV
         .map(group => ({
           ...group,
+          // Checks if the user's role exists in the item's allowed roles array
           items: group.items.filter(item => item.roles.includes(role || '')),
         }))
         .filter(group => group.items.length > 0)
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg)' }}>
 
       {open && (
         <div onClick={() => setOpen(false)}

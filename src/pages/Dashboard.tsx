@@ -7,9 +7,11 @@ export default function Dashboard() {
   const { role } = useAuth()
 
   switch (role) {
-    case 'admin':    return <AdminView />
-    case 'operator': return <OperatorView />
-    case 'client':   return <ClientView />
-    default:         return null
+    case 'admin':        return <AdminView />
+    case 'distribution': 
+    case 'delivery':     
+    case 'operator':     return <OperatorView />
+    case 'client':       return <ClientView />
+    default:             return null
   }
 }

@@ -35,6 +35,8 @@ export default function Prospects() {
   const { toast }                 = useToast()
   const navigate                  = useNavigate()
 
+  const canEdit = role === 'admin' || role === 'distribution'
+
   useEffect(() => { load() }, [filterTier, filterStatus, filterVertical, metadata_id])
 
   async function load() {
@@ -42,10 +44,7 @@ export default function Prospects() {
     let q = supabase.from('prospects').select('*').order('icp_total_score', { ascending: false })
 
     if (role === 'operator' && metadata_id) {
-      q = q.eq('assigned_to', metadata_id)
-    }
-    if (role === 'client' && metadata_id) {
-      q = q.eq('client_id', metadata_id)
+      q = q.eq('assigned_to', metadata_id) 
     }
 
     if (filterTier)     q = q.eq('icp_tier', filterTier)
@@ -67,30 +66,48 @@ export default function Prospects() {
   const tier3 = prospects.filter((p: Prospect) => p.icp_tier === '★★★').length
   const tier2 = prospects.filter((p: Prospect) => p.icp_tier === '★★').length
 
+  // UPDATED LOGIC: 20+ = 3, 15+ = 2, 10+ = 1, else 0
   function calculateICP(p: any) {
     const score = (Number(p.score_visual_transformability) || 0) +
                   (Number(p.score_ticket_size) || 0) +
                   (Number(p.score_owner_accessibility) || 0) +
                   (Number(p.score_digital_weakness) || 0) +
                   (Number(p.score_growth_hunger) || 0)
-    let tier = '★'
+    
+    let tier = '' 
     if (score >= 20) tier = '★★★'
     else if (score >= 15) tier = '★★'
+    else if (score >= 10) tier = '★'
+    
     return { score, tier }
   }
 
   async function saveField(id: string, field: string, value: any) {
-    let updates: any = { [field]: value }
-    if (field.startsWith('score_')) {
+    // Force numeric types for DB compatibility (prevents 400 Bad Request)
+    const isScoreField = field.startsWith('score_')
+    const numericValue = (field.includes('followers') || field.includes('count') || isScoreField || field.includes('revenue') || field.includes('rating')) 
+      ? Number(value) 
+      : value
+
+    let updates: any = { [field]: numericValue }
+
+    if (isScoreField) {
       const current = prospects.find((p: Prospect) => p.id === id)
       if (current) {
-        const { score, tier } = calculateICP({ ...current, [field]: value })
+        const { score, tier } = calculateICP({ ...current, [field]: numericValue })
         updates.icp_total_score = score
         updates.icp_tier = tier
       }
     }
+
     const { error } = await supabase.from('prospects').update(updates).eq('id', id)
-    if (error) { toast(`Failed to save ${field}`, 'error'); return }
+    
+    if (error) { 
+      console.error("Supabase Save Error:", error)
+      toast(`Failed to save: ${error.message}`, 'error')
+      return 
+    }
+
     setProspects(prev => prev.map((p: Prospect) => p.id === id ? { ...p, ...updates } : p))
     setSelected(prev => prev ? { ...prev, ...updates } : prev)
   }
@@ -278,9 +295,9 @@ export default function Prospects() {
                   <div className="section-label">Digital Presence</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <F label="Instagram Handle" field="instagram_handle" value={selected.instagram_handle} onSave={(v: string) => saveField(selected.id, 'instagram_handle', v)} />
-                    <F label="Followers" field="instagram_followers" value={selected.instagram_followers} onSave={(v: string) => saveField(selected.id, 'instagram_followers', Number(v))} type="number" />
-                    <F label="Google Rating" field="google_rating" value={selected.google_rating} onSave={(v: string) => saveField(selected.id, 'google_rating', Number(v))} type="number" />
-                    <F label="Review Count" field="google_review_count" value={selected.google_review_count} onSave={(v: string) => saveField(selected.id, 'google_review_count', Number(v))} type="number" />
+                    <F label="Followers" field="instagram_followers" value={selected.instagram_followers} onSave={(v: string) => saveField(selected.id, 'instagram_followers', v)} type="number" />
+                    <F label="Google Rating" field="google_rating" value={selected.google_rating} onSave={(v: string) => saveField(selected.id, 'google_rating', v)} type="number" />
+                    <F label="Review Count" field="google_review_count" value={selected.google_review_count} onSave={(v: string) => saveField(selected.id, 'google_review_count', v)} type="number" />
                     <div style={{ gridColumn: 'span 2' }}>
                       <div className="label">Meta Ads Running</div>
                       <button onClick={() => saveField(selected.id, 'has_meta_ads', !selected.has_meta_ads)}
@@ -306,7 +323,7 @@ export default function Prospects() {
                         </span>
                       </div>
                       <input type="range" min={1} max={5} value={(selected as any)[s.field] || 1}
-                        onChange={e => saveField(selected.id, s.field, Number(e.target.value))}
+                        onChange={e => saveField(selected.id, s.field, e.target.value)}
                         style={{ width: '100%', accentColor: 'var(--teal)' }} />
                     </div>
                   ))}
@@ -316,7 +333,7 @@ export default function Prospects() {
                     <span style={{ fontFamily: 'DM Mono', fontSize: 18, color: 'var(--teal)' }}>
                       {selected.icp_total_score ?? 0}/25
                       <span style={{ fontSize: 13, marginLeft: 10, color: selected.icp_tier === '★★★' ? 'var(--teal)' : selected.icp_tier === '★★' ? 'var(--amber)' : 'var(--grey)' }}>
-                        {selected.icp_tier}
+                        {selected.icp_tier || 'unscored'}
                       </span>
                     </span>
                   </div>
@@ -333,19 +350,9 @@ export default function Prospects() {
                         {STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
                       </select>
                     </div>
-                    {role === 'admin' && (
-                      <div>
-                        <div className="label">Assigned To</div>
-                        <select className="input" value={selected.assigned_to || 'principal'} onChange={e => saveField(selected.id, 'assigned_to', e.target.value)}>
-                          <option value="principal">Principal</option>
-                          <option value="va_outreach">VA Outreach</option>
-                          <option value="va_delivery">VA Delivery</option>
-                        </select>
-                      </div>
-                    )}
                   </div>
                   <div className="section-label" style={{ marginTop: 4 }}>MJR Data</div>
-                  <F label="Monthly Missed Revenue (R)" field="mjr_estimated_monthly_missed_revenue" value={selected.mjr_estimated_monthly_missed_revenue} onSave={(v: string) => saveField(selected.id, 'mjr_estimated_monthly_missed_revenue', Number(v))} type="number" />
+                  <F label="Monthly Missed Revenue (R)" field="mjr_estimated_monthly_missed_revenue" value={selected.mjr_estimated_monthly_missed_revenue} onSave={(v: string) => saveField(selected.id, 'mjr_estimated_monthly_missed_revenue', v)} type="number" />
                   <textarea className="input" rows={4} defaultValue={selected.mjr_notes || ''} onBlur={e => saveField(selected.id, 'mjr_notes', e.target.value)} placeholder="MJR Notes..." style={{ resize: 'vertical' }} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
                     <button className="btn-primary" onClick={() => navigate('/studio', { state: { prospect: selected } })}>Generate MJR →</button>
@@ -353,7 +360,7 @@ export default function Prospects() {
                 </>
               )}
 
-              {role === 'admin' && (
+              {canEdit && (
                 <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid var(--border2)' }}>
                   <button className="btn-ghost" onClick={() => deleteProspect(selected.id)} style={{ width: '100%', color: '#ff4d4d', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                     <Trash2 size={14} /> Delete Prospect

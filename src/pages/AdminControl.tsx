@@ -11,13 +11,11 @@ export default function AdminControl() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch all profiles (the "Who")
       const { data: profileData, error: pError } = await (supabase as any)
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      // 2. Fetch all client mappings (the "Where")
       const { data: clientData, error: cError } = await (supabase as any)
         .from('clients')
         .select('email, account_manager');
@@ -25,12 +23,10 @@ export default function AdminControl() {
       if (pError || cError) throw pError || cError;
 
       if (profileData && clientData) {
-        // Merge account_manager into the profile objects so the UI can see them
         const mergedData = profileData.map((p: any) => {
           const mapping = clientData.find((c: any) => c.email === p.email);
           return {
             ...p,
-            // If they exist in clients table, get their manager, otherwise null
             account_manager: mapping ? mapping.account_manager : null
           };
         });
@@ -63,7 +59,6 @@ export default function AdminControl() {
   };
 
   const updateMapping = async (clientEmail: string, operatorId: string) => {
-    // We use the email to find the row in the 'clients' table
     const { error } = await (supabase as any)
       .from('clients')
       .update({ account_manager: operatorId || null })
@@ -74,8 +69,6 @@ export default function AdminControl() {
       toast.addToast?.('Mapping failed: ' + error.message, 'error');
     } else {
       toast.addToast?.('Client assigned successfully', 'success');
-      
-      // Optimistic local update so the UI doesn't flicker
       setProfiles(prev => prev.map(p => 
         p.email === clientEmail ? { ...p, account_manager: operatorId } : p
       ));
@@ -90,7 +83,8 @@ export default function AdminControl() {
     </div>
   );
 
-  const operators = profiles.filter(p => p.role === 'operator' || p.role === 'admin');
+  // Filter for anyone who can manage an account
+  const managers = profiles.filter(p => ['admin', 'delivery', 'distribution'].includes(p.role));
   const clients = profiles.filter(p => p.role === 'client');
 
   return (
@@ -128,7 +122,8 @@ export default function AdminControl() {
                   <td className="py-5 text-center">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${
                       user.role === 'admin' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 
-                      user.role === 'operator' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
+                      user.role === 'delivery' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
+                      user.role === 'distribution' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
                       'bg-teal-500/10 text-teal-400 border-teal-500/20'
                     }`}>
                       {user.role}
@@ -141,7 +136,8 @@ export default function AdminControl() {
                       defaultValue={user.role}
                     >
                       <option value="admin">Admin Access</option>
-                      <option value="operator">Growth Operator</option>
+                      <option value="delivery">Delivery Ops</option>
+                      <option value="distribution">Distribution Ops</option>
                       <option value="client">Client Portal</option>
                     </select>
                   </td>
@@ -155,14 +151,14 @@ export default function AdminControl() {
       {/* Section 2: Account Mapping */}
       <section className="bg-zinc-900/40 p-8 rounded-2xl border border-white/5 backdrop-blur-md shadow-2xl">
         <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 text-white">
-          <Link size={20} className="text-teal-400" /> Acquisition Infrastructure Mapping
+          <Link size={20} className="text-teal-400" /> Infrastructure Mapping
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="text-zinc-600 border-b border-white/5 text-[11px] uppercase tracking-[0.2em]">
                 <th className="pb-4 font-semibold">Client Brand</th>
-                <th className="pb-4 font-semibold text-right">Assigned Strategic Operator</th>
+                <th className="pb-4 font-semibold text-right">Assigned Strategic Lead</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -170,7 +166,7 @@ export default function AdminControl() {
                 <tr key={client.id} className="hover:bg-white/[0.02] transition-colors">
                   <td className="py-5">
                     <div className="text-teal-400 font-medium">{client.email}</div>
-                    <div className="text-[10px] text-zinc-600 font-mono mt-0.5">ACQUISITION FUNNEL ACTIVE</div>
+                    <div className="text-[10px] text-zinc-600 font-mono mt-0.5">FUNNEL ACTIVE</div>
                   </td>
                   <td className="py-5 text-right">
                     <select 
@@ -178,8 +174,8 @@ export default function AdminControl() {
                       className="w-full max-w-sm bg-zinc-950 border border-white/10 text-xs text-zinc-400 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 hover:text-white transition-all cursor-pointer"
                       defaultValue={client.account_manager || ""}
                     >
-                      <option value="">-- No Strategic Lead Assigned --</option>
-                      {operators.map(op => (
+                      <option value="">-- No Lead Assigned --</option>
+                      {managers.map(op => (
                         <option key={op.id} value={op.id}>
                           {op.email} ({op.role.toUpperCase()})
                         </option>

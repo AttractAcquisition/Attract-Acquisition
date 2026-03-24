@@ -4,10 +4,10 @@ import { useAuth } from '../lib/auth'
 import { CheckCircle2, Circle, ChevronRight, Loader2 } from 'lucide-react'
 import { useToast } from '../lib/toast'
 
-const TIER_NAME = 'Proof Sprint'
-const DEFAULT_STEPS = ['Asset Collection', 'Funnel Build', 'Sprint Launch']
+const TIER_NAME = 'Authority Brand'
+const DEFAULT_STEPS = ['Authority Content', 'Media Distribution', 'Scale Infrastructure']
 
-export default function ProofSprint() {
+export default function AuthorityBrand() {
   const { role, user } = useAuth()
   const { toast } = useToast()
   const [clients, setClients] = useState<any[]>([])

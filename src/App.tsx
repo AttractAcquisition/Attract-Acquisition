@@ -8,6 +8,7 @@ import Portal        from './pages/Portal'
 import Dashboard     from './pages/Dashboard'
 import Tracker       from './pages/Tracker'
 import Prospects     from './pages/Prospects'
+import CRM           from './pages/crm' // Added CRM import
 import Finance       from './pages/Finance'
 import Outreach      from './pages/Outreach'
 import Sprints       from './pages/Sprints'
@@ -20,6 +21,8 @@ import Studio        from './pages/Studio'
 import Clients       from './pages/Clients'
 import Scraper       from './pages/Scraper'
 import AdminControl from './pages/AdminControl'
+import AuthorityBrand from './pages/AuthorityBrand'
+import ProofBrand     from './pages/ProofBrand'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth()
@@ -53,82 +56,93 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* Public */}
       <Route path="/login" element={session ? <RootRedirect /> : <Login />} />
+      <Route path="/portal" element={<RequireAuth><Portal /></RequireAuth>} />
 
-      {/* Legacy portal – kept for backward compatibility, redirects to dashboard */}
-      <Route path="/portal" element={
-        <RequireAuth><Portal /></RequireAuth>
-      } />
-
-      {/* All authenticated users use Layout */}
       <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<RootRedirect />} />
 
+        {/* Admin only */}
         <Route path="admin" element={
-  <RoleWrapper allowedRoles={['admin']}>
-    <AdminControl />
-  </RoleWrapper>
-} />
+          <RoleWrapper allowedRoles={['admin']}>
+            <AdminControl />
+          </RoleWrapper>
+        } />
 
-        {/* Available to all roles */}
+        {/* Available to all */}
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="tracker"   element={<Tracker />} />
-        <Route path="sprints"   element={<Sprints />} />
-        <Route path="sprints/:id" element={<SprintDetail />} />
         <Route path="sops"      element={<Sops />} />
 
-        {/* Admin + Operator only */}
+        {/* Delivery Focused */}
+        <Route path="sprints"   element={
+          <RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>
+            <Sprints />
+          </RoleWrapper>
+        } />
+        <Route path="sprints/:id" element={
+          <RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>
+            <SprintDetail />
+          </RoleWrapper>
+        } />
+        <Route path="studio" element={
+          <RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}>
+            <Studio />
+          </RoleWrapper>
+        } />
+
+        {/* Distribution Focused */}
+        <Route path="crm" element={
+          <RoleWrapper allowedRoles={['admin', 'distribution']}>
+            <CRM />
+          </RoleWrapper>
+        } />
         <Route path="prospects" element={
-          <RoleWrapper allowedRoles={['admin','operator']}>
+          <RoleWrapper allowedRoles={['admin', 'distribution']}>
             <Prospects />
           </RoleWrapper>
         } />
         <Route path="outreach" element={
-          <RoleWrapper allowedRoles={['admin','operator']}>
+          <RoleWrapper allowedRoles={['admin', 'distribution']}>
             <Outreach />
           </RoleWrapper>
         } />
-        <Route path="clients" element={
-          <RoleWrapper allowedRoles={['admin','operator','client']}>
-            <Clients />
+        <Route path="scraper" element={
+          <RoleWrapper allowedRoles={['admin', 'distribution']}>
+            <Scraper />
           </RoleWrapper>
         } />
-        <Route path="studio" element={
-          <RoleWrapper allowedRoles={['admin','operator']}>
-            <Studio />
+
+        {/* Core Brand Infrastructure (Shared by Ops) */}
+        <Route path="authority" element={
+          <RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}>
+            <AuthorityBrand />
+          </RoleWrapper>
+        } />
+        <Route path="proof" element={
+          <RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}>
+            <ProofBrand />
           </RoleWrapper>
         } />
         <Route path="templates" element={
-          <RoleWrapper allowedRoles={['admin','operator']}>
+          <RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}>
             <Templates />
           </RoleWrapper>
         } />
 
-        {/* Admin only */}
-        <Route path="scraper" element={
-          <RoleWrapper allowedRoles={['admin']}>
-            <Scraper />
+        {/* Shared / Business - Note: distribution REMOVED here */}
+        <Route path="clients" element={
+          <RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>
+            <Clients />
           </RoleWrapper>
         } />
-        <Route path="finance" element={
-          <RoleWrapper allowedRoles={['admin']}>
-            <Finance />
-          </RoleWrapper>
-        } />
-        <Route path="capital" element={
-          <RoleWrapper allowedRoles={['admin']}>
-            <Capital />
-          </RoleWrapper>
-        } />
-        <Route path="settings" element={
-          <RoleWrapper allowedRoles={['admin']}>
-            <SettingsPage />
-          </RoleWrapper>
-        } />
+
+        {/* Admin only Technical/Financial */}
+        <Route path="finance" element={<RoleWrapper allowedRoles={['admin']}><Finance /></RoleWrapper>} />
+        <Route path="capital" element={<RoleWrapper allowedRoles={['admin']}><Capital /></RoleWrapper>} />
+        <Route path="settings" element={<RoleWrapper allowedRoles={['admin']}><SettingsPage /></RoleWrapper>} />
       </Route>
 
-      {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

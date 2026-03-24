@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import { supabase } from './supabase'
 import type { User, Session } from '@supabase/supabase-js'
 
-type Role = 'admin' | 'operator' | 'client' | null
+// 1. Expand the Role type to include your new business departments
+export type Role = 'admin' | 'operator' | 'client' | 'distribution' | 'delivery' | null
 
 interface AuthCtx {
   user:        User | null
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthCtx>({
 function extractRole(session: Session | null): Role {
   if (!session) return null
   const meta = session.user?.user_metadata || {}
+  // Cast the metadata string to our new Role type
   return (meta.role as Role) || null
 }
 
@@ -34,9 +36,14 @@ function extractClientId(session: Session | null): string | null {
 
 function extractMetadataId(session: Session | null, role: Role): string | null {
   if (!session) return null
+  
+  // If they are a client, we need their specific Client UUID to filter data
   if (role === 'client') {
     return session.user?.user_metadata?.client_id || null
   }
+  
+  // For Admin, Distribution, and Delivery, we use their Auth User ID 
+  // so they only see data assigned to their specific account
   return session.user?.id || null
 }
 

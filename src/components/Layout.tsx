@@ -67,8 +67,8 @@ const CLIENT_NAV = [
   {
     section: 'Overview',
     items: [
-      { label: 'Dashboard',         path: '/dashboard',        icon: LayoutDashboard },
-      { label: 'Execution Tracker', path: '/delivery-tracker', icon: CalendarCheck   },
+      { label: 'Dashboard',         path: '/dashboard', icon: LayoutDashboard },
+      { label: 'Execution Tracker', path: '/delivery-tracker',   icon: CalendarCheck   },
     ],
   },
 ]

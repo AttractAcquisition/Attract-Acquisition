@@ -30,6 +30,7 @@ type Tab = 'info' | 'digital' | 'qualification' | 'outreach'
 export default function ProspectDetailView({ prospect, onClose, onUpdate, onDelete }: Props) {
   const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [tab, setTab] = useState<Tab>('info')
 
   function calculateICP(p: any) {
@@ -67,6 +68,32 @@ export default function ProspectDetailView({ prospect, onClose, onUpdate, onDele
     setIsSaving(false)
   }
 
+  async function handleDelete() {
+    if (!window.confirm(`Are you sure you want to delete ${prospect.business_name}? This action cannot be undone.`)) return
+
+    setIsDeleting(true)
+    
+    // Log for debugging
+    console.log('Attempting to delete prospect ID:', prospect.id);
+
+    const { error, status, statusText } = await supabase
+      .from('prospects')
+      .delete()
+      .eq('id', prospect.id)
+
+    if (error) {
+      toast(`Error: ${error.message}`, 'error')
+      console.error('Delete Error Detail:', error)
+      setIsDeleting(false)
+    } else {
+      // If status is 204 or 200, it succeeded. 
+      // If the row is still there, it's 100% an RLS Policy issue.
+      console.log('Delete Response Status:', status, statusText)
+      toast('Prospect deleted successfully')
+      onDelete(prospect.id) 
+    }
+  }
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', justifyContent: 'flex-end' }}>
       {/* Dimmed Overlay matching Clients.tsx */}
@@ -83,7 +110,7 @@ export default function ProspectDetailView({ prospect, onClose, onUpdate, onDele
                 <div style={{ fontFamily: 'Playfair Display', fontSize: 22, fontWeight: 700 }}>
                   {prospect.business_name || 'Unnamed Prospect'}
                 </div>
-                {isSaving && <Loader2 size={14} className="spin" style={{ color: 'var(--teal)' }} />}
+                {(isSaving || isDeleting) && <Loader2 size={14} className="spin" style={{ color: 'var(--teal)' }} />}
               </div>
               <div style={{ fontSize: 12, color: 'var(--grey)' }}>{prospect.owner_name || 'No Owner Listed'}</div>
             </div>
@@ -215,8 +242,12 @@ export default function ProspectDetailView({ prospect, onClose, onUpdate, onDele
 
         {/* FOOTER */}
         <div style={{ padding: '16px 28px', borderTop: '1px solid var(--border2)', background: 'var(--bg2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-          <button style={{ background: 'none', border: 'none', color: 'var(--red)', padding: '8px 0', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }} onClick={() => onDelete(prospect.id)}>
-            <Trash2 size={14} /> Delete Prospect
+          <button 
+            style={{ background: 'none', border: 'none', color: 'var(--red)', padding: '8px 0', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, cursor: isDeleting ? 'not-allowed' : 'pointer', opacity: isDeleting ? 0.5 : 1 }} 
+            onClick={handleDelete}
+            disabled={isDeleting}
+          >
+            <Trash2 size={14} /> {isDeleting ? 'Deleting...' : 'Delete Prospect'}
           </button>
           <div style={{ fontSize: 11, color: 'var(--grey)', fontFamily: 'DM Mono', textAlign: 'right' }}>
             Last Update: {formatDate(prospect.updated_at || prospect.created_at)}

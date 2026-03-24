@@ -2,8 +2,7 @@ import { NavLink, useLocation, Outlet } from 'react-router-dom'
 import { useState } from 'react'
 import {
   LayoutDashboard, CalendarCheck, Users, MessageSquare, Briefcase,
-  Zap, FileText, BookOpen, FileCode, BarChart3, Wallet,
-  Settings, Menu, X, Plus, Search, Shield
+  Zap, FileText, BookOpen, FileCode, BarChart3, Menu, X, Plus, Search, Shield, Activity, Target, ClipboardList
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../lib/toast'
@@ -13,24 +12,28 @@ const ADMIN_OPERATOR_NAV = [
   {
     section: 'Overview',
     items: [
-      { label: 'Dashboard',         path: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'delivery', 'distribution'] },
-      { label: 'Execution Tracker', path: '/tracker',   icon: CalendarCheck,   roles: ['admin', 'delivery', 'distribution'] },
+      { label: 'Admin Dashboard',         path: '/dashboard', icon: LayoutDashboard, roles: ['admin'] },
+      { label: 'Ops Dashboard',     path: '/distribution', icon: Activity,    roles: ['distribution'] },
+      { label: 'Ops Dashboard',       path: '/delivery-dash', icon: Target,      roles: ['delivery'] },
+      { label: 'Ops Tracker',    path: '/distro-tracker',   icon: CalendarCheck,   roles: ['distribution'] },
+      { label: 'Ops Tracker',  path: '/delivery-tracker', icon: CalendarCheck,   roles: ['delivery'] },
+      { label: 'Admin Tracker',    path: '/tracker',           icon: ClipboardList,   roles: ['admin'] },
     ],
   },
   {
     section: 'Distribution Hub',
     items: [
-      { label: 'Scraper',    path: '/scraper',   icon: Search,        roles: ['admin', 'distribution'] },
-      { label: 'Prospects',  path: '/prospects', icon: Users,         roles: ['admin', 'distribution'] },
-      { label: 'Outreach',   path: '/outreach',  icon: MessageSquare, roles: ['admin', 'distribution'] },
-      { label: 'CRM Pipeline', path: '/crm', icon: LayoutDashboard, roles: ['admin', 'distribution'] }, 
-      { label: 'Clients',      path: '/clients', icon: Briefcase,     roles: ['admin', 'delivery'] },
+      { label: 'Scraper',       path: '/scraper',      icon: Search,        roles: ['distribution'] },
+      { label: 'Prospects',     path: '/prospects',    icon: Users,         roles: ['admin', 'distribution'] },
+      { label: 'Outreach',      path: '/outreach',     icon: MessageSquare, roles: ['distribution'] },
+      { label: 'CRM Pipeline',  path: '/crm',          icon: LayoutDashboard, roles: ['admin', 'distribution'] }, 
+      { label: 'Clients',       path: '/clients',      icon: Briefcase,     roles: ['admin', 'delivery'] },
     ],
   },
   {
     section: 'Delivery Engine',
     items: [
-      { label: 'MJR Studio',    path: '/studio',    icon: FileText,  roles: ['admin', 'distribution'] },
+      { label: 'MJR Studio',    path: '/studio',    icon: FileText,  roles: ['distribution'] },
       { label: 'Proof Sprints',  path: '/sprints',   icon: Zap,       roles: ['admin', 'delivery'] },
       { label: 'Proof Brand',    path: '/proof',     icon: BookOpen,  roles: ['admin', 'delivery'] },
       { label: 'Authority Brand', path: '/authority', icon: Shield,    roles: ['admin', 'delivery'] },
@@ -46,8 +49,7 @@ const ADMIN_OPERATOR_NAV = [
   {
     section: 'Finance',
     items: [
-      { label: 'MRR Dashboard',   path: '/finance', icon: BarChart3, roles: ['admin'] },
-      { label: 'Trust & Capital', path: '/capital', icon: Wallet,    roles: ['admin'] },
+      { label: 'Finance',   path: '/finance', icon: BarChart3, roles: ['admin'] },
     ],
   },
   {
@@ -56,12 +58,6 @@ const ADMIN_OPERATOR_NAV = [
       { label: 'Command Center', path: '/admin', icon: Shield, roles: ['admin'] }
     ]
   },
-  {
-    section: 'Settings',
-    items: [
-      { label: 'Settings', path: '/settings', icon: Settings, roles: ['admin'] },
-    ],
-  },
 ]
 
 const CLIENT_NAV = [
@@ -69,16 +65,17 @@ const CLIENT_NAV = [
     section: 'Overview',
     items: [
       { label: 'Dashboard',         path: '/dashboard', icon: LayoutDashboard },
-      { label: 'Execution Tracker', path: '/tracker',   icon: CalendarCheck   },
+      { label: 'Execution Tracker', path: '/delivery-tracker',   icon: CalendarCheck   },
     ],
   },
 ]
 
-// ... Rest of the helper constants (PAGE_TITLES, VERTICALS) remain the same ...
-
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
-  '/tracker':   'Execution Tracker',
+  '/distribution': 'Ops Dashboard',
+  '/delivery-dash': 'Success Hub',
+  '/distro-tracker': 'Distribution Tracker',
+  '/delivery-tracker': 'Delivery Tracker',
   '/prospects': 'Prospects',
   '/scraper':   'Scraper',
   '/outreach':  'Outreach',
@@ -92,7 +89,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/settings':  'Settings',
   '/authority': 'Authority Brand',
   '/proof':     'Proof Brand',
-  '/admin':     'Command Center'
+  '/admin':     'Command Center',
+  '/crm':       'CRM Pipeline'
 }
 
 const VERTICALS = [
@@ -120,7 +118,6 @@ export default function Layout() {
     : ADMIN_OPERATOR_NAV
         .map(group => ({
           ...group,
-          // Checks if the user's role exists in the item's allowed roles array
           items: group.items.filter(item => item.roles.includes(role || '')),
         }))
         .filter(group => group.items.length > 0)

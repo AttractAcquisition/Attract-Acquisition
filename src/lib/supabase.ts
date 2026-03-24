@@ -31,12 +31,14 @@ export interface Prospect extends Omit<BaseProspect,
   | 'msg_3_sent'
   | 'msg_4_sent'
   | 'msg_5_sent'
+  | 'is_archived'
 > {
   // Core Pipeline (Optional for UI flexibility)
   pipeline_stage?: string | null;
   icp_tier?: string | null;
   icp_total_score?: number | null;
-  
+  is_archived?: boolean | null;
+
   // Digital Presence
   meta_ads_running?: boolean | null;
   ig_follower_count?: number | null;

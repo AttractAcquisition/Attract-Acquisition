@@ -8,21 +8,23 @@ import Portal        from './pages/Portal'
 import Dashboard     from './pages/Dashboard'
 import Tracker       from './pages/Tracker'
 import Prospects     from './pages/Prospects'
-import CRM           from './pages/crm' // Added CRM import
+import CRM           from './pages/crm' 
 import Finance       from './pages/Finance'
 import Outreach      from './pages/Outreach'
 import Sprints       from './pages/Sprints'
 import SprintDetail  from './pages/SprintDetail'
 import Templates     from './pages/Templates'
-import Capital       from './pages/Capital'
 import Sops          from './pages/Sops'
-import SettingsPage  from './pages/Settings'
 import Studio        from './pages/Studio'
 import Clients       from './pages/Clients'
 import Scraper       from './pages/Scraper'
 import AdminControl from './pages/AdminControl'
 import AuthorityBrand from './pages/AuthorityBrand'
 import ProofBrand     from './pages/ProofBrand'
+import DistributionDashboard from './components/views/Dashboard/DistributionDashboard'
+import DeliveryDashboard from './components/views/Dashboard/DeliveryDashboard'
+import DistributionTracker from './components/views/Tracker/DistributionTracker'
+import DeliveryTracker from './components/views/Tracker/DeliveryTracker'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth()
@@ -42,11 +44,13 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 function RootRedirect() {
   const { role, loading } = useAuth()
   if (loading) return null
+  if (role === 'distribution') return <Navigate to="/distribution" replace />
+  if (role === 'delivery') return <Navigate to="/delivery-dash" replace />
   return <Navigate to="/dashboard" replace />
 }
 
 function AppRoutes() {
-  const { session, loading } = useAuth()
+  const { loading } = useAuth()
 
   if (loading) return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -56,91 +60,51 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/login" element={session ? <RootRedirect /> : <Login />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/portal" element={<RequireAuth><Portal /></RequireAuth>} />
 
       <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<RootRedirect />} />
 
-        {/* Admin only */}
-        <Route path="admin" element={
-          <RoleWrapper allowedRoles={['admin']}>
-            <AdminControl />
-          </RoleWrapper>
+        {/* --- CORE SYSTEM --- */}
+        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="tracker"   element={<RoleWrapper allowedRoles={['admin']}><Tracker /></RoleWrapper>} />
+        <Route path="admin"     element={<RoleWrapper allowedRoles={['admin']}><AdminControl /></RoleWrapper>} />
+
+        {/* --- OPS DASHBOARDS --- */}
+        <Route path="distribution" element={
+          <RoleWrapper allowedRoles={['admin', 'distribution']}><DistributionDashboard /></RoleWrapper>
+        } />
+        <Route path="delivery-dash" element={
+          <RoleWrapper allowedRoles={['admin', 'delivery']}><DeliveryDashboard /></RoleWrapper>
         } />
 
-        {/* Available to all */}
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="tracker"   element={<Tracker />} />
+        {/* --- TRACKERS --- */}
+        <Route path="distro-tracker" element={
+          <RoleWrapper allowedRoles={['admin', 'distribution']}><DistributionTracker /></RoleWrapper>
+        } />
+        <Route path="delivery-tracker" element={
+          <RoleWrapper allowedRoles={['admin', 'delivery']}><DeliveryTracker /></RoleWrapper>
+        } />
+
+        {/* --- GROWTH & CRM --- */}
+        <Route path="crm"       element={<RoleWrapper allowedRoles={['admin', 'distribution']}><CRM /></RoleWrapper>} />
+        <Route path="prospects" element={<RoleWrapper allowedRoles={['admin', 'distribution']}><Prospects /></RoleWrapper>} />
+        <Route path="outreach"  element={<RoleWrapper allowedRoles={['admin', 'distribution']}><Outreach /></RoleWrapper>} />
+        <Route path="scraper"   element={<RoleWrapper allowedRoles={['admin', 'distribution']}><Scraper /></RoleWrapper>} />
+
+        {/* --- BRAND & ASSETS --- */}
+        <Route path="authority" element={<RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}><AuthorityBrand /></RoleWrapper>} />
+        <Route path="proof"     element={<RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}><ProofBrand /></RoleWrapper>} />
+        <Route path="templates" element={<RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}><Templates /></RoleWrapper>} />
+        <Route path="studio"    element={<RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}><Studio /></RoleWrapper>} />
         <Route path="sops"      element={<Sops />} />
 
-        {/* Delivery Focused */}
-        <Route path="sprints"   element={
-          <RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>
-            <Sprints />
-          </RoleWrapper>
-        } />
-        <Route path="sprints/:id" element={
-          <RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>
-            <SprintDetail />
-          </RoleWrapper>
-        } />
-        <Route path="studio" element={
-          <RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}>
-            <Studio />
-          </RoleWrapper>
-        } />
-
-        {/* Distribution Focused */}
-        <Route path="crm" element={
-          <RoleWrapper allowedRoles={['admin', 'distribution']}>
-            <CRM />
-          </RoleWrapper>
-        } />
-        <Route path="prospects" element={
-          <RoleWrapper allowedRoles={['admin', 'distribution']}>
-            <Prospects />
-          </RoleWrapper>
-        } />
-        <Route path="outreach" element={
-          <RoleWrapper allowedRoles={['admin', 'distribution']}>
-            <Outreach />
-          </RoleWrapper>
-        } />
-        <Route path="scraper" element={
-          <RoleWrapper allowedRoles={['admin', 'distribution']}>
-            <Scraper />
-          </RoleWrapper>
-        } />
-
-        {/* Core Brand Infrastructure (Shared by Ops) */}
-        <Route path="authority" element={
-          <RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}>
-            <AuthorityBrand />
-          </RoleWrapper>
-        } />
-        <Route path="proof" element={
-          <RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}>
-            <ProofBrand />
-          </RoleWrapper>
-        } />
-        <Route path="templates" element={
-          <RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}>
-            <Templates />
-          </RoleWrapper>
-        } />
-
-        {/* Shared / Business - Note: distribution REMOVED here */}
-        <Route path="clients" element={
-          <RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>
-            <Clients />
-          </RoleWrapper>
-        } />
-
-        {/* Admin only Technical/Financial */}
-        <Route path="finance" element={<RoleWrapper allowedRoles={['admin']}><Finance /></RoleWrapper>} />
-        <Route path="capital" element={<RoleWrapper allowedRoles={['admin']}><Capital /></RoleWrapper>} />
-        <Route path="settings" element={<RoleWrapper allowedRoles={['admin']}><SettingsPage /></RoleWrapper>} />
+        {/* --- FULFILLMENT & FINANCE --- */}
+        <Route path="clients"    element={<RoleWrapper allowedRoles={['admin', 'delivery', 'client']}><Clients /></RoleWrapper>} />
+        <Route path="sprints"    element={<RoleWrapper allowedRoles={['admin', 'delivery', 'client']}><Sprints /></RoleWrapper>} />
+        <Route path="sprints/:id" element={<RoleWrapper allowedRoles={['admin', 'delivery', 'client']}><SprintDetail /></RoleWrapper>} />
+        <Route path="finance"    element={<RoleWrapper allowedRoles={['admin']}><Finance /></RoleWrapper>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

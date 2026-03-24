@@ -1,9 +1,8 @@
-
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { formatRand, formatDate, catBadgeClass } from '../../../lib/utils'
+import { formatRand } from '../../../lib/utils'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { TrendingUp, Users, Zap, DollarSign } from 'lucide-react'
+import { Users, Zap, DollarSign, Target, ShieldCheck, Activity } from 'lucide-react'
 
 const SCHEDULE_D = [
   { month: 'Oct 26', target: 25000 },  { month: 'Nov 26', target: 25000 },
@@ -24,43 +23,63 @@ export default function AdminView() {
   const [topProspects, setTop]    = useState(0)
   const [sprints, setSprints]     = useState(0)
   const [tasks, setTasks]         = useState<any[]>([])
-  const [outreach, setOutreach]   = useState<any[]>([])
-  const [savings, setSavings]     = useState(62000)
+  const [opsManagers, setOps]     = useState<any[]>([])
   const [loading, setLoading]     = useState(true)
+  
+  // Expanded funnel state to match distro_metrics structure
+  const [funnel, setFunnel] = useState({
+    scraped: 0,
+    enriched: 0,
+    outreach: 0,
+    mjrs: 0,
+    calls: 0
+  })
 
   const todayStr = new Date().toISOString().split('T')[0]
 
   useEffect(() => {
     async function load() {
-      const [c, p, s, t, o] = await Promise.all([
+      const [c, p, s, t, o, m] = await Promise.all([
         supabase.from('clients').select('monthly_retainer', { count: 'exact' }).eq('status', 'active'),
         supabase.from('prospects').select('icp_tier', { count: 'exact' }).neq('status', 'archived'),
         supabase.from('proof_sprints').select('id', { count: 'exact' }).eq('status', 'active'),
         supabase.from('tasks').select('*').eq('due_date', todayStr).order('category'),
-        supabase.from('outreach_messages').select('*, prospects(business_name)').order('created_at', { ascending: false }).limit(5),
+        supabase.from('ops_manager_status' as any).select('*'),
+        supabase.from('distro_metrics' as any).select('*').eq('date_key', todayStr)
       ])
+
       setClients(c.count || 0)
-      setMrr((c.data || []).reduce((sum: number, r: any) => sum + (r.monthly_retainer || 0), 0))
+      setMrr((c.data as any[] || []).reduce((sum: number, r: any) => sum + (r.monthly_retainer || 0), 0))
       setProspects(p.count || 0)
-      setTop((p.data || []).filter((r: any) => r.icp_tier === '★★★').length)
+      setTop((p.data as any[] || []).filter((r: any) => r.icp_tier === '★★★').length)
       setSprints(s.count || 0)
       setTasks(t.data || [])
-      setOutreach(o.data || [])
+      setOps(o.data || [])
+      
+      // Aggregate full funnel data from all active distro managers
+      const metricsData = (m.data as any[]) || []
+      setFunnel({
+        scraped:  metricsData.reduce((acc, curr) => acc + (Number(curr.prospects_scraped) || 0), 0),
+        enriched: metricsData.reduce((acc, curr) => acc + (Number(curr.prospects_enriched) || 0), 0),
+        outreach: metricsData.reduce((acc, curr) => acc + (Number(curr.outreach_sent) || 0), 0),
+        mjrs:     metricsData.reduce((acc, curr) => acc + (Number(curr.mjrs_sent) || 0), 0),
+        calls:    metricsData.reduce((acc, curr) => acc + (Number(curr.calls_booked) || 0), 0),
+      })
+      
       setLoading(false)
     }
     load()
-  }, [])
-
-  const savingsPct = Math.min(100, Math.round(savings / 158000 * 100))
-  const monthsLeft = Math.ceil((158000 - savings) / 62000)
+  }, [todayStr])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      
+      {/* KPI Stats Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         {[
           { label: 'Active Clients',  value: clients,                              icon: Users,       sub: 'target: 5 by Dec 1' },
           { label: 'Monthly MRR',     value: formatRand(mrr),                      icon: DollarSign,  sub: 'vs Schedule D target' },
-          { label: 'Open Prospects',  value: `${prospects} (${topProspects} ★★★)`, icon: TrendingUp,  sub: 'ICP-scored pipeline' },
+          { label: 'Open Prospects',  value: `${prospects} (${topProspects} ★★★)`, icon: Activity,    sub: 'ICP-scored pipeline' },
           { label: 'Sprints Live',    value: sprints,                              icon: Zap,         sub: '14-day proof cycles' },
         ].map(card => (
           <div key={card.label} className="card">
@@ -78,10 +97,11 @@ export default function AdminView() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16 }}>
+        {/* MRR Chart */}
         <div className="card">
           <div className="section-label">MRR vs Schedule D</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={SCHEDULE_D} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={SCHEDULE_D} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
               <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--grey)', fontFamily: 'DM Mono' }} />
               <YAxis tickFormatter={(v: number) => `R${(v/1000).toFixed(0)}k`} tick={{ fontSize: 10, fill: 'var(--grey)', fontFamily: 'DM Mono' }} />
               <Tooltip
@@ -94,83 +114,109 @@ export default function AdminView() {
           </ResponsiveContainer>
         </div>
 
+        {/* FULL PIPELINE FUNNEL */}
         <div className="card">
-          <div className="section-label">Pipeline Funnel</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="section-label">Global Pipeline (Today)</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
             {[
-              { stage: 'Contacted',    w: 100 },
-              { stage: 'MJR Sent',    w: 80 },
-              { stage: 'Call Booked', w: 60 },
-              { stage: 'Sprint Live', w: 40 },
-              { stage: 'Closed Won',  w: 20 },
-            ].map((f, i) => (
+              { stage: 'Prospects Scraped', val: funnel.scraped,  target: 200, color: 'var(--grey2)' },
+              { stage: 'Data Enriched',     val: funnel.enriched, target: 200, color: 'var(--grey2)' },
+              { stage: 'Outreach Sent',     val: funnel.outreach, target: 400, color: 'var(--teal)' },
+              { stage: 'MJRs Delivered',    val: funnel.mjrs,     target: 20,  color: 'var(--teal)' },
+              { stage: 'Calls Booked',      val: funnel.calls,    target: 10,  color: 'var(--white)' },
+            ].map((f) => (
               <div key={f.stage}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, color: 'var(--grey)', fontFamily: 'Barlow' }}>{f.stage}</span>
-                  <span style={{ fontFamily: 'DM Mono', fontSize: 12, color: 'var(--teal)' }}>0</span>
+                  <span style={{ fontSize: 11, color: 'var(--grey)', fontFamily: 'Barlow' }}>{f.stage}</span>
+                  <span style={{ fontFamily: 'DM Mono', fontSize: 11, color: f.color }}>
+                    {f.val} <span style={{ color: 'var(--grey2)', fontSize: 9 }}>/ {f.target}</span>
+                  </span>
                 </div>
-                <div style={{ height: 5, background: 'var(--bg3)', borderRadius: 2, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', background: 'var(--teal)', borderRadius: 2, width: `${f.w}%`, opacity: 0.3 + i * 0.14 }} />
+                <div style={{ height: 4, background: 'var(--bg3)', borderRadius: 10, overflow: 'hidden' }}>
+                  <div style={{ 
+                    height: '100%', 
+                    background: f.color, 
+                    borderRadius: 10, 
+                    width: `${Math.min((f.val / (f.target || 1)) * 100, 100)}%`,
+                    transition: 'width 1s ease'
+                  }} />
                 </div>
               </div>
             ))}
+            
+            <div style={{ marginTop: 8, padding: 10, background: 'var(--bg3)', borderRadius: 6, border: '1px solid var(--border2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 9, color: 'var(--grey2)', textTransform: 'uppercase' }}>Conv. Rate</div>
+                <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'DM Mono' }}>
+                  {funnel.outreach > 0 ? ((funnel.calls / funnel.outreach) * 100).toFixed(1) : 0}%
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 9, color: 'var(--grey2)', textTransform: 'uppercase' }}>Efficiency</div>
+                <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'DM Mono', color: 'var(--teal)' }}>
+                  {funnel.scraped > 0 ? ((funnel.outreach / funnel.scraped) * 100).toFixed(0) : 0}%
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
+        {/* Task List */}
         <div className="card">
-          <div className="section-label">Today's Tasks</div>
+          <div className="section-label">System Tasks</div>
           {loading
             ? [1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 32, marginBottom: 8 }} />)
             : tasks.length === 0
               ? <div style={{ color: 'var(--grey)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No tasks today</div>
               : tasks.map(t => (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12 }}>
                   <div style={{
-                    width: 16, height: 16, borderRadius: 3, flexShrink: 0, marginTop: 2,
+                    width: 14, height: 14, borderRadius: 3, flexShrink: 0, marginTop: 2,
                     border: `1.5px solid ${t.status === 'complete' ? 'var(--teal)' : 'var(--grey2)'}`,
                     background: t.status === 'complete' ? 'var(--teal)' : 'transparent',
                   }} />
                   <div style={{ flex: 1, fontSize: 13, color: t.status === 'complete' ? 'var(--grey)' : 'var(--white)' }}>{t.title}</div>
-                  <span className={`badge ${catBadgeClass(t.category)}`}>{t.category}</span>
                 </div>
               ))
           }
         </div>
 
+        {/* Ops Status Table */}
         <div className="card">
-          <div className="section-label">Recent Outreach</div>
-          {outreach.length === 0
-            ? <div style={{ color: 'var(--grey)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No outreach yet</div>
-            : outreach.map(o => (
-              <div key={o.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid var(--border2)' }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{o.prospects?.business_name || '—'}</div>
-                  <div style={{ fontSize: 11, color: 'var(--grey)', fontFamily: 'DM Mono', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{o.message_type?.replace(/_/g, ' ')}</div>
+          <div className="section-label">Ops Execution Status</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {opsManagers.map(mgr => {
+              const hasTasks = (mgr.total_tasks_assigned || 0) > 0;
+              const isDone = hasTasks && (mgr.tasks_completed >= mgr.total_tasks_assigned);
+              return (
+                <div key={mgr.manager_id} style={{ 
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+                  padding: '14px 16px', background: 'var(--bg3)', borderRadius: 8,
+                  border: isDone ? '1px solid var(--teal)' : '1px solid transparent'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                     {mgr.role === 'delivery' ? <Target size={14} color="var(--teal)" /> : <ShieldCheck size={14} color="var(--grey2)" />}
+                     <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{mgr.name}</div>
+                        <div style={{ fontSize: 9, color: 'var(--grey2)', textTransform: 'uppercase' }}>{mgr.role}</div>
+                     </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                     <div style={{ fontSize: 12, fontFamily: 'DM Mono', color: isDone ? 'var(--teal)' : 'var(--white)' }}>
+                        {mgr.tasks_completed || 0}/{mgr.total_tasks_assigned || 0}
+                     </div>
+                     {mgr.last_active && (
+                       <div style={{ fontSize: 8, color: 'var(--grey2)' }}>
+                         Active: {new Date(mgr.last_active).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                       </div>
+                     )}
+                  </div>
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--grey2)', fontFamily: 'DM Mono' }}>{formatDate(o.created_at)}</div>
-              </div>
-            ))
-          }
-        </div>
-
-        <div className="card">
-          <div className="section-label">Seed Capital Tracker</div>
-          <div className="stat-num" style={{ fontSize: 26, marginBottom: 4 }}>{formatRand(savings)}</div>
-          <div style={{ fontSize: 12, color: 'var(--grey)', marginBottom: 16, fontFamily: 'DM Mono' }}>of R158,000 target</div>
-          <div style={{ height: 5, background: 'var(--bg3)', borderRadius: 2, overflow: 'hidden', marginBottom: 8 }}>
-            <div style={{ height: '100%', background: 'var(--teal)', borderRadius: 2, width: `${savingsPct}%`, transition: 'width 0.4s' }} />
+              )
+            })}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--grey)', marginBottom: 16, fontFamily: 'DM Mono' }}>
-            <span>{savingsPct}% complete</span>
-            <span>{monthsLeft} months left</span>
-          </div>
-          <input type="number" className="input" placeholder="Update balance..."
-            style={{ fontSize: 13 }}
-            onBlur={e => { if (e.target.value) { setSavings(Number(e.target.value)); e.target.value = '' } }}
-          />
-          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--grey)', fontFamily: 'DM Mono' }}>+R62,000/mo accumulation</div>
         </div>
       </div>
     </div>

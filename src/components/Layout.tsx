@@ -3,7 +3,7 @@ import { useState } from 'react'
 import {
   LayoutDashboard, CalendarCheck, Users, MessageSquare, Briefcase,
   Zap, FileText, BookOpen, FileCode, BarChart3, Wallet,
-  Settings, Menu, X, Plus, Search
+  Settings, Menu, X, Plus, Search, Shield
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../lib/toast'
@@ -46,6 +46,12 @@ const ADMIN_OPERATOR_NAV = [
       { label: 'MRR Dashboard',   path: '/finance', icon: BarChart3, roles: ['admin'] },
       { label: 'Trust & Capital', path: '/capital', icon: Wallet,    roles: ['admin'] },
     ],
+  },
+  {
+  section: 'System',
+  items: [
+    { label: 'Command Center', path: '/admin', icon: Shield, roles: ['admin'] }
+  ]
   },
   {
     section: 'Settings',

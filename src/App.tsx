@@ -19,6 +19,7 @@ import SettingsPage  from './pages/Settings'
 import Studio        from './pages/Studio'
 import Clients       from './pages/Clients'
 import Scraper       from './pages/Scraper'
+import AdminControl from './pages/AdminControl'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth()
@@ -63,6 +64,12 @@ function AppRoutes() {
       {/* All authenticated users use Layout */}
       <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<RootRedirect />} />
+
+        <Route path="admin" element={
+  <RoleWrapper allowedRoles={['admin']}>
+    <AdminControl />
+  </RoleWrapper>
+} />
 
         {/* Available to all roles */}
         <Route path="dashboard" element={<Dashboard />} />

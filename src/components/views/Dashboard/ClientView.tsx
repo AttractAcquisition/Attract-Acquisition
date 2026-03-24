@@ -5,7 +5,7 @@ import { formatDate } from '../../../lib/utils'
 import { Zap, TrendingUp, Calendar } from 'lucide-react'
 
 export default function ClientView() {
-  const { metadata_id, user }     = useAuth()
+  const { metadata_id }     = useAuth()
   const [sprints, setSprints]     = useState<any[]>([])
   const [client, setClient]       = useState<any>(null)
   const [loading, setLoading]     = useState(true)

@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import type { Task } from '../../../lib/supabase'
-import { catBadgeClass } from '../../../lib/utils'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useToast } from '../../../lib/toast'
 import { useAuth } from '../../../lib/auth'
+import { useToast } from '../../../lib/toast'
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Calendar, 
+  CheckCircle2, 
+  Circle,
+  User
+} from 'lucide-react'
 
 const MONTHS = [
   { key: '2026-03', label: 'March 2026',     sub: 'Foundation & Roadmap' },
@@ -15,17 +21,14 @@ const MONTHS = [
   { key: '2026-08', label: 'August 2026',    sub: 'Brand & Final Systems' },
   { key: '2026-09', label: 'September 2026', sub: 'Lock, Test & Launch Prep' },
   { key: '2026-10', label: 'October 2026',   sub: 'Cold Start. First 48h.' },
-  { key: '2026-11', label: 'November 2026',  sub: 'Trust registered. VA hire.' },
-  { key: '2026-12', label: 'December 2026',  sub: '5 clients. Cash flow positive.' },
-  { key: '2027-01', label: 'January 2027',   sub: 'Trust funded. R50k trajectory.' },
-  { key: '2027-02', label: 'February 2027',  sub: 'VA team expanding.' },
-  { key: '2027-03', label: 'March 2027',     sub: 'R50k+ MRR target.' },
 ]
 
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 
 export default function OperatorView() {
   const { metadata_id }  = useAuth()
+  const { toast }        = useToast()
+  
   const today            = new Date()
   const todayStr         = today.toISOString().split('T')[0]
   const todayKey         = todayStr.slice(0, 7)
@@ -34,7 +37,7 @@ export default function OperatorView() {
   const [monthIdx, setMonthIdx] = useState(initIdx)
   const [tasks, setTasks]       = useState<Task[]>([])
   const [loading, setLoading]   = useState(true)
-  const { toast }               = useToast()
+  
   const currentMonth            = MONTHS[monthIdx]
 
   useEffect(() => {
@@ -43,25 +46,52 @@ export default function OperatorView() {
 
   async function loadTasks() {
     setLoading(true)
-    const { data } = await supabase
-      .from('tasks').select('*')
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
       .eq('month_key', currentMonth.key)
       .eq('assigned_to', metadata_id!)
       .order('due_date')
+    
+    if (error) {
+      console.error('Error loading tasks:', error)
+      setLoading(false)
+      return
+    }
+
     setTasks(data || [])
     setLoading(false)
   }
 
   async function toggleTask(task: Task) {
-    const newStatus = task.status === 'complete' ? 'pending' : 'complete'
-    const { error } = await supabase.from('tasks').update({
-      status: newStatus,
-      completed_at: newStatus === 'complete' ? new Date().toISOString() : null as string | null,
-    }).eq('id', task.id)
-    if (error) { toast('Failed to update task', 'error'); return }
+    const isDone = task.status === 'complete'
+    const newStatus = isDone ? 'pending' : 'complete'
+    
+    // Optimistic UI update
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t))
-    toast(newStatus === 'complete' ? 'Task complete ✓' : 'Task reopened', newStatus === 'complete' ? 'success' : 'info')
+
+    const { error } = await supabase
+      .from('tasks')
+      .update({
+        status: newStatus,
+        completed_at: newStatus === 'complete' ? new Date().toISOString() : null,
+      })
+      .eq('id', task.id)
+
+    if (error) {
+      // Revert UI on error
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: task.status } : t))
+      toast('Failed to update progress', 'error')
+      return
+    }
+
+    toast(newStatus === 'complete' ? 'Protocol verified ✓' : 'Task reopened', newStatus === 'complete' ? 'success' : 'info')
   }
+
+  // Stats calculation
+  const total = tasks.length
+  const done  = tasks.filter(t => t.status === 'complete').length
+  const pct   = total ? Math.round((done / total) * 100) : 0
 
   const grouped: Record<number, Task[]> = {}
   tasks.forEach(t => {
@@ -69,97 +99,147 @@ export default function OperatorView() {
     if (!grouped[day]) grouped[day] = []
     grouped[day].push(t)
   })
-  const days  = Object.keys(grouped).map(Number).sort((a, b) => a - b)
-  const total = tasks.length
-  const done  = tasks.filter(t => t.status === 'complete').length
-  const pct   = total ? Math.round(done / total * 100) : 0
+  const days = Object.keys(grouped).map(Number).sort((a, b) => a - b)
 
   function dayName(day: number) {
     const [y, m] = currentMonth.key.split('-').map(s => parseInt(s || '0'))
     return DAY_NAMES[new Date(y, m - 1, day).getDay()]
   }
 
-  function isToday(day: number) {
-    const [y, m] = currentMonth.key.split('-').map(s => parseInt(s || '0'))
-    return y === today.getFullYear() && m === today.getMonth() + 1 && day === today.getDate()
-  }
-
   return (
-    <div style={{ maxWidth: 760 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button className="btn-ghost" style={{ padding: '8px 12px' }}
-            onClick={() => setMonthIdx(i => Math.max(0, i - 1))} disabled={monthIdx === 0}>
-            <ChevronLeft size={14} />
-          </button>
-          <div>
-            <div style={{ fontFamily: 'Playfair Display', fontSize: 22, fontWeight: 700 }}>{currentMonth.label}</div>
-            <div style={{ fontFamily: 'DM Mono', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--teal)', marginTop: 2 }}>{currentMonth.sub}</div>
+    <div style={{ maxWidth: 840, margin: '0 auto', paddingBottom: 100 }}>
+      {/* VELOCITY HEADER */}
+      <header style={{ marginBottom: 40, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <button 
+              className="btn-ghost" 
+              style={{ padding: '4px' }}
+              onClick={() => setMonthIdx(i => Math.max(0, i - 1))} 
+              disabled={monthIdx === 0}
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <h1 style={{ fontFamily: 'Playfair Display', fontSize: 32, fontWeight: 700, color: 'var(--white)' }}>
+              {currentMonth.label}
+            </h1>
+            <button 
+              className="btn-ghost" 
+              style={{ padding: '4px' }}
+              onClick={() => setMonthIdx(i => Math.min(MONTHS.length - 1, i + 1))} 
+              disabled={monthIdx === MONTHS.length - 1}
+            >
+              <ChevronRight size={20} />
+            </button>
           </div>
-          <button className="btn-ghost" style={{ padding: '8px 12px' }}
-            onClick={() => setMonthIdx(i => Math.min(MONTHS.length - 1, i + 1))} disabled={monthIdx === MONTHS.length - 1}>
-            <ChevronRight size={14} />
-          </button>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ width: 160, height: 4, background: 'var(--bg3)', borderRadius: 2, overflow: 'hidden', marginBottom: 6 }}>
-            <div style={{ height: '100%', background: 'var(--teal)', width: `${pct}%`, borderRadius: 2, transition: 'width 0.3s' }} />
+          
+          <div style={{ display: 'flex', gap: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--grey)', fontSize: 11, fontFamily: 'DM Mono', textTransform: 'uppercase' }}>
+              <User size={13} className="text-teal" /> Personal Roadmap
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--teal)', fontSize: 11, fontFamily: 'DM Mono', textTransform: 'uppercase' }}>
+              {currentMonth.sub}
+            </div>
           </div>
-          <div style={{ fontFamily: 'DM Mono', fontSize: 11, color: 'var(--grey)' }}>{done}/{total} tasks · {pct}%</div>
         </div>
-      </div>
 
-      <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey2)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
-        Showing tasks assigned to you
-      </div>
+        <div style={{ textAlign: 'right', minWidth: 200 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, alignItems: 'baseline' }}>
+                <span style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', textTransform: 'uppercase' }}>Completion Rate</span>
+                <span style={{ fontFamily: 'DM Mono', fontSize: 14, color: 'var(--teal)' }}>{pct}%</span>
+            </div>
+            <div style={{ height: 4, background: 'var(--bg3)', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{ height: '100%', background: 'var(--teal)', width: `${pct}%`, transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+            </div>
+        </div>
+      </header>
 
-      {loading
-        ? [1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 52, marginBottom: 8 }} />)
-        : days.length === 0
-          ? <div className="empty-state"><h3>No tasks assigned this month</h3><p>Your assigned tasks will appear here.</p></div>
-          : days.map(day => (
-            <div key={day} style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <span style={{ fontFamily: 'DM Mono', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--grey)', whiteSpace: 'nowrap' }}>
+      {loading ? (
+        <div className="skeleton" style={{ height: 400, borderRadius: 12 }} />
+      ) : days.length === 0 ? (
+        <div className="empty-state" style={{ padding: '60px 0', textAlign: 'center', border: '1px dashed var(--border2)', borderRadius: 12 }}>
+          <h3 style={{ color: 'var(--grey)', fontFamily: 'DM Mono', fontSize: 14 }}>No assignments found for this period</h3>
+        </div>
+      ) : (
+        days.map(day => (
+          <section key={day} style={{ marginBottom: 40 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Calendar size={14} style={{ color: 'var(--teal)' }} />
+                <h2 style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--white)', fontFamily: 'DM Mono', fontWeight: 600 }}>
                   {dayName(day)} {day}
-                </span>
-                {isToday(day) && (
-                  <span style={{ fontFamily: 'DM Mono', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'var(--teal)', color: 'var(--bg)', borderRadius: 3, padding: '2px 8px' }}>Today</span>
-                )}
-                <div style={{ flex: 1, height: 1, background: 'var(--border2)' }} />
+                </h2>
               </div>
-              {grouped[day].map(task => (
-                <div key={task.id} onClick={() => toggleTask(task)}
-                  style={{
-                    display: 'flex', alignItems: 'flex-start', gap: 12, padding: '11px 14px', marginBottom: 6,
-                    cursor: 'pointer', border: '1px solid var(--border2)', borderRadius: 4,
-                    background: task.status === 'complete' ? 'transparent' : 'var(--bg2)',
-                    transition: 'background 0.15s', opacity: task.status === 'complete' ? 0.45 : 1,
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--teal-faint)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = task.status === 'complete' ? 'transparent' : 'var(--bg2)')}
-                >
-                  <div style={{
-                    width: 18, height: 18, borderRadius: 3, flexShrink: 0, marginTop: 1,
-                    border: `1.5px solid ${task.status === 'complete' ? 'var(--teal)' : 'var(--grey2)'}`,
-                    background: task.status === 'complete' ? 'var(--teal)' : 'transparent',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s',
-                  }}>
-                    {task.status === 'complete' && (
-                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                        <path d="M1 4L3.5 6.5L9 1" stroke="#070F0D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
+              <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, var(--border2), transparent)' }} />
+            </div>
+
+            <div style={{ display: 'grid', gap: 10 }}>
+              {grouped[day].map(task => {
+                const isCompleted = task.status === 'complete'
+                return (
+                  <div key={task.id} 
+                    onClick={() => toggleTask(task)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 18, padding: '18px 24px',
+                      background: isCompleted ? 'rgba(20, 26, 25, 0.4)' : 'var(--bg2)',
+                      border: `1px solid ${isCompleted ? 'var(--teal-faint)' : 'var(--border2)'}`, 
+                      borderRadius: 10,
+                      cursor: 'pointer', transition: 'all 0.25s ease',
+                      position: 'relative', overflow: 'hidden'
+                    }}
+                    onMouseEnter={e => {
+                      if(!isCompleted) {
+                        e.currentTarget.style.borderColor = 'var(--teal)';
+                        e.currentTarget.style.transform = 'translateX(4px)';
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.borderColor = isCompleted ? 'var(--teal-faint)' : 'var(--border2)';
+                      e.currentTarget.style.transform = 'translateX(0px)';
+                    }}
+                  >
+                    {!isCompleted && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: 'var(--teal)', opacity: 0.5 }} />}
+
+                    <div>
+                      {isCompleted ? 
+                        <CheckCircle2 size={20} color="var(--teal)" strokeWidth={2.5} /> : 
+                        <Circle size={20} color="var(--grey2)" strokeWidth={1.5} />
+                      }
+                    </div>
+                    
+                    <div style={{ flex: 1 }}>
+                      <div style={{ 
+                        fontSize: 15, 
+                        color: isCompleted ? 'var(--grey)' : 'var(--white)',
+                        textDecoration: isCompleted ? 'line-through' : 'none',
+                        transition: 'color 0.2s'
+                      }}>
+                        {task.title}
+                      </div>
+                      <div style={{ 
+                        fontSize: 9, 
+                        color: isCompleted ? 'var(--grey2)' : 'var(--teal)', 
+                        fontFamily: 'DM Mono', 
+                        textTransform: 'uppercase', 
+                        marginTop: 4,
+                        letterSpacing: '0.05em'
+                      }}>
+                        {task.category}
+                      </div>
+                    </div>
+
+                    {isCompleted && (
+                      <span style={{ fontFamily: 'DM Mono', fontSize: 9, color: 'var(--teal)', opacity: 0.6, textTransform: 'uppercase' }}>
+                        Logged
+                      </span>
                     )}
                   </div>
-                  <div style={{ flex: 1, fontSize: 14, color: 'var(--white)', lineHeight: 1.5, textDecoration: task.status === 'complete' ? 'line-through' : 'none' }}>
-                    {task.title}
-                  </div>
-                  <span className={`badge ${catBadgeClass(task.category || '')}`} style={{ marginTop: 2 }}>{task.category}</span>
-                </div>
-              ))}
+                )
+              })}
             </div>
-          ))
-      }
+          </section>
+        ))
+      )}
     </div>
   )
 }

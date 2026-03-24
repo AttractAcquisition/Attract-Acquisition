@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Client, Prospect } from '../lib/supabase'
 import { formatRand, formatDate } from '../lib/utils'
-import { Plus, X, AlertTriangle, TrendingUp, Search, Loader2 } from 'lucide-react'
+import { Plus, X, AlertTriangle, TrendingUp, Search } from 'lucide-react'
 import { useToast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 

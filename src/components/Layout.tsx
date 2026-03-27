@@ -35,8 +35,8 @@ const ADMIN_OPERATOR_NAV = [
     section: 'Delivery Engine',
     items: [
       { label: 'MJR Studio',      path: '/studio',    icon: FileText,  roles: ['distribution', 'admin', 'delivery'] },
-      { label: 'MJR Generator',   path: '/mjr-generator', icon: Printer, roles: ['admin', 'distribution'] }, // NEW: Linked to html.tsx
-      { label: 'Proof Sprints',   path: '/sprints',   icon: Zap,       roles: ['admin', 'delivery'] },
+      { label: 'PDF Tool',   path: '/mjr-generator', icon: Printer, roles: ['admin', 'distribution'] }, // NEW: Linked to html.tsx
+      { label: 'Proof Sprint',   path: '/sprints',   icon: Zap,       roles: ['admin', 'delivery'] },
       { label: 'Proof Brand',     path: '/proof',     icon: BookOpen,  roles: ['admin', 'delivery'] },
       { label: 'Authority Brand', path: '/authority', icon: Shield,    roles: ['admin', 'delivery'] },
     ],
@@ -59,7 +59,7 @@ const ADMIN_OPERATOR_NAV = [
     section: 'System',
     items: [
       { label: 'Command Center', path: '/admin', icon: Shield, roles: ['admin'] },
-      { label: 'AA Brain',    path: '/brain',     icon: BrainIcon, roles: ['admin', 'distribution', 'delivery'] },
+      { label: 'AA Ai',    path: '/brain',     icon: BrainIcon, roles: ['admin', 'distribution', 'delivery'] },
     ]
   },
 ]

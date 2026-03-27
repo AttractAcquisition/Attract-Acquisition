@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 const MJRPdfGenerator = () => {
   const [htmlInput, setHtmlInput] = useState('');

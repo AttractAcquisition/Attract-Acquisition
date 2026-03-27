@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './lib/auth'
 import RoleWrapper   from './components/RoleWrapper'
 import Layout        from './components/Layout'
 import Login         from './pages/Login'
-import Portal        from './pages/Portal'
+import Portal         from './pages/Portal'
 import Dashboard     from './pages/Dashboard'
 import Tracker       from './pages/Tracker'
 import Prospects     from './pages/Prospects'
@@ -28,6 +28,7 @@ import DeliveryTracker from './components/views/Tracker/DeliveryTracker'
 import Documents from './pages/Documents'
 import Brain     from './pages/Brain'
 import ChatPage  from './pages/ChatPage'
+import MJRPdfGenerator from './pages/html' // Added link to Repo B connector
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   // Add 'role' here 
@@ -101,17 +102,20 @@ function AppRoutes() {
         } />
 
         {/* --- GROWTH & CRM --- */}
-        <Route path="crm"       element={<RoleWrapper allowedRoles={['admin', 'distribution']}><CRM /></RoleWrapper>} />
+        <Route path="crm"        element={<RoleWrapper allowedRoles={['admin', 'distribution']}><CRM /></RoleWrapper>} />
         <Route path="prospects" element={<RoleWrapper allowedRoles={['admin', 'distribution']}><Prospects /></RoleWrapper>} />
         <Route path="outreach"  element={<RoleWrapper allowedRoles={['admin', 'distribution']}><Outreach /></RoleWrapper>} />
         <Route path="scraper"   element={<RoleWrapper allowedRoles={['admin', 'distribution']}><Scraper /></RoleWrapper>} />
 
         {/* --- BRAND & ASSETS --- */}
         <Route path="authority" element={<RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}><AuthorityBrand /></RoleWrapper>} />
-        <Route path="proof"     element={<RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}><ProofBrand /></RoleWrapper>} />
+        <Route path="proof"      element={<RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}><ProofBrand /></RoleWrapper>} />
         <Route path="templates" element={<RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}><Templates /></RoleWrapper>} />
-        <Route path="studio"    element={<RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}><Studio /></RoleWrapper>} />
+        <Route path="studio"     element={<RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}><Studio /></RoleWrapper>} />
         <Route path="sops"      element={<Sops />} />
+        
+        {/* --- PDF GENERATION --- */}
+        <Route path="mjr-generator" element={<RoleWrapper allowedRoles={['admin', 'distribution']}><MJRPdfGenerator /></RoleWrapper>} />
 
         {/* --- AI TOOLS --- */}
         <Route path="brain" element={<RoleWrapper allowedRoles={['admin', 'distribution', 'delivery']}><Brain /></RoleWrapper>} />

@@ -68,8 +68,17 @@ function GapBadge({ label, value }: { label: string; value: boolean | number | s
 }
 
 // ─── Sandboxed iframe renderer ────────────────────────────────────────────────
-// Uses srcDoc so the browser parses the full HTML document cleanly,
-// completely isolated from the parent app's CSS and dark-mode styles.
+// Uses srcdoc so the browser parses the full HTML document cleanly and in
+// complete isolation from the parent app's CSS, Tailwind, and dark-mode styles.
+//
+// KEY FIXES applied here:
+// 1. Replaced document.write() approach with srcdoc — the write() approach had
+//    a race condition where the 'load' event fired before the listener was
+//    attached, leaving the iframe blank.
+// 2. Added key={html} so React fully remounts the iframe element whenever the
+//    HTML content changes, preventing stale renders from previous generations.
+// 3. Removed the useEffect/useRef entirely — srcdoc is declarative and React
+//    handles updates correctly without imperative DOM manipulation.
 function ReportIframe({
   html,
   title,
@@ -79,45 +88,25 @@ function ReportIframe({
   title:   string
   height?: number
 }) {
-  const iframeRef = useRef<HTMLIFrameElement>(null)
-
-  // Write via document.open/write for maximum compatibility
-  // (avoids 4MB srcdoc attribute limit in some browsers)
-  useEffect(() => {
-    const frame = iframeRef.current
-    if (!frame) return
-
-    // Wait for the iframe element to be ready
-    const write = () => {
-      try {
-        const doc = frame.contentDocument ?? frame.contentWindow?.document
-        if (!doc) return
-        doc.open()
-        doc.write(html)
-        doc.close()
-      } catch (err) {
-        // Cross-origin fallback — shouldn't happen with blob: but guard anyway
-        console.warn('[ReportIframe] document.write failed, falling back to srcDoc', err)
-        frame.srcdoc = html
-      }
-    }
-
-    if (frame.contentDocument?.readyState === 'complete') {
-      write()
-    } else {
-      frame.addEventListener('load', write, { once: true })
-      // Trigger the load event by setting a blank src
-      if (!frame.src) frame.src = 'about:blank'
-    }
-  }, [html])
-
   return (
     <iframe
-      ref={iframeRef}
+      // key forces a full DOM remount when html changes, ensuring the new
+      // document is parsed from scratch rather than patched into the old one.
+      key={html}
       title={title}
-      style={{ width: '100%', height, border: 'none', display: 'block', background: '#0D0D0D' }}
-      // Allow scripts for Google Fonts @import and font loading
-      // allow-popups-to-escape-sandbox so print dialog works
+      srcDoc={html}
+      style={{
+        width: '100%',
+        height,
+        border: 'none',
+        display: 'block',
+        // Hardcoded fallback background so the iframe chrome never flashes
+        // white while the document's own background colour loads.
+        background: '#0D0D0D',
+      }}
+      // allow-same-origin: required for srcdoc + Google Fonts @import
+      // allow-scripts: required for any inline JS in the generated report
+      // allow-popups + allow-popups-to-escape-sandbox: print dialog works
       sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox"
     />
   )
@@ -208,16 +197,21 @@ export default function Studio() {
         throw new Error('Empty HTML returned — please regenerate')
       }
       if (!html.toLowerCase().startsWith('<!doctype') && !html.toLowerCase().startsWith('<html')) {
-        throw new Error(`Unexpected response format. Preview the raw HTML to debug.`)
+        throw new Error('Unexpected response format — raw HTML available via Copy HTML Source')
       }
 
       // ── Build Blob URL for "Open in New Tab" and "Print" ─────────────────
-      // Use UTF-8 BOM to ensure correct encoding
+      // UTF-8 BOM ensures correct encoding when the file is opened externally
       const bom  = '\uFEFF'
       const blob = new Blob([bom + html], { type: 'text/html;charset=utf-8' })
       blobUrlRef.current = URL.createObjectURL(blob)
 
       setMjrResult(data)
+
+      // FIX: Auto-show the inline preview immediately after generation.
+      // Previously the user had to click "Show Preview" manually, which made
+      // it appear that nothing had been generated when the panel stayed blank.
+      setShowPreview(true)
 
       // ── Update CRM ────────────────────────────────────────────────────────
       await supabase
@@ -236,7 +230,7 @@ export default function Studio() {
     setGenerating(false)
   }
 
-  // ── Report actions ───────────────────────────────────────────────────────────
+  // ── Report actions ──────────────────────────────────────────────────────────
   const openInNewTab = useCallback(() => {
     if (!blobUrlRef.current) return
     window.open(blobUrlRef.current, '_blank', 'noopener')
@@ -265,7 +259,7 @@ export default function Studio() {
     if (!blobUrlRef.current) return
     const win = window.open(blobUrlRef.current, '_blank', 'noopener')
     if (win) {
-      // Give fonts time to load before triggering print
+      // Give Google Fonts time to load before triggering print dialog
       win.addEventListener('load', () => {
         setTimeout(() => win.print(), 800)
       })
@@ -475,7 +469,7 @@ export default function Studio() {
       {/* ── RIGHT PANEL ────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        {/* Generating */}
+        {/* Generating state */}
         {generating && (
           <div className="card" style={{ textAlign: 'center', padding: 48 }}>
             <div style={{
@@ -512,8 +506,8 @@ export default function Studio() {
             <h3>MJR Studio</h3>
             <p style={{ maxWidth: 380 }}>
               Select a prospect from the CRM, review their digital data, then click Generate MJR.
-              Claude will research the local market and build a complete, branded 30-Day Missed Jobs Report
-              ready to deliver via WhatsApp.
+              Claude will research the local market and build a complete, branded 30-Day Missed Jobs
+              Report ready to deliver via WhatsApp.
             </p>
             <div style={{
               marginTop: 20, display: 'flex', flexDirection: 'column', gap: 6,
@@ -544,7 +538,7 @@ export default function Studio() {
           </div>
         )}
 
-        {/* Report ready */}
+        {/* Report ready — metadata, stats, delivery guide */}
         {mjrResult && !generating && (
           <>
             {/* Success banner */}
@@ -559,7 +553,7 @@ export default function Studio() {
                   MJR ready for {mjrResult.preview_stats.business_name}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--grey)', fontFamily: 'DM Mono', marginTop: 2 }}>
-                  {mjrResult.preview_stats.sector} · {mjrResult.preview_stats.geography} ·
+                  {mjrResult.preview_stats.sector} · {mjrResult.preview_stats.geography} ·{' '}
                   Generated {new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
@@ -764,12 +758,16 @@ export default function Studio() {
           </>
         )}
 
-        {/* ── Inline iframe preview ─────────────────────────────────────── */}
+        {/* ── Inline iframe preview ──────────────────────────────────────────
+            Renders immediately after generation (showPreview auto-set to true).
+            ReportIframe is fully isolated from the parent app's styles via srcdoc.
+            The key={html} prop ensures a clean remount on each new generation.   */}
         {showPreview && mjrResult && (
           <div style={{
             borderRadius: 8, overflow: 'hidden',
             border: '1px solid var(--border2)',
           }}>
+            {/* Preview header bar */}
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               padding: '10px 14px', background: 'var(--bg2)',
@@ -804,8 +802,7 @@ export default function Studio() {
               </div>
             </div>
 
-            {/* KEY FIX: ReportIframe uses document.write to inject HTML cleanly,
-                completely isolated from the parent app's global styles */}
+            {/* Sandboxed report renderer — isolated from all parent styles */}
             <ReportIframe
               html={mjrResult.html}
               title={`MJR Preview — ${mjrResult.preview_stats.business_name}`}

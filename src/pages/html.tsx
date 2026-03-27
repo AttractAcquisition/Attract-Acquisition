@@ -15,16 +15,16 @@ const MJRPdfGenerator = () => {
 
     try {
       // 1. Hit your Repo B endpoint
-      const response = await fetch('http://localhost:3001/generate-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          html: htmlInput,
-          businessName: businessName,
-        }),
-      });
+      const response = await fetch('https://ideal-doodle-4jxv9qqx6qq6cvp5-3001.app.github.dev/generate-pdf', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    html: htmlInput,
+    businessName: businessName,
+  }),
+});
 
       if (!response.ok) throw new Error('Failed to generate PDF');
 

@@ -1,24 +1,25 @@
 import { useState } from 'react';
+import { useToast } from '../lib/toast';
+import { FileText, Download, Loader2, Code } from 'lucide-react';
 
 const MJRPdfGenerator = () => {
   const [htmlInput, setHtmlInput] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const { toast } = useToast();
 
   const handleGeneratePDF = async () => {
     if (!htmlInput || !businessName) {
-      alert("Please provide both the HTML source and Business Name.");
+      toast("Please provide both HTML source and Business Name", "error");
       return;
     }
 
     setIsGenerating(true);
 
     try {
-      console.log("[AA-OS] Attempting to connect to PDF Service...");
-      
       const response = await fetch('https://ideal-doodle-4jxv9qqx6qq6cvp5-3001.app.github.dev/generate-pdf', {
         method: 'POST',
-        mode: 'cors', // Force CORS mode
+        mode: 'cors',
         referrerPolicy: 'no-referrer',
         headers: {
           'Content-Type': 'application/json',
@@ -30,11 +31,7 @@ const MJRPdfGenerator = () => {
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error("[AA-OS] Server Error Response:", errorData);
-        throw new Error(`Server responded with ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Server responded with ${response.status}`);
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -44,57 +41,114 @@ const MJRPdfGenerator = () => {
       link.setAttribute('download', `MJR_${businessName.replace(/\s+/g, '_')}.pdf`);
       document.body.appendChild(link);
       link.click();
-
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
-      console.log("[AA-OS] PDF Generated & Downloaded.");
-
+      
+      toast("MJR PDF Generated successfully");
     } catch (error) {
-      console.error('[AA-OS] Detailed Error:', error);
-      // This alert now shows the actual error message to help us debug
-      alert(`Error: ${error instanceof Error ? error.message : 'Check Console'}`);
+      console.error('[AA-OS] PDF Error:', error);
+      toast(error instanceof Error ? error.message : "Generation failed", "error");
     } finally {
       setIsGenerating(false);
     }
   };
 
   return (
-    <div className="p-8 max-w-4xl mx-auto bg-zinc-900 text-white min-height-screen rounded-xl border border-zinc-800 mt-10">
-      <h1 className="text-3xl font-bold text-teal-400 mb-6">MJR PDF Creator</h1>
-      
-      <div className="space-y-4">
+    <div style={{ maxWidth: '900px', margin: '40px auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Header Section */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--border2)', paddingBottom: '20px' }}>
         <div>
-          <label className="block text-sm font-mono text-zinc-400 mb-2">BUSINESS NAME</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+            <FileText size={20} color="var(--teal)" />
+            <span style={{ fontFamily: 'DM Mono', fontSize: '11px', color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+              Asset Generation Engine
+            </span>
+          </div>
+          <h1 style={{ fontFamily: 'Playfair Display', fontSize: '32px', fontWeight: 700, color: 'var(--white)' }}>
+            MJR Document Creator
+          </h1>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontFamily: 'DM Mono', fontSize: '20px', color: 'var(--white)' }}>v2.4</div>
+          <div style={{ fontFamily: 'DM Mono', fontSize: '9px', color: 'var(--grey2)', textTransform: 'uppercase' }}>System Status: Operational</div>
+        </div>
+      </div>
+
+      <div className="card" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', padding: '32px' }}>
+        {/* Input: Business Name */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <label style={{ fontFamily: 'DM Mono', fontSize: '10px', color: 'var(--grey2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Target Business Entity
+          </label>
           <input 
             type="text"
-            className="w-full bg-zinc-800 border border-zinc-700 p-3 rounded text-white focus:border-teal-500 outline-none transition-colors"
+            className="input"
+            style={{ fontSize: '14px', padding: '12px' }}
             placeholder="e.g. Line & Light Electrical"
             value={businessName}
             onChange={(e) => setBusinessName(e.target.value)}
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-mono text-zinc-400 mb-2">RAW HTML SOURCE</label>
+        {/* Input: HTML Source */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label style={{ fontFamily: 'DM Mono', fontSize: '10px', color: 'var(--grey2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Raw HTML Payload
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--grey2)', fontSize: '10px' }}>
+              <Code size={12} /> UTF-8
+            </div>
+          </div>
           <textarea 
-            className="w-full h-96 bg-zinc-800 border border-zinc-700 p-4 rounded font-mono text-xs text-zinc-300 focus:border-teal-500 outline-none transition-colors"
-            placeholder="Paste your MJR HTML here..."
+            className="input"
+            style={{ 
+              height: '400px', 
+              fontFamily: 'DM Mono', 
+              fontSize: '12px', 
+              lineHeight: '1.6',
+              background: 'var(--bg3)',
+              color: 'var(--teal-faint)',
+              padding: '20px'
+            }}
+            placeholder="Paste exported HTML structure here..."
             value={htmlInput}
             onChange={(e) => setHtmlInput(e.target.value)}
           />
         </div>
 
+        {/* Action Button */}
         <button
           onClick={handleGeneratePDF}
           disabled={isGenerating}
-          className={`w-full py-4 rounded font-bold uppercase tracking-widest transition-all ${
-            isGenerating 
-            ? 'bg-zinc-700 cursor-not-allowed text-zinc-500' 
-            : 'bg-teal-500 hover:bg-teal-400 text-black shadow-lg shadow-teal-500/20'
-          }`}
+          className={isGenerating ? 'btn-secondary' : 'btn-primary'}
+          style={{ 
+            height: '56px', 
+            fontSize: '13px', 
+            letterSpacing: '0.1em', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            gap: '12px',
+            marginTop: '10px'
+          }}
         >
-          {isGenerating ? 'Processing PDF...' : 'Generate & Download MJR'}
+          {isGenerating ? (
+            <>
+              <Loader2 size={18} className="spin" />
+              COMPILING ASSET...
+            </>
+          ) : (
+            <>
+              <Download size={18} />
+              GENERATE & DOWNLOAD MJR
+            </>
+          )}
         </button>
+
+        <p style={{ textAlign: 'center', fontFamily: 'DM Mono', fontSize: '10px', color: 'var(--grey2)', marginTop: '8px' }}>
+          Note: This process triggers a headless browser instance to render the PDF.
+        </p>
       </div>
     </div>
   );

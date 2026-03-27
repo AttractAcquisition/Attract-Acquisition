@@ -4,7 +4,7 @@ import { supabase } from './supabase'
 import type { User, Session } from '@supabase/supabase-js'
 
 // 1. Expand the Role type to include your new business departments
-export type Role = 'admin' | 'operator' | 'client' | 'distribution' | 'delivery' | null
+export type Role = 'admin' | 'client' | 'distribution' | 'delivery' | null
 
 interface AuthCtx {
   user:        User | null

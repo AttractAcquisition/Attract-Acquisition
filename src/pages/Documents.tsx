@@ -125,9 +125,9 @@ export default function Documents() {
   const handleBulkImport = () => {
     if (!bulkText.trim()) return;
     
-    // Simple parser: Each line is a file. 
-    // Modify the base path to your Mac's hard drive path
-    const BASE_PATH = "/Users/alex/Desktop/Current/Attract Acquisition/Current/Documents/";
+    // Simple parser: Each line is a file.
+    // Set VITE_DOCUMENTS_BASE_PATH in your .env to override the default local path.
+    const BASE_PATH = import.meta.env.VITE_DOCUMENTS_BASE_PATH || '/Users/alex/Desktop/Current/Attract Acquisition/Current/Documents/';
     const lines = bulkText.split('\n').filter(l => l.trim());
     
     const newItems: FileNode[] = lines.map((line, i) => ({

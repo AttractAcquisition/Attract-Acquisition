@@ -33,9 +33,8 @@ export default function Brain() {
     setLoading(true);
 
     try {
-      // THE BRIDGE: Your specific backend URL
-      const BACKEND_URL = 'https://ubiquitous-space-funicular-r4j6v77jwrxj25xqw-8000.app.github.dev';
-      
+      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://ubiquitous-space-funicular-r4j6v77jwrxj25xqw-8000.app.github.dev';
+
       const response = await fetch(`${BACKEND_URL}/chat`, {
         method: 'POST',
         headers: { 

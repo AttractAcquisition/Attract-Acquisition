@@ -58,10 +58,10 @@ export default function AdminControl() {
     }
   };
 
-  const updateMapping = async (clientEmail: string, operatorId: string) => {
+  const updateMapping = async (clientEmail: string, managerId: string) => {
     const { error } = await (supabase as any)
       .from('clients')
-      .update({ account_manager: operatorId || null })
+      .update({ account_manager: managerId || null })
       .eq('email', clientEmail);
 
     if (error) {
@@ -70,7 +70,7 @@ export default function AdminControl() {
     } else {
       toast.addToast?.('Client assigned successfully', 'success');
       setProfiles(prev => prev.map(p => 
-        p.email === clientEmail ? { ...p, account_manager: operatorId } : p
+        p.email === clientEmail ? { ...p, account_manager: managerId } : p
       ));
     }
   };

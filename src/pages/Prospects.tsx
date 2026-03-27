@@ -53,7 +53,7 @@ export default function Prospects() {
     .eq('is_archived', false) // <--- Add this line here
     .order('created_at', { ascending: false })
   
-  if (role === 'operator' && metadata_id) q = q.eq('assigned_to', metadata_id) 
+  if (role === 'distribution' && metadata_id) q = q.eq('assigned_to', metadata_id)
 
   const { data } = await q
   setProspects((data || []).map(p => ({ ...p, pipeline_stage: p.pipeline_stage || 'First Touch' })))
@@ -76,7 +76,7 @@ export default function Prospects() {
       pipeline_stage: newProspect.pipeline_stage || 'First Touch',
       icp_tier: newProspect.icp_tier || 'unscored',
       data_source: 'manual',
-      assigned_to: role === 'operator' ? metadata_id : null
+      assigned_to: role === 'distribution' ? metadata_id : null
     }
 
     const { data, error } = await supabase

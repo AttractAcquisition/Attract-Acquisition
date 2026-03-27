@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate, Outlet } from 'react-router-dom'
 import { useState } from 'react'
 import {
   LayoutDashboard, CalendarCheck, Users, MessageSquare, Briefcase,
-  Zap, FileText, BookOpen, FileCode, BarChart3, Menu, X, Plus, Search, Shield, Activity, Target, ClipboardList, FolderOpen
+  Zap, FileText, BookOpen, FileCode, BarChart3, Menu, X, Plus, Search, Shield, Activity, Target, ClipboardList, BrainIcon
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../lib/toast'
@@ -265,7 +265,7 @@ function QuickAddButton() {
 
   async function saveProspect(form: any) {
     const insertData: any = { ...form, status: 'new', city: 'Cape Town' }
-    if (role === 'operator' && metadata_id) {
+    if (role === 'distribution' && metadata_id) {
       insertData.assigned_to = metadata_id
     }
     const { error } = await supabase.from('prospects').insert(insertData)
@@ -277,7 +277,7 @@ function QuickAddButton() {
 
   async function saveClient(form: any) {
     const insertData: any = { ...form, status: 'active' }
-    if (role === 'operator' && metadata_id) {
+    if (role === 'delivery' && metadata_id) {
       insertData.account_manager = metadata_id
     }
     const { error } = await supabase.from('clients').insert(insertData)

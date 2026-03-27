@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Sop } from '../lib/supabase'
 import { formatDate } from '../lib/utils'

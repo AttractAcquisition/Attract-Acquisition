@@ -58,7 +58,7 @@ export default function Clients() {
   async function createClient(form: any, prospectId?: string) {
     const insertData: any = { ...form, status: 'active', prospect_id: prospectId || null }
     
-    // Auto-assign to the creator if they are an operator
+    // Auto-assign to the creator if they are a delivery user
     if (role === 'delivery' && metadata_id) {
       insertData.account_manager = metadata_id
     }

@@ -1,4 +1,4 @@
-import { NavLink, useLocation, Outlet } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate, Outlet } from 'react-router-dom'
 import { useState } from 'react'
 import {
   LayoutDashboard, CalendarCheck, Users, MessageSquare, Briefcase,
@@ -90,8 +90,6 @@ const PAGE_TITLES: Record<string, string> = {
   '/documents': 'Repository',
   '/templates': 'Templates',
   '/finance':   'MRR Dashboard',
-  '/capital':   'Trust & Capital',
-  '/settings':  'Settings',
   '/authority': 'Authority Brand',
   '/proof':     'Proof Brand',
   '/admin':     'Command Center',
@@ -257,6 +255,7 @@ function QuickAddButton() {
   const [type, setType]   = useState<'prospect' | 'client' | 'sprint' | null>(null)
   const { toast }         = useToast()
   const { role, metadata_id } = useAuth()
+  const navigate          = useNavigate()
 
   const options = [
     { key: 'prospect' as const, label: 'Add Prospect', sub: 'New lead to score and outreach' },
@@ -273,7 +272,7 @@ function QuickAddButton() {
     if (error) { toast('Failed to save prospect', 'error'); return }
     toast('Prospect added ✓')
     setOpen(false); setType(null)
-    window.location.href = '/prospects'
+    navigate('/prospects')
   }
 
   async function saveClient(form: any) {
@@ -285,7 +284,7 @@ function QuickAddButton() {
     if (error) { toast('Failed to save client', 'error'); return }
     toast('Client added ✓')
     setOpen(false); setType(null)
-    window.location.href = '/clients'
+    navigate('/clients')
   }
 
   async function saveSprint(form: any) {
@@ -297,7 +296,7 @@ function QuickAddButton() {
     if (error) { toast('Failed to create sprint', 'error'); return }
     toast('Sprint created ✓')
     setOpen(false); setType(null)
-    window.location.href = '/sprints'
+    navigate('/sprints')
   }
 
   return (

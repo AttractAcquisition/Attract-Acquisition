@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate, Outlet } from 'react-router-dom'
 import { useState } from 'react'
 import {
   LayoutDashboard, CalendarCheck, Users, MessageSquare, Briefcase,
-  Zap, FileText, BookOpen, FileCode, BarChart3, Menu, X, Plus, Search, Shield, Activity, Target, ClipboardList, BrainIcon
+  Zap, FileText, BookOpen, FileCode, BarChart3, Menu, X, Plus, Search, Shield, Activity, Target, ClipboardList, BrainIcon, Printer
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../lib/toast'
@@ -14,8 +14,8 @@ const ADMIN_OPERATOR_NAV = [
     section: 'Overview',
     items: [
       { label: 'Admin Dashboard',   path: '/dashboard',        icon: LayoutDashboard, roles: ['admin'] },
-      { label: 'Ops Dashboard',     path: '/distribution',     icon: Activity,        roles: ['distribution'] },
-      { label: 'Ops Dashboard',     path: '/delivery-dash',    icon: Target,          roles: ['delivery'] },
+      { label: 'Ops Dashboard',     path: '/distribution',     icon: Activity,         roles: ['distribution'] },
+      { label: 'Ops Dashboard',     path: '/delivery-dash',    icon: Target,           roles: ['delivery'] },
       { label: 'Ops Tracker',       path: '/distro-tracker',   icon: CalendarCheck,   roles: ['distribution'] },
       { label: 'Ops Tracker',       path: '/delivery-tracker', icon: CalendarCheck,   roles: ['delivery'] },
       { label: 'Admin Tracker',     path: '/tracker',          icon: ClipboardList,   roles: ['admin'] },
@@ -25,9 +25,9 @@ const ADMIN_OPERATOR_NAV = [
     section: 'Distribution Hub',
     items: [
       { label: 'Scraper',       path: '/scraper',      icon: Search,        roles: ['distribution', 'admin'] },
-      { label: 'Prospects',     path: '/prospects',    icon: Users,         roles: ['admin', 'distribution'] },
+      { label: 'Prospects',     path: '/prospects',    icon: Users,          roles: ['admin', 'distribution'] },
       { label: 'Outreach',      path: '/outreach',     icon: MessageSquare, roles: ['distribution', 'admin'] },
-      { label: 'CRM Pipeline',  path: '/crm',          icon: LayoutDashboard, roles: ['admin', 'distribution'] }, 
+      { label: 'CRM Pipeline',  path: '/crm',           icon: LayoutDashboard, roles: ['admin', 'distribution'] }, 
       { label: 'Clients',       path: '/clients',      icon: Briefcase,     roles: ['admin', 'delivery'] },
     ],
   },
@@ -35,6 +35,7 @@ const ADMIN_OPERATOR_NAV = [
     section: 'Delivery Engine',
     items: [
       { label: 'MJR Studio',      path: '/studio',    icon: FileText,  roles: ['distribution', 'admin', 'delivery'] },
+      { label: 'MJR Generator',   path: '/mjr-generator', icon: Printer, roles: ['admin', 'distribution'] }, // NEW: Linked to html.tsx
       { label: 'Proof Sprints',   path: '/sprints',   icon: Zap,       roles: ['admin', 'delivery'] },
       { label: 'Proof Brand',     path: '/proof',     icon: BookOpen,  roles: ['admin', 'delivery'] },
       { label: 'Authority Brand', path: '/authority', icon: Shield,    roles: ['admin', 'delivery'] },
@@ -67,7 +68,7 @@ const CLIENT_NAV = [
   {
     section: 'Overview',
     items: [
-      { label: 'Dashboard',         path: '/dashboard', icon: LayoutDashboard },
+      { label: 'Dashboard',           path: '/dashboard', icon: LayoutDashboard },
       { label: 'Execution Tracker', path: '/delivery-tracker',   icon: CalendarCheck   },
     ],
   },
@@ -86,6 +87,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/brain':     'AA Brain',
   '/sprints':   'Proof Sprints',
   '/studio':    'MJR Studio',
+  '/mjr-generator': 'MJR PDF Generator', // Added title
   '/sops':      'SOP Library',
   '/documents': 'Repository',
   '/templates': 'Templates',
@@ -253,7 +255,7 @@ function SignOutButton() {
 function QuickAddButton() {
   const [open, setOpen]   = useState(false)
   const [type, setType]   = useState<'prospect' | 'client' | 'sprint' | null>(null)
-  const { toast }         = useToast()
+  const { toast }           = useToast()
   const { role, metadata_id } = useAuth()
   const navigate          = useNavigate()
 

@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Sop } from '../lib/supabase'
 import { formatDate } from '../lib/utils'
-import { Edit2, ChevronRight, Save, X, Plus, Trash2 } from 'lucide-react'
+import { Edit2, ChevronRight, Save, X, Plus, Trash2, GripVertical } from 'lucide-react'
 import { useToast } from '../lib/toast'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useAuth } from '../lib/auth'
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 
 const CATEGORIES = ['Cold Outreach', 'Pipeline & Sales', 'Proof Sprint', 'Client Delivery', 'General']
 const STATUS_COLORS: Record<string, string> = {
@@ -60,6 +61,42 @@ export default function Sops() {
     setSops(normalized)
   }
 
+  const handleDragEnd = async (result: DropResult) => {
+    if (!result.destination || !canEdit) return;
+
+    const items = Array.from(filtered);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    // Update sop_numbers based on new array index
+    const updatedSops = items.map((sop, index) => ({
+      ...sop,
+      sop_number: index + 1
+    }));
+
+    // Optimistic UI update
+    setSops(prev => {
+      const others = prev.filter(p => !items.find(i => i.id === p.id));
+      return [...others, ...updatedSops].sort((a, b) => (a.sop_number || 0) - (b.sop_number || 0));
+    });
+
+    // Persist to Supabase
+    const { error } = await supabase
+      .from('sops')
+      .upsert(updatedSops.map(s => ({
+        id: s.id,
+        sop_number: s.sop_number,
+        updated_at: new Date().toISOString()
+      })));
+
+    if (error) {
+      toast('Failed to update order', 'error');
+      load(); // Revert on error
+    } else {
+      toast('Order updated');
+    }
+  };
+
   function selectSop(s: Sop) {
     setSelected(s)
     setContent(s.content || '')
@@ -70,7 +107,6 @@ export default function Sops() {
 
   async function createNewSop() {
     if (!canEdit) return
-    
     const nextNum = sops.length > 0 ? Math.max(...sops.map(s => s.sop_number || 0)) + 1 : 1
     
     const newSop = {
@@ -84,7 +120,6 @@ export default function Sops() {
     }
 
     const { data, error } = await supabase.from('sops').insert(newSop).select().single()
-
     if (error) {
       toast('Failed to create SOP', 'error')
       return
@@ -101,7 +136,6 @@ export default function Sops() {
     if (!confirm(`Are you sure you want to delete SOP #${selected.sop_number}?`)) return
 
     const { error } = await supabase.from('sops').delete().eq('id', selected.id)
-
     if (error) {
       toast('Delete failed', 'error')
       return
@@ -158,7 +192,7 @@ export default function Sops() {
   const draftCount   = sops.filter(s => s.status === 'draft').length
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 20, height: 'calc(100vh - 120px)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20, height: 'calc(100vh - 120px)' }}>
       {/* Sidebar */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 4 }}>
@@ -186,21 +220,52 @@ export default function Sops() {
           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
 
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {filtered.map(s => (
-            <div key={s.id} onClick={() => selectSop(s)}
-              style={{ padding: '10px 12px', borderRadius: 4, cursor: 'pointer', border: `1px solid ${selected?.id === s.id ? 'var(--teal)' : 'var(--border2)'}`, background: selected?.id === s.id ? 'var(--teal-faint)' : 'var(--bg2)', transition: 'all 0.15s' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <span style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey2)', minWidth: 24 }}>#{String(s.sop_number).padStart(2,'0')}</span>
-                <span style={{ fontSize: 13, fontWeight: 500, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title}</span>
-                <ChevronRight size={12} color="var(--grey2)" />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: 32 }}>
-                <span style={{ fontFamily: 'DM Mono', fontSize: 9, color: 'var(--grey2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.category}</span>
-                <span className={`badge ${STATUS_COLORS[s.status!]}`}>{s.status}</span>
-              </div>
-            </div>
-          ))}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="sops-list">
+              {(provided) => (
+                <div {...provided.droppableProps} ref={provided.innerRef} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {filtered.map((s, index) => (
+                    <Draggable key={s.id} draggableId={s.id} index={index} isDragDisabled={!canEdit}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          onClick={() => selectSop(s)}
+                          style={{ 
+                            ...provided.draggableProps.style,
+                            padding: '10px 12px', 
+                            borderRadius: 4, 
+                            cursor: 'pointer', 
+                            border: `1px solid ${selected?.id === s.id ? 'var(--teal)' : 'var(--border2)'}`, 
+                            background: snapshot.isDragging ? 'var(--bg3)' : (selected?.id === s.id ? 'var(--teal-faint)' : 'var(--bg2)'), 
+                            transition: 'all 0.15s',
+                            opacity: snapshot.isDragging ? 0.8 : 1
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                            {canEdit && (
+                              <div {...provided.dragHandleProps} style={{ cursor: 'grab', color: 'var(--grey2)' }}>
+                                <GripVertical size={14} />
+                              </div>
+                            )}
+                            <span style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey2)', minWidth: 24 }}>#{String(s.sop_number).padStart(2,'0')}</span>
+                            <span style={{ fontSize: 13, fontWeight: 500, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title}</span>
+                            <ChevronRight size={12} color="var(--grey2)" />
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: canEdit ? 54 : 32 }}>
+                            <span style={{ fontFamily: 'DM Mono', fontSize: 9, color: 'var(--grey2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.category}</span>
+                            <span className={`badge ${STATUS_COLORS[s.status!]}`}>{s.status}</span>
+                          </div>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
         </div>
       </div>
 

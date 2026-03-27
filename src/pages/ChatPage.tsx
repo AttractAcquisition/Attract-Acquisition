@@ -1,5 +1,5 @@
 // src/pages/ChatPage.tsx
-import { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect } from 'react' // Added React import for JSX namespace
 import { 
   Send, 
   Bot, 
@@ -20,7 +20,8 @@ interface Message {
 interface SOPPrompt {
   id: string
   label: string
-  icon: JSX.Element
+  // Changed from JSX.Element to React.ReactNode for better compatibility
+  icon: React.ReactNode 
   prompt: string
 }
 
@@ -203,7 +204,7 @@ const ChatPage = () => {
           {loading && (
             <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
               <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <RefreshCw size={16} className="animate-spin" style={{ color: 'var(--teal)' }} />
+                <RefreshCw size={16} className="animate-spin-fast" style={{ color: 'var(--teal)' }} />
               </div>
               <span style={{ fontSize: 12, color: 'var(--grey2)', fontFamily: 'DM Mono' }}>Thinking...</span>
             </div>
@@ -227,7 +228,7 @@ const ChatPage = () => {
             disabled={loading || !input.trim()}
             style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 8 }}
           >
-            {loading ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
+            {loading ? <RefreshCw size={14} className="animate-spin-fast" /> : <Send size={14} />}
             Execute
           </button>
         </div>
@@ -238,8 +239,8 @@ const ChatPage = () => {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
-        .animate-spin {
-          animation: spin 1s linear infinite;
+        .animate-spin-fast {
+          animation: spin 0.8s linear infinite;
         }
       `}</style>
     </div>

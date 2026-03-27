@@ -2,11 +2,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Prospect } from '../lib/supabase'
-import { formatRand } from '../lib/utils'
+// Removed the unused formatRand import
 import {
   Search, Zap, Copy, ExternalLink,
-  Download, Printer, FileText, CheckCircle, Eye,
-  Users, Target, TrendingDown, Info, ShieldAlert
+  Download, Printer, CheckCircle, Eye,
+  Users, Target
 } from 'lucide-react'
 import { useToast } from '../lib/toast'
 

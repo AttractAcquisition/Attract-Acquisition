@@ -1,4 +1,4 @@
-import { NavLink, useLocation, Outlet } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate, Outlet } from 'react-router-dom'
 import { useState } from 'react'
 import {
   LayoutDashboard, CalendarCheck, Users, MessageSquare, Briefcase,
@@ -44,7 +44,6 @@ const ADMIN_OPERATOR_NAV = [
     section: 'Build',
     items: [
       // Roles added to ensure these are visible to all internal staff
-      { label: 'AA Brain',    path: '/brain',     icon: BrainIcon, roles: ['admin', 'distribution', 'delivery'] },
       { label: 'SOP Library', path: '/sops',      icon: BookOpen,  roles: ['admin', 'distribution', 'delivery'] },
       { label: 'Templates',   path: '/templates', icon: FileCode,  roles: ['admin', 'distribution', 'delivery'] },
     ],
@@ -58,7 +57,8 @@ const ADMIN_OPERATOR_NAV = [
   {
     section: 'System',
     items: [
-      { label: 'Command Center', path: '/admin', icon: Shield, roles: ['admin'] }
+      { label: 'Command Center', path: '/admin', icon: Shield, roles: ['admin'] },
+      { label: 'AA Brain',    path: '/brain',     icon: BrainIcon, roles: ['admin', 'distribution', 'delivery'] },
     ]
   },
 ]
@@ -67,8 +67,8 @@ const CLIENT_NAV = [
   {
     section: 'Overview',
     items: [
-      { label: 'Dashboard',         path: '/dashboard',        icon: LayoutDashboard },
-      { label: 'Execution Tracker', path: '/delivery-tracker', icon: CalendarCheck   },
+      { label: 'Dashboard',         path: '/dashboard', icon: LayoutDashboard },
+      { label: 'Execution Tracker', path: '/delivery-tracker',   icon: CalendarCheck   },
     ],
   },
 ]
@@ -87,10 +87,9 @@ const PAGE_TITLES: Record<string, string> = {
   '/sprints':   'Proof Sprints',
   '/studio':    'MJR Studio',
   '/sops':      'SOP Library',
+  '/documents': 'Repository',
   '/templates': 'Templates',
   '/finance':   'MRR Dashboard',
-  '/capital':   'Trust & Capital',
-  '/settings':  'Settings',
   '/authority': 'Authority Brand',
   '/proof':     'Proof Brand',
   '/admin':     'Command Center',
@@ -256,6 +255,7 @@ function QuickAddButton() {
   const [type, setType]   = useState<'prospect' | 'client' | 'sprint' | null>(null)
   const { toast }         = useToast()
   const { role, metadata_id } = useAuth()
+  const navigate          = useNavigate()
 
   const options = [
     { key: 'prospect' as const, label: 'Add Prospect', sub: 'New lead to score and outreach' },
@@ -265,26 +265,26 @@ function QuickAddButton() {
 
   async function saveProspect(form: any) {
     const insertData: any = { ...form, status: 'new', city: 'Cape Town' }
-    if (role === 'operator' && metadata_id) {
+    if (role === 'distribution' && metadata_id) {
       insertData.assigned_to = metadata_id
     }
     const { error } = await supabase.from('prospects').insert(insertData)
     if (error) { toast('Failed to save prospect', 'error'); return }
     toast('Prospect added ✓')
     setOpen(false); setType(null)
-    window.location.href = '/prospects'
+    navigate('/prospects')
   }
 
   async function saveClient(form: any) {
     const insertData: any = { ...form, status: 'active' }
-    if (role === 'operator' && metadata_id) {
+    if (role === 'delivery' && metadata_id) {
       insertData.account_manager = metadata_id
     }
     const { error } = await supabase.from('clients').insert(insertData)
     if (error) { toast('Failed to save client', 'error'); return }
     toast('Client added ✓')
     setOpen(false); setType(null)
-    window.location.href = '/clients'
+    navigate('/clients')
   }
 
   async function saveSprint(form: any) {
@@ -296,7 +296,7 @@ function QuickAddButton() {
     if (error) { toast('Failed to create sprint', 'error'); return }
     toast('Sprint created ✓')
     setOpen(false); setType(null)
-    window.location.href = '/sprints'
+    navigate('/sprints')
   }
 
   return (

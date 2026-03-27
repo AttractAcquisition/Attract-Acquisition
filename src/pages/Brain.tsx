@@ -1,23 +1,74 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, Bot, User, Sparkles } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
 
+const mdComponents = {
+  h1: ({ children }: { children?: React.ReactNode }) => (
+    <h1 style={{ color: 'var(--teal)', fontFamily: 'Playfair Display', fontSize: '1.4em', fontWeight: 700, margin: '12px 0 6px' }}>{children}</h1>
+  ),
+  h2: ({ children }: { children?: React.ReactNode }) => (
+    <h2 style={{ color: 'var(--teal)', fontFamily: 'Playfair Display', fontSize: '1.2em', fontWeight: 700, margin: '10px 0 5px' }}>{children}</h2>
+  ),
+  h3: ({ children }: { children?: React.ReactNode }) => (
+    <h3 style={{ color: 'var(--teal)', fontFamily: 'Barlow', fontSize: '1em', fontWeight: 600, margin: '8px 0 4px' }}>{children}</h3>
+  ),
+  table: ({ children }: { children?: React.ReactNode }) => (
+    <table style={{ borderCollapse: 'collapse', width: '100%', margin: '10px 0', fontSize: '13px' }}>{children}</table>
+  ),
+  th: ({ children }: { children?: React.ReactNode }) => (
+    <th style={{ border: '1px solid var(--border2)', padding: '6px 10px', background: 'var(--bg2)', color: 'var(--teal)', textAlign: 'left', fontFamily: 'DM Mono', fontSize: '11px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{children}</th>
+  ),
+  td: ({ children }: { children?: React.ReactNode }) => (
+    <td style={{ border: '1px solid var(--border2)', padding: '6px 10px', color: 'var(--white)' }}>{children}</td>
+  ),
+  code: ({ inline, children }: { inline?: boolean; children?: React.ReactNode }) =>
+    inline ? (
+      <code style={{ background: 'var(--bg)', color: 'var(--teal)', padding: '1px 5px', borderRadius: '3px', fontFamily: 'DM Mono', fontSize: '12px' }}>{children}</code>
+    ) : (
+      <pre style={{ background: 'var(--bg)', border: '1px solid var(--border2)', borderRadius: '6px', padding: '12px 14px', overflowX: 'auto', margin: '8px 0' }}>
+        <code style={{ fontFamily: 'DM Mono', fontSize: '12px', color: 'var(--white)', whiteSpace: 'pre' }}>{children}</code>
+      </pre>
+    ),
+  blockquote: ({ children }: { children?: React.ReactNode }) => (
+    <blockquote style={{ borderLeft: '3px solid var(--teal)', background: 'var(--bg)', margin: '8px 0', padding: '8px 14px', color: 'var(--grey)', fontStyle: 'italic' }}>{children}</blockquote>
+  ),
+  hr: () => (
+    <hr style={{ border: 'none', borderTop: '1px solid var(--border2)', margin: '12px 0' }} />
+  ),
+  ul: ({ children }: { children?: React.ReactNode }) => (
+    <ul style={{ paddingLeft: '20px', margin: '6px 0' }}>{children}</ul>
+  ),
+  ol: ({ children }: { children?: React.ReactNode }) => (
+    <ol style={{ paddingLeft: '20px', margin: '6px 0' }}>{children}</ol>
+  ),
+  li: ({ children }: { children?: React.ReactNode }) => (
+    <li style={{ marginBottom: '3px' }}>{children}</li>
+  ),
+  p: ({ children }: { children?: React.ReactNode }) => (
+    <p style={{ margin: '4px 0' }}>{children}</p>
+  ),
+  a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+    <a href={href} target="_blank" rel="noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>{children}</a>
+  ),
+};
+
 export default function Brain() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
-    { 
-      role: 'assistant', 
-      content: 'Systems online. I have access to the Attract Acquisition core documentation. How can I help you scale today?' 
+    {
+      role: 'assistant',
+      content: 'Systems online. I have access to the Attract Acquisition core documentation. How can I help you scale today?'
     }
   ]);
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when messages update
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -33,31 +84,27 @@ export default function Brain() {
     setLoading(true);
 
     try {
-      // THE BRIDGE: Your specific backend URL
-      const BACKEND_URL = 'https://ubiquitous-space-funicular-r4j6v77jwrxj25xqw-8000.app.github.dev';
-      
+      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://ubiquitous-space-funicular-r4j6v77jwrxj25xqw-8000.app.github.dev';
+
       const response = await fetch(`${BACKEND_URL}/chat`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          // Header used to help bypass some GitHub Codespace proxy restrictions
-          'X-Requested-With': 'XMLHttpRequest' 
+          'X-Requested-With': 'XMLHttpRequest',
         },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({ message: userMsg.content }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Server responded with ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Server responded with ${response.status}`);
 
       const data = await response.json();
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
-      
+
     } catch (err) {
-      console.error("Brain Connection Error:", err);
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: '⚠️ Connection Error: Could not reach the AA Brain. Please verify that the Backend repo is running main.py and Port 8000 is set to PUBLIC in the Ports tab.' 
+      console.error('Brain Connection Error:', err);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: '⚠️ **Connection Error:** Could not reach the AA Brain. Please verify that the Backend repo is running `main.py` and Port 8000 is set to **PUBLIC** in the Ports tab.'
       }]);
     } finally {
       setLoading(false);
@@ -66,54 +113,60 @@ export default function Brain() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', maxWidth: '900px', margin: '0 auto' }}>
-      
+
       {/* Chat History */}
-      <div 
+      <div
         ref={scrollRef}
-        style={{ 
-          flex: 1, overflowY: 'auto', padding: '20px', 
-          background: 'var(--bg2)', border: '1px solid var(--border2)', 
+        style={{
+          flex: 1, overflowY: 'auto', padding: '20px',
+          background: 'var(--bg2)', border: '1px solid var(--border2)',
           borderRadius: '8px', marginBottom: '20px',
           display: 'flex', flexDirection: 'column', gap: '16px'
         }}
       >
         {messages.map((m, i) => (
-          <div key={i} style={{ 
-            display: 'flex', gap: '12px', 
+          <div key={i} style={{
+            display: 'flex', gap: '12px',
             flexDirection: m.role === 'user' ? 'row-reverse' : 'row',
             alignItems: 'flex-start'
           }}>
-            <div style={{ 
-              width: '32px', height: '32px', borderRadius: '4px', 
+            <div style={{
+              width: '32px', height: '32px', borderRadius: '4px',
               background: m.role === 'user' ? 'var(--grey2)' : 'var(--teal)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
             }}>
               {m.role === 'user' ? <User size={16} color="var(--bg)" /> : <Bot size={16} color="var(--bg)" />}
             </div>
-            <div style={{ 
+            <div style={{
               maxWidth: '70%', padding: '12px 16px', borderRadius: '8px',
               background: m.role === 'user' ? 'var(--teal-faint)' : 'var(--bg3)',
               border: `1px solid ${m.role === 'user' ? 'var(--teal)' : 'var(--border2)'}`,
-              fontFamily: 'Barlow', fontSize: '14px', lineHeight: '1.5',
-              color: 'var(--white)', whiteSpace: 'pre-wrap'
+              fontFamily: 'Barlow', fontSize: '14px', lineHeight: '1.6',
+              color: 'var(--white)',
             }}>
-              {m.content}
+              {m.role === 'user' ? (
+                m.content
+              ) : (
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                  {m.content}
+                </ReactMarkdown>
+              )}
             </div>
           </div>
         ))}
         {loading && (
           <div style={{ display: 'flex', gap: '12px', color: 'var(--teal)', fontFamily: 'DM Mono', fontSize: '12px', paddingLeft: '44px' }}>
-            <Sparkles size={14} className="animate-pulse" /> 
+            <Sparkles size={14} className="animate-pulse" />
             <span>Consulting Attract Acquisition Knowledge Base...</span>
           </div>
         )}
       </div>
 
       {/* Input Area */}
-      <div style={{ display: 'flex', gap: '10px', position: 'relative' }}>
-        <input 
-          style={{ 
-            flex: 1, background: 'var(--bg2)', border: '1px solid var(--border2)', 
+      <div style={{ display: 'flex', gap: '10px' }}>
+        <input
+          style={{
+            flex: 1, background: 'var(--bg2)', border: '1px solid var(--border2)',
             borderRadius: '6px', padding: '14px 16px', color: 'var(--white)',
             fontFamily: 'DM Mono', fontSize: '14px', outline: 'none'
           }}
@@ -122,13 +175,13 @@ export default function Brain() {
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
           placeholder="Ask the AA Brain about acquisition funnels..."
         />
-        <button 
+        <button
           onClick={handleSend}
           disabled={loading || !input.trim()}
-          style={{ 
-            background: loading ? 'var(--grey2)' : 'var(--teal)', 
-            border: 'none', borderRadius: '6px', 
-            padding: '0 20px', cursor: loading ? 'default' : 'pointer', 
+          style={{
+            background: loading ? 'var(--grey2)' : 'var(--teal)',
+            border: 'none', borderRadius: '6px',
+            padding: '0 20px', cursor: loading ? 'default' : 'pointer',
             transition: 'all 0.2s',
             display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}

@@ -5,18 +5,27 @@ const ChatPage = () => {
   const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
 
   const sendMessage = async () => {
+    if (!input.trim()) return;
     const userMsg = { role: 'user', content: input };
-    setMessages([...messages, userMsg]);
-    
-    const response = await fetch('http://localhost:8000/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: input }),
-    });
-    
-    const data = await response.json();
-    setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+    setMessages(prev => [...prev, userMsg]);
     setInput('');
+
+    try {
+      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
+      const response = await fetch(`${BACKEND_URL}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMsg.content }),
+      });
+
+      if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+
+      const data = await response.json();
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+    } catch (err) {
+      console.error('ChatPage connection error:', err);
+      setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Could not reach the backend. Check that VITE_BACKEND_URL is set and the server is running.' }]);
+    }
   };
 
   return (
@@ -31,10 +40,11 @@ const ChatPage = () => {
         ))}
       </div>
       <div className="flex gap-2">
-        <input 
+        <input
           className="flex-1 p-2 bg-black border border-emerald-900 rounded"
-          value={input} 
-          onChange={(e) => setInput(e.target.value)} 
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
           placeholder="Ask the Brain..."
         />
         <button onClick={sendMessage} className="bg-emerald-600 px-4 py-2 rounded">Send</button>

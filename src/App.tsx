@@ -25,6 +25,9 @@ import DistributionDashboard from './components/views/Dashboard/DistributionDash
 import DeliveryDashboard from './components/views/Dashboard/DeliveryDashboard'
 import DistributionTracker from './components/views/Tracker/DistributionTracker'
 import DeliveryTracker from './components/views/Tracker/DeliveryTracker'
+import Documents from './pages/Documents'
+import Brain     from './pages/Brain'
+import ChatPage  from './pages/ChatPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   // Add 'role' here 
@@ -75,6 +78,11 @@ function AppRoutes() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="tracker"   element={<RoleWrapper allowedRoles={['admin']}><Tracker /></RoleWrapper>} />
         <Route path="admin"     element={<RoleWrapper allowedRoles={['admin']}><AdminControl /></RoleWrapper>} />
+        
+        {/* --- REPOSITORY & DOCS --- */}
+        <Route path="documents" element={
+          <RoleWrapper allowedRoles={['admin']}><Documents /></RoleWrapper>
+        } />
 
         {/* --- OPS DASHBOARDS --- */}
         <Route path="distribution" element={
@@ -104,6 +112,10 @@ function AppRoutes() {
         <Route path="templates" element={<RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}><Templates /></RoleWrapper>} />
         <Route path="studio"    element={<RoleWrapper allowedRoles={['admin', 'delivery', 'distribution']}><Studio /></RoleWrapper>} />
         <Route path="sops"      element={<Sops />} />
+
+        {/* --- AI TOOLS --- */}
+        <Route path="brain" element={<RoleWrapper allowedRoles={['admin', 'distribution', 'delivery']}><Brain /></RoleWrapper>} />
+        <Route path="chat"  element={<RoleWrapper allowedRoles={['admin', 'distribution', 'delivery']}><ChatPage /></RoleWrapper>} />
 
         {/* --- FULFILLMENT & FINANCE --- */}
         <Route path="clients"    element={<RoleWrapper allowedRoles={['admin', 'delivery', 'client']}><Clients /></RoleWrapper>} />

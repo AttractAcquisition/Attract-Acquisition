@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Sparkles, BookOpen, Zap, MessageSquare, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Send, Bot, User, Sparkles, BookOpen, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -11,9 +11,24 @@ interface Message {
 
 // --- SOP Quick Prompts ---
 const SOP_PROMPTS = [
-  { id: 'outreach', label: 'Outreach Script', icon: <Zap size={14} />, prompt: "Generate a personalized 3-step WhatsApp outreach sequence for a high-ticket service business." },
-  { id: 'funnel', label: 'Funnel Audit', icon: <Sparkles size={14} />, prompt: "Review a standard acquisition funnel for an industrial service brand." },
-  { id: 'sop', label: 'Write SOP', icon: <BookOpen size={14} />, prompt: "Write a step-by-step SOP for a Virtual Assistant to handle MJR delivery." },
+  { 
+    id: 'outreach', 
+    label: 'Outreach Script', 
+    icon: <Zap size={14} />, 
+    prompt: "Generate a personalized 3-step WhatsApp outreach sequence for a high-ticket service business." 
+  },
+  { 
+    id: 'funnel', 
+    label: 'Funnel Audit', 
+    icon: <Sparkles size={14} />, 
+    prompt: "Review a standard acquisition funnel for an industrial service brand." 
+  },
+  { 
+    id: 'sop', 
+    label: 'Write SOP', 
+    icon: <BookOpen size={14} />, 
+    prompt: "Write a step-by-step SOP for a Virtual Assistant to handle MJR delivery." 
+  },
 ];
 
 // --- Markdown Styling ---
@@ -70,34 +85,99 @@ export default function Brain() {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '24px', height: 'calc(100vh - 140px)' }}>
       
-      {/* Sidebar */}
-      <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div className="section-label">SOP Shortcuts</div>
+      {/* Sidebar - Quick Prompts */}
+      <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--bg1)' }}>
+        <div className="section-label" style={{ marginBottom: '8px' }}>SOP Shortcuts</div>
         {SOP_PROMPTS.map(sop => (
-          <button key={sop.id} onClick={() => handleSend(sop.prompt)} className="btn-secondary" style={{ display: 'flex', gap: '8px', fontSize: '12px', textAlign: 'left' }}>
-            {sop.icon} {sop.label}
+          <button 
+            key={sop.id} 
+            onClick={() => handleSend(sop.prompt)} 
+            className="btn-secondary" 
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', textAlign: 'left', padding: '12px' }}
+          >
+            <span style={{ color: 'var(--teal)' }}>{sop.icon}</span>
+            {sop.label}
           </button>
         ))}
       </div>
 
-      {/* Main Chat */}
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '20px', background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: '8px', marginBottom: '16px' }}>
+      {/* Main Chat Interface */}
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '16px' }}>
+        <div 
+          ref={scrollRef} 
+          style={{ 
+            flex: 1, 
+            overflowY: 'auto', 
+            padding: '24px', 
+            background: 'var(--bg2)', 
+            border: '1px solid var(--border2)', 
+            borderRadius: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px'
+          }}
+        >
           {messages.map((m, i) => (
-            <div key={i} style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexDirection: m.role === 'user' ? 'row-reverse' : 'row' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '4px', background: m.role === 'user' ? 'var(--grey2)' : 'var(--teal)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {m.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+            <div key={i} style={{ 
+              display: 'flex', 
+              gap: '16px', 
+              flexDirection: m.role === 'user' ? 'row-reverse' : 'row',
+              alignItems: 'flex-start'
+            }}>
+              <div style={{ 
+                width: '32px', 
+                height: '32px', 
+                borderRadius: '4px', 
+                background: m.role === 'user' ? 'var(--grey2)' : 'var(--teal)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                {m.role === 'user' ? <User size={16} color="var(--bg)" /> : <Bot size={16} color="var(--bg)" />}
               </div>
-              <div style={{ maxWidth: '80%', padding: '12px 16px', background: m.role === 'user' ? 'var(--bg3)' : 'transparent', border: '1px solid var(--border2)', borderRadius: '8px', color: 'var(--white)', fontSize: '14px' }}>
+              <div style={{ 
+                maxWidth: '80%', 
+                padding: '12px 16px', 
+                background: m.role === 'user' ? 'var(--bg3)' : 'transparent', 
+                border: m.role === 'user' ? '1px solid var(--teal)' : 'none', 
+                borderRadius: '8px', 
+                color: 'var(--white)', 
+                fontSize: '14px',
+                lineHeight: '1.6'
+              }}>
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{m.content}</ReactMarkdown>
               </div>
             </div>
           ))}
+          
+          {loading && (
+            <div style={{ display: 'flex', gap: '12px', color: 'var(--teal)', fontFamily: 'DM Mono', fontSize: '12px', paddingLeft: '48px' }}>
+              <Sparkles size={14} className="animate-pulse" />
+              <span>Consulting Knowledge Base...</span>
+            </div>
+          )}
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <input className="input" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} placeholder="Ask the Brain..." style={{ flex: 1 }} />
-          <button className="btn-primary" onClick={() => handleSend()} disabled={loading}><Send size={18} /></button>
+        {/* Action Bar */}
+        <div className="card" style={{ display: 'flex', gap: '10px', padding: '12px', background: 'var(--bg3)' }}>
+          <input 
+            className="input" 
+            value={input} 
+            onChange={e => setInput(e.target.value)} 
+            onKeyDown={e => e.key === 'Enter' && handleSend()} 
+            placeholder="Execute instruction or ask the AA Brain..." 
+            style={{ flex: 1, background: 'transparent', border: 'none' }} 
+            disabled={loading}
+          />
+          <button 
+            className="btn-primary" 
+            onClick={() => handleSend()} 
+            disabled={loading || !input.trim()}
+            style={{ padding: '0 20px' }}
+          >
+            <Send size={18} color="black" />
+          </button>
         </div>
       </div>
     </div>

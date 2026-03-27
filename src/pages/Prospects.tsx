@@ -46,19 +46,19 @@ export default function Prospects() {
   useEffect(() => { load() }, [metadata_id])
 
   async function load() {
-  setLoading(true)
-  let q = supabase
-    .from('prospects')
-    .select<string, Prospect>('*')
-    .eq('is_archived', false) // <--- Add this line here
-    .order('created_at', { ascending: false })
-  
-  if (role === 'distribution' && metadata_id) q = q.eq('assigned_to', metadata_id)
-
-  const { data } = await q
-  setProspects((data || []).map(p => ({ ...p, pipeline_stage: p.pipeline_stage || 'First Touch' })))
-  setLoading(false)
-}
+    setLoading(true)
+    let q = supabase
+      .from('prospects')
+      .select<string, Prospect>('*')
+      .eq('is_archived', false)
+      .order('created_at', { ascending: false })
+    
+    // REMOVED: role === 'distribution' check to allow global view of all prospects
+    
+    const { data } = await q
+    setProspects((data || []).map(p => ({ ...p, pipeline_stage: p.pipeline_stage || 'First Touch' })))
+    setLoading(false)
+  }
 
   const handleManualAdd = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,7 +66,6 @@ export default function Prospects() {
     
     setIsSaving(true)
     
-    // Explicitly casting to ensure TypeScript knows business_name exists
     const payload = {
       business_name: newProspect.business_name,
       vertical: newProspect.vertical || '',

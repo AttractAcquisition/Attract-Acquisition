@@ -44,7 +44,6 @@ const ADMIN_OPERATOR_NAV = [
     section: 'Build',
     items: [
       // Roles added to ensure these are visible to all internal staff
-      { label: 'AA Brain',    path: '/brain',     icon: BrainIcon, roles: ['admin', 'distribution', 'delivery'] },
       { label: 'SOP Library', path: '/sops',      icon: BookOpen,  roles: ['admin', 'distribution', 'delivery'] },
       { label: 'Templates',   path: '/templates', icon: FileCode,  roles: ['admin', 'distribution', 'delivery'] },
     ],
@@ -59,6 +58,7 @@ const ADMIN_OPERATOR_NAV = [
     section: 'System',
     items: [
       { label: 'Command Center', path: '/admin', icon: Shield, roles: ['admin'] },
+      { label: 'AA Brain',    path: '/brain',     icon: BrainIcon, roles: ['admin', 'distribution', 'delivery'] },
     ]
   },
 ]

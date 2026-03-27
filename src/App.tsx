@@ -27,7 +27,8 @@ import DistributionTracker from './components/views/Tracker/DistributionTracker'
 import DeliveryTracker from './components/views/Tracker/DeliveryTracker'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth()
+  // Add 'role' here 
+  const { session, loading, role } = useAuth() 
   const location = useLocation()
 
   if (loading) return (
@@ -37,6 +38,10 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   )
 
   if (!session) return <Navigate to="/login" state={{ from: location }} replace />
+  
+  // Now 'role' is defined and these checks will work
+  if (role === 'client' && location.pathname !== '/portal') return <Navigate to="/portal" replace />
+  if (role !== 'client' && location.pathname === '/portal') return <Navigate to="/dashboard" replace />
 
   return <>{children}</>
 }

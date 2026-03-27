@@ -7,7 +7,15 @@ import { useToast } from '../lib/toast'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useAuth } from '../lib/auth'
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
+import { 
+  DragDropContext, 
+  Droppable, 
+  Draggable, 
+  DropResult, 
+  DroppableProvided, 
+  DraggableProvided, 
+  DraggableStateSnapshot 
+} from '@hello-pangea/dnd'
 
 const CATEGORIES = ['Cold Outreach', 'Pipeline & Sales', 'Proof Sprint', 'Client Delivery', 'General']
 const STATUS_COLORS: Record<string, string> = {
@@ -68,19 +76,18 @@ export default function Sops() {
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
 
-    // Update sop_numbers based on new array index
     const updatedSops = items.map((sop, index) => ({
       ...sop,
       sop_number: index + 1
     }));
 
-    // Optimistic UI update
     setSops(prev => {
       const others = prev.filter(p => !items.find(i => i.id === p.id));
       return [...others, ...updatedSops].sort((a, b) => (a.sop_number || 0) - (b.sop_number || 0));
     });
 
-    // Persist to Supabase
+    // Fix for the "No overload matches this call" error: 
+    // Ensure we only send fields that exist in the DB schema for upsert
     const { error } = await supabase
       .from('sops')
       .upsert(updatedSops.map(s => ({
@@ -91,7 +98,7 @@ export default function Sops() {
 
     if (error) {
       toast('Failed to update order', 'error');
-      load(); // Revert on error
+      load();
     } else {
       toast('Order updated');
     }
@@ -187,13 +194,12 @@ export default function Sops() {
     }
   }
 
-  const filtered     = sops.filter(s => !filter || s.category === filter)
-  const activeCount  = sops.filter(s => s.status === 'active').length
-  const draftCount   = sops.filter(s => s.status === 'draft').length
+  const filtered = sops.filter(s => !filter || s.category === filter)
+  const activeCount = sops.filter(s => s.status === 'active').length
+  const draftCount = sops.filter(s => s.status === 'draft').length
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20, height: 'calc(100vh - 120px)' }}>
-      {/* Sidebar */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 4 }}>
           <div style={{ display: 'flex', gap: 16 }}>
@@ -223,11 +229,11 @@ export default function Sops() {
         <div style={{ flex: 1, overflowY: 'auto' }}>
           <DragDropContext onDragEnd={handleDragEnd}>
             <Droppable droppableId="sops-list">
-              {(provided) => (
+              {(provided: DroppableProvided) => (
                 <div {...provided.droppableProps} ref={provided.innerRef} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {filtered.map((s, index) => (
                     <Draggable key={s.id} draggableId={s.id} index={index} isDragDisabled={!canEdit}>
-                      {(provided, snapshot) => (
+                      {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
                         <div
                           ref={provided.innerRef}
                           {...provided.draggableProps}
@@ -269,7 +275,6 @@ export default function Sops() {
         </div>
       </div>
 
-      {/* Content Area */}
       <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {selected ? (
           <>
@@ -331,7 +336,7 @@ export default function Sops() {
             {editing && canEdit ? (
               <textarea value={content} onChange={e => setContent(e.target.value)}
                 style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--white)', fontFamily: 'Barlow', fontSize: 14, lineHeight: 1.8, padding: '16px', resize: 'none', outline: 'none' }}
-                placeholder="Write SOP content here (Markdown supported)..." />
+                placeholder="Write SOP content here..." />
             ) : (
               <div style={{ flex: 1, overflowY: 'auto', paddingRight: 8 }}>
                 {selected.content ? (
@@ -370,7 +375,7 @@ export default function Sops() {
           </>
         ) : (
           <div className="empty-state">
-            <h3 style={{ color: 'var(--grey2)' }}>Select an SOP from the library to view or edit system protocols</h3>
+            <h3 style={{ color: 'var(--grey2)' }}>Select an SOP from the library</h3>
           </div>
         )}
       </div>

@@ -7,15 +7,8 @@ import { useToast } from '../lib/toast'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useAuth } from '../lib/auth'
-import { 
-  DragDropContext, 
-  Droppable, 
-  Draggable, 
-  DropResult, 
-  DroppableProvided, 
-  DraggableProvided, 
-  DraggableStateSnapshot 
-} from '@hello-pangea/dnd'
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
+import type { DropResult, DroppableProvided, DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 
 const CATEGORIES = ['Cold Outreach', 'Pipeline & Sales', 'Proof Sprint', 'Client Delivery', 'General']
 const STATUS_COLORS: Record<string, string> = {
@@ -94,7 +87,7 @@ export default function Sops() {
         id: s.id,
         sop_number: s.sop_number,
         updated_at: new Date().toISOString()
-      })));
+      })) as any[]);
 
     if (error) {
       toast('Failed to update order', 'error');

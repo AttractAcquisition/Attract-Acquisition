@@ -2,7 +2,7 @@ import { NavLink, useLocation, Outlet } from 'react-router-dom'
 import { useState } from 'react'
 import {
   LayoutDashboard, CalendarCheck, Users, MessageSquare, Briefcase,
-  Zap, FileText, BookOpen, FileCode, BarChart3, Menu, X, Plus, Search, Shield, Activity, Target, ClipboardList, BrainIcon
+  Zap, FileText, BookOpen, FileCode, BarChart3, Menu, X, Plus, Search, Shield, Activity, Target, ClipboardList, FolderOpen
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../lib/toast'
@@ -58,7 +58,7 @@ const ADMIN_OPERATOR_NAV = [
   {
     section: 'System',
     items: [
-      { label: 'Command Center', path: '/admin', icon: Shield, roles: ['admin'] }
+      { label: 'Command Center', path: '/admin', icon: Shield, roles: ['admin'] },
     ]
   },
 ]
@@ -87,6 +87,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/sprints':   'Proof Sprints',
   '/studio':    'MJR Studio',
   '/sops':      'SOP Library',
+  '/documents': 'Repository',
   '/templates': 'Templates',
   '/finance':   'MRR Dashboard',
   '/capital':   'Trust & Capital',

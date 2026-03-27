@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Sop } from '../lib/supabase'
 import { formatDate } from '../lib/utils'
 import { Edit2, ChevronRight, Save, X } from 'lucide-react'
 import { useToast } from '../lib/toast'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm' // 1. Import the GFM plugin
 import { useAuth } from '../lib/auth'
 
 const CATEGORIES = ['Cold Outreach', 'Pipeline & Sales', 'Proof Sprint', 'Client Delivery']
@@ -30,37 +31,32 @@ export default function Sops() {
     load() 
   }, [role])
 
-async function load() {
-  let q = supabase.from('sops').select('*').order('sop_number')
+  async function load() {
+    let q = supabase.from('sops').select('*').order('sop_number')
 
-  // Role-Based Category Filtering
-  if (role === 'delivery') {
-    // Delivery only sees the technical fulfillment categories
-    q = q.in('category', ['Proof Sprint', 'Client Delivery', 'General'])
-  } else if (role === 'distribution') {
-    // Distribution only sees the front-end acquisition categories
-    q = q.in('category', ['Cold Outreach', 'Pipeline & Sales', 'General'])
+    if (role === 'delivery') {
+      q = q.in('category', ['Proof Sprint', 'Client Delivery', 'General'])
+    } else if (role === 'distribution') {
+      q = q.in('category', ['Cold Outreach', 'Pipeline & Sales', 'General'])
+    }
+
+    if (role !== 'admin') {
+      q = q.eq('status', 'active')
+    }
+
+    const { data } = await q
+    
+    const normalized: Sop[] = (data || []).map((s: any) => ({
+      ...s,
+      content: s.content || '',
+      version: s.version || '1.0',
+      category: s.category || '',
+      status: s.status || 'draft',
+      title: s.title || 'Untitled SOP',
+    }))
+
+    setSops(normalized)
   }
-
-  if (role !== 'admin') {
-    // Everyone except Admin only sees 'active' (published) SOPs
-    q = q.eq('status', 'active')
-  }
-
-  const { data } = await q
-  
-  // Mapping logic remains the same...
-  const normalized: Sop[] = (data || []).map((s: any) => ({
-    ...s,
-    content: s.content || '',
-    version: s.version || '1.0',
-    category: s.category || '',
-    status: s.status || 'draft',
-    title: s.title || 'Untitled SOP',
-  }))
-
-  setSops(normalized)
-}
 
   function selectSop(s: Sop) {
     setSelected(s)
@@ -192,31 +188,39 @@ async function load() {
             {editing && canEdit ? (
               <textarea value={content} onChange={e => setContent(e.target.value)}
                 style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--white)', fontFamily: 'Barlow', fontSize: 14, lineHeight: 1.8, padding: '16px', resize: 'none', outline: 'none' }}
-                placeholder="Write SOP content here. Use plain text or Markdown formatting.&#10;&#10;Start with: Purpose, Trigger, Steps (numbered), Outputs, Notes" />
+                placeholder="Write SOP content here..." />
             ) : (
               <div style={{ flex: 1, overflowY: 'auto', paddingRight: 8 }}>
                 {selected.content ? (
                   <div style={{ fontSize: 14, lineHeight: 1.9, color: 'var(--grey)' }}>
                     <ReactMarkdown
+                      remarkPlugins={[remarkGfm]} // 2. Add plugin here
                       components={{
                         h1: ({node, ...props}) => <h1 style={{ fontSize: 26, fontWeight: 700, marginTop: 20, marginBottom: 12, color: 'var(--white)' }} {...props} />,
                         h2: ({node, ...props}) => <h2 style={{ fontSize: 22, fontWeight: 700, marginTop: 16, marginBottom: 10, color: 'var(--white)' }} {...props} />,
                         h3: ({node, ...props}) => <h3 style={{ fontSize: 18, fontWeight: 600, marginTop: 14, marginBottom: 8, color: 'var(--white)' }} {...props} />,
-                        p:  ({node, ...props}) => <p style={{ marginBottom: 12 }} {...props} />,
+                        
+                        p: ({node, ...props}) => <div style={{ marginBottom: 12 }} {...props} />,
+
                         ul: ({node, ...props}) => <ul style={{ marginLeft: 24, marginBottom: 12, listStyleType: 'disc' }} {...props} />,
                         ol: ({node, ...props}) => <ol style={{ marginLeft: 24, marginBottom: 12, listStyleType: 'decimal' }} {...props} />,
                         li: ({node, ...props}) => <li style={{ marginBottom: 6 }} {...props} />,
-                        code: ({node, inline, ...props}: any) => inline ? (
-                          <code style={{ background: 'var(--bg)', padding: '2px 6px', borderRadius: 3, fontFamily: 'DM Mono', fontSize: 12, color: 'var(--teal)' }} {...props} />
+                        
+                        code: ({node, inline, children, ...props}: any) => inline ? (
+                          <code style={{ background: 'var(--bg)', padding: '2px 6px', borderRadius: 3, fontFamily: 'DM Mono', fontSize: 12, color: 'var(--teal)' }} {...props}>{children}</code>
                         ) : (
-                          <pre style={{ background: 'var(--bg)', padding: 12, borderRadius: 4, overflow: 'auto', marginBottom: 12, fontFamily: 'DM Mono', fontSize: 12 }} {...props} />
+                          <pre style={{ background: 'var(--bg)', padding: 12, borderRadius: 4, overflow: 'auto', marginBottom: 12, fontFamily: 'DM Mono', fontSize: 12, whiteSpace: 'pre-wrap' }} {...props}>{children}</pre>
                         ),
+
                         blockquote: ({node, ...props}) => <blockquote style={{ borderLeft: '4px solid var(--teal)', paddingLeft: 12, marginLeft: 0, marginBottom: 12, color: 'var(--grey2)', fontStyle: 'italic' }} {...props} />,
                         a: ({node, ...props}: any) => <a style={{ color: 'var(--teal)', textDecoration: 'underline' }} {...props} />,
                         hr: ({node, ...props}) => <hr style={{ borderTop: '1px solid var(--border2)', marginBottom: 12, marginTop: 12 }} {...props} />,
-                        table: ({node, ...props}) => <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }} {...props} />,
-                        th: ({node, ...props}) => <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid var(--border2)', fontWeight: 600 }} {...props} />,
-                        td: ({node, ...props}) => <td style={{ padding: 8, borderBottom: '1px solid var(--border2)' }} {...props} />,
+                        
+                        // Table styling
+                        table: ({node, ...props}) => <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20, border: '1px solid var(--border2)' }} {...props} />,
+                        thead: ({node, ...props}) => <thead style={{ background: 'var(--bg2)' }} {...props} />,
+                        th: ({node, ...props}) => <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '2px solid var(--border2)', fontWeight: 600, color: 'var(--white)', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }} {...props} />,
+                        td: ({node, ...props}) => <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border2)', fontSize: 13 }} {...props} />,
                       }}
                     >
                       {selected.content}
@@ -225,10 +229,6 @@ async function load() {
                 ) : (
                   <div className="empty-state" style={{ paddingTop: 40 }}>
                     <h3>No content yet</h3>
-                    {canEdit
-                      ? <><p>Click Edit to write this SOP.</p><button className="btn-secondary" onClick={() => setEditing(true)}>Write SOP</button></>
-                      : <p>This SOP hasn't been written yet. Check back later.</p>
-                    }
                   </div>
                 )}
               </div>
@@ -237,7 +237,6 @@ async function load() {
         ) : (
           <div className="empty-state">
             <h3>Select an SOP</h3>
-            <p>Choose an SOP from the list to read it.</p>
           </div>
         )}
       </div>

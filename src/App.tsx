@@ -25,6 +25,7 @@ import DistributionDashboard from './components/views/Dashboard/DistributionDash
 import DeliveryDashboard from './components/views/Dashboard/DeliveryDashboard'
 import DistributionTracker from './components/views/Tracker/DistributionTracker'
 import DeliveryTracker from './components/views/Tracker/DeliveryTracker'
+import Documents from './pages/Documents'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   // Add 'role' here 
@@ -75,6 +76,11 @@ function AppRoutes() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="tracker"   element={<RoleWrapper allowedRoles={['admin']}><Tracker /></RoleWrapper>} />
         <Route path="admin"     element={<RoleWrapper allowedRoles={['admin']}><AdminControl /></RoleWrapper>} />
+        
+        {/* --- REPOSITORY & DOCS --- */}
+        <Route path="documents" element={
+          <RoleWrapper allowedRoles={['admin']}><Documents /></RoleWrapper>
+        } />
 
         {/* --- OPS DASHBOARDS --- */}
         <Route path="distribution" element={

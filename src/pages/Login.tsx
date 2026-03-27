@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom' // <-- 1. Import useNavigate
 import { supabase } from '../lib/supabase'
 
 export default function Login() {
+  const navigate = useNavigate() // <-- 2. Initialize navigation
+
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading]   = useState(false)
@@ -11,9 +14,16 @@ export default function Login() {
     if (!email || !password) { setError('Email and password required'); return }
     setLoading(true)
     setError('')
+    
     const { error: err } = await supabase.auth.signInWithPassword({ email, password })
-    if (err) { setError(err.message); setLoading(false) }
-    // On success: onAuthStateChange fires → App.tsx redirects by role
+    
+    if (err) { 
+      setError(err.message)
+      setLoading(false) 
+    } else {
+      // <-- 3. Force the redirect explicitly on success!
+      navigate('/', { replace: true })
+    }
   }
 
   return (

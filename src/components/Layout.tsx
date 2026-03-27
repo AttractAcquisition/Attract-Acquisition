@@ -2,30 +2,31 @@ import { NavLink, useLocation, Outlet } from 'react-router-dom'
 import { useState } from 'react'
 import {
   LayoutDashboard, CalendarCheck, Users, MessageSquare, Briefcase,
-  Zap, FileText, BookOpen, FileCode, BarChart3, Menu, X, Plus, Search, Shield, Activity, Target, ClipboardList
+  Zap, FileText, BookOpen, FileCode, BarChart3, Menu, X, Plus, Search, Shield, Activity, Target, ClipboardList, BrainIcon
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../lib/toast'
 import { supabase } from '../lib/supabase'
 
+// Updated Nav items to ensure every item has a 'roles' array to prevent .includes() errors
 const ADMIN_OPERATOR_NAV = [
   {
     section: 'Overview',
     items: [
-      { label: 'Admin Dashboard',         path: '/dashboard', icon: LayoutDashboard, roles: ['admin'] },
-      { label: 'Ops Dashboard',     path: '/distribution', icon: Activity,    roles: ['distribution'] },
-      { label: 'Ops Dashboard',       path: '/delivery-dash', icon: Target,      roles: ['delivery'] },
-      { label: 'Ops Tracker',    path: '/distro-tracker',   icon: CalendarCheck,   roles: ['distribution'] },
-      { label: 'Ops Tracker',  path: '/delivery-tracker', icon: CalendarCheck,   roles: ['delivery'] },
-      { label: 'Admin Tracker',    path: '/tracker',           icon: ClipboardList,   roles: ['admin'] },
+      { label: 'Admin Dashboard',   path: '/dashboard',        icon: LayoutDashboard, roles: ['admin'] },
+      { label: 'Ops Dashboard',     path: '/distribution',     icon: Activity,        roles: ['distribution'] },
+      { label: 'Ops Dashboard',     path: '/delivery-dash',    icon: Target,          roles: ['delivery'] },
+      { label: 'Ops Tracker',       path: '/distro-tracker',   icon: CalendarCheck,   roles: ['distribution'] },
+      { label: 'Ops Tracker',       path: '/delivery-tracker', icon: CalendarCheck,   roles: ['delivery'] },
+      { label: 'Admin Tracker',     path: '/tracker',          icon: ClipboardList,   roles: ['admin'] },
     ],
   },
   {
     section: 'Distribution Hub',
     items: [
-      { label: 'Scraper',       path: '/scraper',      icon: Search,        roles: ['distribution'] },
+      { label: 'Scraper',       path: '/scraper',      icon: Search,        roles: ['distribution', 'admin'] },
       { label: 'Prospects',     path: '/prospects',    icon: Users,         roles: ['admin', 'distribution'] },
-      { label: 'Outreach',      path: '/outreach',     icon: MessageSquare, roles: ['distribution'] },
+      { label: 'Outreach',      path: '/outreach',     icon: MessageSquare, roles: ['distribution', 'admin'] },
       { label: 'CRM Pipeline',  path: '/crm',          icon: LayoutDashboard, roles: ['admin', 'distribution'] }, 
       { label: 'Clients',       path: '/clients',      icon: Briefcase,     roles: ['admin', 'delivery'] },
     ],
@@ -33,17 +34,19 @@ const ADMIN_OPERATOR_NAV = [
   {
     section: 'Delivery Engine',
     items: [
-      { label: 'MJR Studio',    path: '/studio',    icon: FileText,  roles: ['distribution'] },
-      { label: 'Proof Sprints',  path: '/sprints',   icon: Zap,       roles: ['admin', 'delivery'] },
-      { label: 'Proof Brand',    path: '/proof',     icon: BookOpen,  roles: ['admin', 'delivery'] },
+      { label: 'MJR Studio',      path: '/studio',    icon: FileText,  roles: ['distribution', 'admin', 'delivery'] },
+      { label: 'Proof Sprints',   path: '/sprints',   icon: Zap,       roles: ['admin', 'delivery'] },
+      { label: 'Proof Brand',     path: '/proof',     icon: BookOpen,  roles: ['admin', 'delivery'] },
       { label: 'Authority Brand', path: '/authority', icon: Shield,    roles: ['admin', 'delivery'] },
     ],
   },
   {
     section: 'Build',
     items: [
-      { label: 'SOP Library', path: '/sops',      icon: BookOpen,  roles: ['admin', 'delivery', 'distribution'] },
-      { label: 'Templates',   path: '/templates', icon: FileCode,  roles: ['admin'] },
+      // Roles added to ensure these are visible to all internal staff
+      { label: 'AA Brain',    path: '/brain',     icon: BrainIcon, roles: ['admin', 'distribution', 'delivery'] },
+      { label: 'SOP Library', path: '/sops',      icon: BookOpen,  roles: ['admin', 'distribution', 'delivery'] },
+      { label: 'Templates',   path: '/templates', icon: FileCode,  roles: ['admin', 'distribution', 'delivery'] },
     ],
   },
   {
@@ -64,8 +67,8 @@ const CLIENT_NAV = [
   {
     section: 'Overview',
     items: [
-      { label: 'Dashboard',         path: '/dashboard', icon: LayoutDashboard },
-      { label: 'Execution Tracker', path: '/delivery-tracker',   icon: CalendarCheck   },
+      { label: 'Dashboard',         path: '/dashboard',        icon: LayoutDashboard },
+      { label: 'Execution Tracker', path: '/delivery-tracker', icon: CalendarCheck   },
     ],
   },
 ]
@@ -80,6 +83,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/scraper':   'Scraper',
   '/outreach':  'Outreach',
   '/clients':   'Clients',
+  '/brain':     'AA Brain',
   '/sprints':   'Proof Sprints',
   '/studio':    'MJR Studio',
   '/sops':      'SOP Library',
@@ -113,12 +117,15 @@ export default function Layout() {
 
   const isClient = role === 'client'
 
+  // Refined filtering logic to prevent crashes if an item is missing a roles array
   const navGroups = isClient
     ? CLIENT_NAV
     : ADMIN_OPERATOR_NAV
         .map(group => ({
           ...group,
-          items: group.items.filter(item => item.roles.includes(role || '')),
+          items: group.items.filter(item => 
+            !item.roles || item.roles.includes(role || '')
+          ),
         }))
         .filter(group => group.items.length > 0)
 
@@ -136,6 +143,7 @@ export default function Layout() {
         flexDirection: 'column', height: '100vh', overflowY: 'auto',
         position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 50,
         transition: 'transform 0.2s',
+        transform: open ? 'translateX(0)' : 'translateX(0)', // Note: Mobile logic can be added here
       }}>
 
         <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid var(--border2)', display: 'flex', alignItems: 'center', gap: 10 }}>

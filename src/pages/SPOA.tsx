@@ -7,6 +7,7 @@ import {
   Users, Target
 } from 'lucide-react'
 import { useToast } from '../lib/toast'
+import { SPOA_STYLES, wrapWithStyles } from '../lib/docStyles'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface PreviewStats {
@@ -169,8 +170,9 @@ export default function SPOA() {
       const html = data.html?.trim() ?? ''
       if (!html) throw new Error('Empty HTML returned — please regenerate')
 
+      const fullHtml = wrapWithStyles(html, SPOA_STYLES, `SPOA — ${selected.business_name}`)
       const bom = '\uFEFF'
-      const blob = new Blob([bom + html], { type: 'text/html;charset=utf-8' })
+      const blob = new Blob([bom + fullHtml], { type: 'text/html;charset=utf-8' })
       blobUrlRef.current = URL.createObjectURL(blob)
 
       setSpoaResult(data)
@@ -202,8 +204,9 @@ export default function SPOA() {
 
   const downloadHTML = useCallback(() => {
     if (!spoaResult?.html || !selected) return
+    const fullHtml = wrapWithStyles(spoaResult.html, SPOA_STYLES, `SPOA — ${selected.business_name}`)
     const bom = '\uFEFF'
-    const blob = new Blob([bom + spoaResult.html], { type: 'text/html;charset=utf-8' })
+    const blob = new Blob([bom + fullHtml], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     const name = selected.business_name.replace(/[^a-zA-Z0-9]/g, '_')
@@ -219,22 +222,25 @@ export default function SPOA() {
   }, [spoaResult, selected, toast])
 
   const printReport = useCallback(() => {
-    if (!blobUrlRef.current) return
-    const win = window.open(blobUrlRef.current, '_blank', 'noopener')
+    if (!spoaResult?.html || !selected) return
+    const fullHtml = wrapWithStyles(spoaResult.html, SPOA_STYLES, `SPOA — ${selected.business_name}`)
+    const win = window.open('', '_blank', 'noopener')
     if (win) {
-      win.onload = () => {
-        win.focus()
-        setTimeout(() => win.print(), 500)
-      }
+      win.document.open()
+      win.document.write(fullHtml)
+      win.document.close()
+      win.focus()
+      setTimeout(() => win.print(), 500)
     }
-  }, [])
+  }, [spoaResult, selected])
 
   const copyFullHTML = useCallback(() => {
-    if (!spoaResult?.html) return
-    navigator.clipboard.writeText(spoaResult.html).then(() => {
+    if (!spoaResult?.html || !selected) return
+    const fullHtml = wrapWithStyles(spoaResult.html, SPOA_STYLES, `SPOA — ${selected.business_name}`)
+    navigator.clipboard.writeText(fullHtml).then(() => {
       toast('Full HTML copied to clipboard ✓', 'success')
     })
-  }, [spoaResult, toast])
+  }, [spoaResult, selected, toast])
 
   return (
     <div style={{
@@ -446,7 +452,7 @@ export default function SPOA() {
 
                     {showPreview && (
                       <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border2)', marginTop: 8 }}>
-                        <ReportIframe html={spoaResult.html} title="SPOA Preview" />
+                        <ReportIframe html={wrapWithStyles(spoaResult.html, SPOA_STYLES, `SPOA — ${selected.business_name}`)} title="SPOA Preview" />
                       </div>
                     )}
                   </>

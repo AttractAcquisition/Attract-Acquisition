@@ -9,6 +9,7 @@ import {
   Users, Target
 } from 'lucide-react'
 import { useToast } from '../lib/toast'
+import { MJR_STYLES, wrapWithStyles } from '../lib/docStyles'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface PreviewStats {
@@ -172,8 +173,9 @@ export default function Studio() {
       const html = data.html?.trim() ?? ''
       if (!html) throw new Error('Empty HTML returned — please regenerate')
 
+      const fullHtml = wrapWithStyles(html, MJR_STYLES, `MJR — ${selected.business_name}`)
       const bom = '\uFEFF'
-      const blob = new Blob([bom + html], { type: 'text/html;charset=utf-8' })
+      const blob = new Blob([bom + fullHtml], { type: 'text/html;charset=utf-8' })
       blobUrlRef.current = URL.createObjectURL(blob)
 
       setMjrResult(data)
@@ -203,8 +205,9 @@ export default function Studio() {
 
   const downloadHTML = useCallback(() => {
     if (!mjrResult?.html || !selected) return
+    const fullHtml = wrapWithStyles(mjrResult.html, MJR_STYLES, `MJR — ${selected.business_name}`)
     const bom = '\uFEFF'
-    const blob = new Blob([bom + mjrResult.html], { type: 'text/html;charset=utf-8' })
+    const blob = new Blob([bom + fullHtml], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     const name = selected.business_name.replace(/[^a-zA-Z0-9]/g, '_')
@@ -220,21 +223,25 @@ export default function Studio() {
   }, [mjrResult, selected, toast])
 
   const printReport = useCallback(() => {
-    if (!blobUrlRef.current) return
-    const win = window.open(blobUrlRef.current, '_blank', 'noopener')
+    if (!mjrResult?.html || !selected) return
+    const fullHtml = wrapWithStyles(mjrResult.html, MJR_STYLES, `MJR — ${selected.business_name}`)
+    const win = window.open('', '_blank', 'noopener')
     if (win) {
-      win.addEventListener('load', () => {
-        setTimeout(() => win.print(), 800)
-      })
+      win.document.open()
+      win.document.write(fullHtml)
+      win.document.close()
+      win.focus()
+      setTimeout(() => win.print(), 500)
     }
-  }, [])
+  }, [mjrResult, selected])
 
   const copyFullHTML = useCallback(() => {
-    if (!mjrResult?.html) return
-    navigator.clipboard.writeText(mjrResult.html).then(() => {
+    if (!mjrResult?.html || !selected) return
+    const fullHtml = wrapWithStyles(mjrResult.html, MJR_STYLES, `MJR — ${selected.business_name}`)
+    navigator.clipboard.writeText(fullHtml).then(() => {
       toast('Full HTML copied to clipboard ✓', 'success')
     })
-  }, [mjrResult, toast])
+  }, [mjrResult, selected, toast])
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -524,7 +531,7 @@ export default function Studio() {
                             Live Document Preview
                           </div>
                         </div>
-                        <ReportIframe html={mjrResult.html} title="MJR Preview" />
+                        <ReportIframe html={wrapWithStyles(mjrResult.html, MJR_STYLES, `MJR — ${selected.business_name}`)} title="MJR Preview" />
                       </div>
                     )}
                   </>

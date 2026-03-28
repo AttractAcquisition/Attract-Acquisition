@@ -1,6 +1,6 @@
 import { NavLink, useLocation, Outlet, useNavigate } from 'react-router-dom'
 import { useState, useMemo } from 'react'
-import { X, Menu, Plus, BrainIcon } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../lib/toast'
 import { supabase } from '../lib/supabase'

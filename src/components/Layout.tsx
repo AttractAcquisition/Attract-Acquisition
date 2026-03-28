@@ -8,7 +8,7 @@ import { useAuth } from '../lib/auth'
 import { useToast } from '../lib/toast'
 import { supabase } from '../lib/supabase'
 
-// Updated Nav items to ensure every item has a 'roles' array to prevent .includes() errors
+// Updated Nav items
 const ADMIN_OPERATOR_NAV = [
   {
     section: 'Overview',
@@ -52,7 +52,7 @@ const ADMIN_OPERATOR_NAV = [
   {
     section: 'Finance',
     items: [
-      { label: 'Finance',   path: '/finance', icon: BarChart3, roles: ['admin'] },
+      { label: 'Capital Flow',   path: '/finance', icon: BarChart3, roles: ['admin'] },
     ],
   },
   {
@@ -92,7 +92,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/sops':      'SOP Library',
   '/documents': 'Repository',
   '/templates': 'Templates',
-  '/finance':   'MRR Dashboard',
+  '/finance':   'Capital Flow',
   '/authority': 'Authority Brand',
   '/proof':     'Proof Brand',
   '/admin':     'Command Center',
@@ -365,8 +365,8 @@ function QuickProspectForm({ onSave, onBack }: { onSave: (f: any) => void; onBac
       {[
         { f: 'business_name', l: 'Business Name *', p: 'e.g. Cape Town Auto Detailing' },
         { f: 'owner_name',    l: 'Owner Name',       p: 'e.g. John Smith' },
-        { f: 'suburb',        l: 'Suburb',            p: 'e.g. Woodstock' },
-        { f: 'phone',         l: 'Phone',             p: '+27 82 000 0000' },
+        { f: 'suburb',         l: 'Suburb',             p: 'e.g. Woodstock' },
+        { f: 'phone',          l: 'Phone',              p: '+27 82 000 0000' },
       ].map(x => (
         <div key={x.f}>
           <div className="label">{x.l}</div>
@@ -400,7 +400,7 @@ function QuickClientForm({ onSave, onBack }: { onSave: (f: any) => void; onBack:
       {[
         { f: 'business_name', l: 'Business Name *', p: '' },
         { f: 'owner_name',    l: 'Owner Name *',     p: '' },
-        { f: 'whatsapp',      l: 'WhatsApp',          p: '+27 82 000 0000' },
+        { f: 'whatsapp',       l: 'WhatsApp',           p: '+27 82 000 0000' },
       ].map(x => (
         <div key={x.f}>
           <div className="label">{x.l}</div>

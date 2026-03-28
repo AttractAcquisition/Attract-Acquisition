@@ -33,6 +33,8 @@ export interface Prospect extends BaseProspect {
   msg_4_sent?: boolean | null;
   msg_5_sent?: boolean | null;
   is_archived?: boolean | null;
+  spoa_delivered_at?: string | null; 
+  mjr_delivered_at?: string | null;
 }
 
 export type Ledger = Database['public']['Tables']['ledger']['Row']

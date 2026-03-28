@@ -50,11 +50,12 @@ const ADMIN_OPERATOR_NAV = [
     ],
   },
   {
-    section: 'Finance',
-    items: [
-      { label: 'Capital Flow',   path: '/finance', icon: BarChart3, roles: ['admin'] },
-    ],
-  },
+  section: 'Finance',
+  items: [
+    { label: 'MRR Dashboard', path: '/finance', icon: BarChart3, roles: ['admin'] },
+    { label: 'Capital Flow',  path: '/income',  icon: Activity,  roles: ['admin'] }, // Added Income Tracking
+  ],
+},
   {
     section: 'System',
     items: [
@@ -92,7 +93,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/sops':      'SOP Library',
   '/documents': 'Repository',
   '/templates': 'Templates',
-  '/finance':   'Capital Flow',
+  '/finance':   'MRR Dashboard',
+  '/income':  'Capital Flow',
   '/authority': 'Authority Brand',
   '/proof':     'Proof Brand',
   '/admin':     'Command Center',

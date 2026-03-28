@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../lib/supabase';
 import { useToast } from '../lib/toast';
 import { 
-  Send, Bot, User, Sparkles, 
+  Send, Bot, User, 
   Brain as BrainIcon, Loader2, 
   Terminal, ShieldCheck 
 } from 'lucide-react';

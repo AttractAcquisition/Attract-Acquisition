@@ -73,7 +73,6 @@ export default function IncomeTracking() {
       if (error) throw error
       setTransactions((data as unknown as Transaction[]) || [])
     } catch (error: any) {
-      // Fixed: Passing string arguments instead of an object
       toast(error.message || 'Failed to fetch transactions', 'error')
     } finally {
       setLoading(false)
@@ -93,13 +92,11 @@ export default function IncomeTracking() {
 
       if (error) throw error
       
-      // Fixed: Passing string arguments instead of an object
       toast('Transaction recorded successfully.', 'success')
       setIsModalOpen(false)
       setFormData({ amount: '', type: 'income', category: 'Subscription', description: '', date: new Date().toISOString().split('T')[0] })
       fetchTransactions()
     } catch (error: any) {
-      // Fixed: Passing string arguments instead of an object
       toast(error.message || 'Failed to record transaction', 'error')
     }
   }
@@ -116,8 +113,74 @@ export default function IncomeTracking() {
     return CATEGORIES.map(cat => {
       const val = transactions.filter(t => t.type === 'expense' && t.category === cat).reduce((acc, t) => acc + t.amount, 0)
       return { name: cat, percent: Math.round((val / totalExp) * 100) }
-    }).filter(c => c.percent > 0)
+    }).filter(c => c.percent > 0).sort((a, b) => b.percent - a.percent)
   }, [transactions, stats.expenses])
+
+  // Dynamic Chart Data Generator
+  const chartData = useMemo(() => {
+    const buckets: { label: string; income: number; expense: number; matchKey: string | number }[] = []
+    const now = new Date()
+
+    // 1. Initialize empty buckets based on view type
+    if (view === 'daily') {
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now)
+        d.setDate(d.getDate() - i)
+        buckets.push({ 
+          label: d.toLocaleDateString('en-US', { weekday: 'short' }), 
+          matchKey: d.toISOString().split('T')[0], 
+          income: 0, expense: 0 
+        })
+      }
+    } else if (view === 'weekly') {
+      for (let i = 4; i >= 0; i--) {
+        buckets.push({ label: i === 0 ? 'This Wk' : `-${i} Wks`, matchKey: i, income: 0, expense: 0 })
+      }
+    } else if (view === 'monthly') {
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        buckets.push({ 
+          label: d.toLocaleDateString('en-US', { month: 'short' }), 
+          matchKey: d.toISOString().substring(0, 7), 
+          income: 0, expense: 0 
+        })
+      }
+    }
+
+    // 2. Aggregate transaction amounts into buckets
+    transactions.forEach(t => {
+      const tDate = new Date(t.date)
+      let targetBucket = null
+
+      if (view === 'daily') {
+        const dateStr = t.date.split('T')[0]
+        targetBucket = buckets.find(b => b.matchKey === dateStr)
+      } else if (view === 'weekly') {
+        // Calculate weeks ago
+        const diffDays = Math.floor((now.getTime() - tDate.getTime()) / (1000 * 60 * 60 * 24))
+        const weeksAgo = Math.floor(diffDays / 7)
+        targetBucket = buckets.find(b => b.matchKey === weeksAgo)
+      } else if (view === 'monthly') {
+        const monthStr = t.date.substring(0, 7)
+        targetBucket = buckets.find(b => b.matchKey === monthStr)
+      }
+
+      if (targetBucket) {
+        if (t.type === 'income') targetBucket.income += t.amount
+        else targetBucket.expense += t.amount
+      }
+    })
+
+    // 3. Calculate percentages for rendering relative heights
+    const maxVal = Math.max(...buckets.map(b => Math.max(b.income, b.expense)), 1) // prevent div by 0
+
+    return buckets.map(b => ({
+      ...b,
+      incomeHeight: Math.max((b.income / maxVal) * 100, 2), // 2% min height if 0 to show empty state subtly
+      expenseHeight: Math.max((b.expense / maxVal) * 100, 2),
+      hasData: b.income > 0 || b.expense > 0
+    }))
+  }, [transactions, view])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 40, opacity: loading ? 0.7 : 1 }}>
@@ -158,18 +221,47 @@ export default function IncomeTracking() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 24 }}>
         
-        {/* Visualization */}
-        <div className="card" style={{ minHeight: 400, display: 'flex', flexDirection: 'column', padding: 24 }}>
+        {/* Dynamic Visualization */}
+        <div className="card" style={{ height: 400, display: 'flex', flexDirection: 'column', padding: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
             <div className="section-label">Cashflow Visualization ({view})</div>
             <BarChart3 size={16} style={{ color: 'var(--teal)' }} />
           </div>
           
-          <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 12, padding: '20px 0' }}>
-            {[40, 70, 45, 90, 65, 80, 95].map((h, i) => (
-              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column-reverse', gap: 4, height: '100%' }}>
-                <div style={{ height: `${h}%`, background: 'var(--teal)', borderRadius: '4px 4px 0 0', opacity: 0.8 }} />
-                <div style={{ height: `${h/3}%`, background: '#FF4444', borderRadius: '2px', opacity: 0.6 }} />
+          <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, paddingTop: 20 }}>
+            {chartData.map((data, i) => (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, height: '100%' }}>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', gap: 4 }}>
+                  {/* Income Bar */}
+                  <div 
+                    title={`Income: R${data.income.toLocaleString()}`}
+                    style={{ 
+                      flex: 1, 
+                      maxWidth: '30px',
+                      height: `${data.incomeHeight}%`, 
+                      background: data.hasData ? 'var(--teal)' : 'var(--bg3)', 
+                      borderRadius: '4px 4px 0 0', 
+                      opacity: data.income > 0 ? 0.9 : 0.3,
+                      transition: 'height 0.4s ease'
+                    }} 
+                  />
+                  {/* Expense Bar */}
+                  <div 
+                    title={`Expense: R${data.expense.toLocaleString()}`}
+                    style={{ 
+                      flex: 1, 
+                      maxWidth: '30px',
+                      height: `${data.expenseHeight}%`, 
+                      background: data.hasData ? '#FF4444' : 'var(--bg3)', 
+                      borderRadius: '4px 4px 0 0', 
+                      opacity: data.expense > 0 ? 0.7 : 0.3,
+                      transition: 'height 0.4s ease'
+                    }} 
+                  />
+                </div>
+                <span style={{ fontSize: 10, fontFamily: 'DM Mono', color: 'var(--grey)', textTransform: 'uppercase' }}>
+                  {data.label}
+                </span>
               </div>
             ))}
           </div>
@@ -190,7 +282,7 @@ export default function IncomeTracking() {
           <div className="card" style={{ padding: 20, flex: 1 }}>
             <div className="section-label" style={{ marginBottom: 16 }}>Expense Distribution</div>
             {categoryShare.length > 0 ? categoryShare.map(cat => (
-              <div key={cat.name} style={{ padding: '12px 0', borderBottom: '1px solid var(--border2)', display: 'flex', justifyContent: 'space-between' }}>
+              <div key={cat.name} style={{ padding: '12px 0', borderBottom: '1px solid var(--border2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 13, color: 'var(--white)' }}>{cat.name}</span>
                 <span style={{ fontSize: 11, fontFamily: 'DM Mono', color: 'var(--grey)' }}>{cat.percent}%</span>
               </div>

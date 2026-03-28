@@ -14,11 +14,11 @@ const ADMIN_OPERATOR_NAV = [
     section: 'Overview',
     items: [
       { label: 'Admin Dashboard',   path: '/dashboard',        icon: LayoutDashboard, roles: ['admin'] },
-      { label: 'Ops Dashboard',     path: '/distribution',     icon: Activity,         roles: ['distribution'] },
-      { label: 'Ops Dashboard',     path: '/delivery-dash',    icon: Target,           roles: ['delivery'] },
-      { label: 'Ops Tracker',       path: '/distro-tracker',   icon: CalendarCheck,   roles: ['distribution'] },
-      { label: 'Ops Tracker',       path: '/delivery-tracker', icon: CalendarCheck,   roles: ['delivery'] },
-      { label: 'Admin Tracker',     path: '/tracker',          icon: ClipboardList,   roles: ['admin'] },
+      { label: 'Ops Dashboard',      path: '/distribution',     icon: Activity,        roles: ['distribution'] },
+      { label: 'Ops Dashboard',      path: '/delivery-dash',    icon: Target,            roles: ['delivery'] },
+      { label: 'Ops Tracker',        path: '/distro-tracker',   icon: CalendarCheck,   roles: ['distribution'] },
+      { label: 'Ops Tracker',        path: '/delivery-tracker', icon: CalendarCheck,   roles: ['delivery'] },
+      { label: 'Admin Tracker',      path: '/tracker',          icon: ClipboardList,   roles: ['admin'] },
     ],
   },
   {
@@ -37,7 +37,7 @@ const ADMIN_OPERATOR_NAV = [
       { label: 'MJR Studio',      path: '/studio',    icon: FileText,  roles: ['distribution', 'admin', 'delivery'] },
       { label: 'PDF Tool',   path: '/mjr-generator', icon: Printer, roles: ['admin', 'distribution'] }, 
       { label: 'Proof Sprint',   path: '/sprints',   icon: Zap,       roles: ['admin', 'delivery'] },
-      { label: 'SPOA Studio', path: '/spoa', icon: <Target size={18} />, roles: ['admin', 'distribution'] },
+      { label: 'SPOA Studio', path: '/spoa', icon: Target, roles: ['admin', 'distribution'] },
       { label: 'Proof Brand',     path: '/proof',     icon: BookOpen,  roles: ['admin', 'delivery'] },
       { label: 'Authority Brand', path: '/authority', icon: Shield,    roles: ['admin', 'delivery'] },
     ],
@@ -45,7 +45,6 @@ const ADMIN_OPERATOR_NAV = [
   {
     section: 'Build',
     items: [
-      // Roles added to ensure these are visible to all internal staff
       { label: 'SOP Library', path: '/sops',      icon: BookOpen,  roles: ['admin', 'distribution', 'delivery'] },
       { label: 'Templates',   path: '/templates', icon: FileCode,  roles: ['admin', 'distribution', 'delivery'] },
     ],
@@ -85,10 +84,11 @@ const PAGE_TITLES: Record<string, string> = {
   '/scraper':   'Scraper',
   '/outreach':  'Outreach',
   '/clients':   'Clients',
-  '/brain':     'AA Brain',
+  '/brain':      'AA Brain',
   '/sprints':   'Proof Sprints',
   '/studio':    'MJR Studio',
-  '/mjr-generator': 'MJR PDF Generator', // Added title
+  '/mjr-generator': 'MJR PDF Generator',
+  '/spoa':      'SPOA Studio',
   '/sops':      'SOP Library',
   '/documents': 'Repository',
   '/templates': 'Templates',
@@ -119,7 +119,6 @@ export default function Layout() {
 
   const isClient = role === 'client'
 
-  // Refined filtering logic to prevent crashes if an item is missing a roles array
   const navGroups = isClient
     ? CLIENT_NAV
     : ADMIN_OPERATOR_NAV
@@ -145,7 +144,7 @@ export default function Layout() {
         flexDirection: 'column', height: '100vh', overflowY: 'auto',
         position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 50,
         transition: 'transform 0.2s',
-        transform: open ? 'translateX(0)' : 'translateX(0)', // Note: Mobile logic can be added here
+        transform: 'translateX(0)', 
       }}>
 
         <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid var(--border2)', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -244,7 +243,7 @@ function SignOutButton() {
         </div>
       )}
       <button onClick={signOut}
-        style={{ width: '100%', background: 'none', border: '1px solid var(--border2)', borderRadius: 4, padding: '7px 10px', cursor: 'pointer', fontFamily: 'DM Mono', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--grey)', textAlign: 'left', transition: 'color 0.15s, border-color 0.15s' }}
+        style={{ width: '100%', background: 'none', border: '1px solid var(--border2)', borderRadius: 4, padding: '7px 10px', cursor: 'pointer', fontFamily: 'DM Mono', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--grey)', textAlign: 'left', transition: 'all 0.15s' }}
         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--red)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(226,75,74,0.3)' }}
         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--grey)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border2)' }}>
         Sign Out

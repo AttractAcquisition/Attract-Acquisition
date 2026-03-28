@@ -4,7 +4,7 @@ import type { Prospect } from '../lib/supabase'
 import {
   Search, Zap, Copy, ExternalLink,
   Download, Printer, CheckCircle, Eye,
-  Users, Target
+  Users, Target, FileText, ShieldCheck
 } from 'lucide-react'
 import { useToast } from '../lib/toast'
 
@@ -25,6 +25,7 @@ interface SPOAResult {
   html: string
   preview_stats: PreviewStats
   success: boolean
+  error?: string
 }
 
 // ─── Components ───────────────────────────────────────────────────────────────
@@ -90,7 +91,7 @@ export default function SPOA() {
   const blobUrlRef = useRef<string | null>(null)
   const { toast } = useToast()
 
-  // ── Load Prospects on Mount ─────────────────────────────────────────────────
+  // ── Load Prospects ──────────────────────────────────────────────────────────
   useEffect(() => {
     async function loadProspects() {
       const { data } = await supabase
@@ -107,7 +108,7 @@ export default function SPOA() {
     loadProspects()
   }, [])
 
-  // ── Client-side Filtering ───────────────────────────────────────────────────
+  // ── Search Filtering ────────────────────────────────────────────────────────
   useEffect(() => {
     const q = search.toLowerCase()
     setFilteredProspects(
@@ -119,14 +120,14 @@ export default function SPOA() {
     )
   }, [search, allProspects])
 
-  // ── Cleanup Blob URLs ───────────────────────────────────────────────────────
+  // ── Cleanup ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
     }
   }, [])
 
-  // ── Actions ─────────────────────────────────────────────────────────────────
+  // ── Logic ───────────────────────────────────────────────────────────────────
   function selectProspect(p: Prospect) {
     setSelected(p)
     setSpoaResult(null)
@@ -144,18 +145,9 @@ export default function SPOA() {
     setSpoaResult(null)
     setShowPreview(false)
 
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current)
-      blobUrlRef.current = null
-    }
-
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        toast('Session expired — please sign in again', 'error')
-        setGenerating(false)
-        return
-      }
+      if (!session) throw new Error('Session expired')
 
       const { data, error } = await supabase.functions.invoke<SPOAResult>('spoa-generator', {
         body: { prospect: selected },
@@ -163,85 +155,56 @@ export default function SPOA() {
       })
 
       if (error) throw error
-      if (!data) throw new Error('No response data received')
-      if (!data.success) throw new Error((data as any).error || 'Generation failed')
+      if (!data?.success || !data.html) throw new Error(data?.error || 'Generation failed')
 
-      const html = data.html?.trim() ?? ''
-      if (!html) throw new Error('Empty HTML returned — please regenerate')
-
+      // Create Blob for preview/printing
       const bom = '\uFEFF'
-      const blob = new Blob([bom + html], { type: 'text/html;charset=utf-8' })
+      const blob = new Blob([bom + data.html], { type: 'text/html;charset=utf-8' })
       blobUrlRef.current = URL.createObjectURL(blob)
 
       setSpoaResult(data)
       setShowPreview(true)
 
-      // FIX: Use 'any' here to bypass the strict Prospect type check for the missing column
-      const { error: updateError } = await supabase
+      // Update CRM timestamp
+      await supabase
         .from('prospects')
         .update({ spoa_delivered_at: new Date().toISOString() } as any)
         .eq('id', selected.id)
 
-      if (updateError) console.warn('[SPOA] CRM timestamp update failed:', updateError.message)
-
-      toast('SPOA generated successfully ✓', 'success')
-
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e)
-      console.error('[SPOA Studio] generateSPOA error:', msg)
-      toast(msg || 'Generation failed — check API logs', 'error')
+      toast('SPOA compiled successfully ✓', 'success')
+    } catch (e: any) {
+      console.error('[SPOA] Error:', e.message)
+      toast(e.message || 'Check connection to edge functions', 'error')
     } finally {
       setGenerating(false)
     }
   }
 
-  const openInNewTab = useCallback(() => {
-    if (!blobUrlRef.current) return
-    window.open(blobUrlRef.current, '_blank', 'noopener')
-  }, [])
-
   const downloadHTML = useCallback(() => {
     if (!spoaResult?.html || !selected) return
-    const bom = '\uFEFF'
-    const blob = new Blob([bom + spoaResult.html], { type: 'text/html;charset=utf-8' })
+    const blob = new Blob(['\uFEFF' + spoaResult.html], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    const name = selected.business_name.replace(/[^a-zA-Z0-9]/g, '_')
-
     a.href = url
-    a.download = `SPOA_${name}_${new Date().toISOString().slice(0, 10)}.html`
-    document.body.appendChild(a)
+    a.download = `SPOA_${selected.business_name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.html`
     a.click()
-    document.body.removeChild(a)
     URL.revokeObjectURL(url)
-
-    toast('SPOA HTML downloaded ✓', 'success')
-  }, [spoaResult, selected, toast])
+  }, [spoaResult, selected])
 
   const printReport = useCallback(() => {
     if (!blobUrlRef.current) return
-    const win = window.open(blobUrlRef.current, '_blank', 'noopener')
+    const win = window.open(blobUrlRef.current, '_blank')
     if (win) {
       win.onload = () => {
         win.focus()
-        setTimeout(() => win.print(), 500)
+        setTimeout(() => { win.print(); }, 500)
       }
     }
   }, [])
 
-  const copyFullHTML = useCallback(() => {
-    if (!spoaResult?.html) return
-    navigator.clipboard.writeText(spoaResult.html).then(() => {
-      toast('Full HTML copied to clipboard ✓', 'success')
-    })
-  }, [spoaResult, toast])
-
   return (
     <div style={{
-      display: 'grid',
-      gridTemplateColumns: '320px 1fr',
-      gap: 24,
-      height: 'calc(100vh - 100px)',
+      display: 'grid', gridTemplateColumns: '320px 1fr', gap: 24, height: 'calc(100vh - 100px)',
     }}>
       <style>{`
         @keyframes pulse-dot {
@@ -250,125 +213,102 @@ export default function SPOA() {
         }
       `}</style>
 
-      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Users size={16} style={{ color: 'var(--teal)' }} />
-            <div className="section-label" style={{ margin: 0 }}>Prospect Explorer</div>
-          </div>
-          
-          <div style={{ position: 'relative' }}>
-            <Search size={14} style={{
-              position: 'absolute', left: 12, top: '50%',
-              transform: 'translateY(-50%)', color: 'var(--grey2)',
-            }} />
-            <input
-              className="input"
-              placeholder="Search by name, suburb..."
-              style={{ paddingLeft: 34, fontSize: 13 }}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
+      {/* Sidebar: Prospect List */}
+      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Users size={16} style={{ color: 'var(--teal)' }} />
+          <div className="section-label" style={{ margin: 0 }}>Prospect Explorer</div>
+        </div>
+        
+        <div style={{ position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--grey2)' }} />
+          <input
+            className="input"
+            placeholder="Search name or suburb..."
+            style={{ paddingLeft: 34, fontSize: 13 }}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
 
-          <div style={{ 
-            flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 4 
-          }}>
-            {filteredProspects.length === 0 ? (
-              <div style={{ color: 'var(--grey2)', fontSize: 12, textAlign: 'center', marginTop: 20, fontFamily: 'DM Mono' }}>
-                No prospects found
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {filteredProspects.map(p => (
+            <div
+              key={p.id}
+              onClick={() => selectProspect(p)}
+              style={{
+                padding: '12px', cursor: 'pointer', borderRadius: 6,
+                background: selected?.id === p.id ? 'var(--teal-faint)' : 'var(--bg3)',
+                border: `1px solid ${selected?.id === p.id ? 'var(--teal-border)' : 'var(--border2)'}`,
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 600, color: selected?.id === p.id ? 'var(--teal)' : 'var(--white)', marginBottom: 2 }}>
+                {p.business_name}
               </div>
-            ) : (
-              filteredProspects.map(p => (
-                <div
-                  key={p.id}
-                  onClick={() => selectProspect(p)}
-                  style={{
-                    padding: '12px', cursor: 'pointer', borderRadius: 6,
-                    background: selected?.id === p.id ? 'var(--teal-faint)' : 'var(--bg3)',
-                    border: `1px solid ${selected?.id === p.id ? 'var(--teal-border)' : 'var(--border2)'}`,
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <div style={{ fontSize: 13, fontWeight: 600, color: selected?.id === p.id ? 'var(--teal)' : 'var(--white)', marginBottom: 2 }}>
-                    {p.business_name}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--grey)', fontFamily: 'DM Mono' }}>
-                    {p.vertical} · {p.suburb}
-                  </div>
-                  {p.icp_tier && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 10, fontFamily: 'DM Mono' }}>
-                      <span style={{ color: 'var(--teal)' }}>TIER {p.icp_tier}</span>
-                      <span style={{ color: 'var(--grey2)' }}>{p.icp_total_score}/25 pts</span>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
+              <div style={{ fontSize: 11, color: 'var(--grey)', fontFamily: 'DM Mono' }}>
+                {p.vertical} · {p.suburb}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
+      {/* Main Workspace */}
       <div style={{ overflowY: 'auto', paddingRight: 8 }}>
         {!selected ? (
-          <div className="empty-state" style={{ height: '100%', minHeight: 400 }}>
+          <div className="empty-state" style={{ height: '100%' }}>
             <Target size={40} style={{ color: 'var(--border2)', marginBottom: 16 }} />
-            <h2 style={{ fontFamily: 'Playfair Display', margin: '0 0 12px 0' }}>SPOA Workspace</h2>
-            <p style={{ color: 'var(--grey)', maxWidth: 400, margin: '0 auto 24px', lineHeight: 1.5 }}>
-              Select a prospect from the explorer to review their data and generate a complete, branded Strategic Plan of Action (SPOA).
-            </p>
+            <h2 style={{ fontFamily: 'Playfair Display' }}>SPOA Studio</h2>
+            <p style={{ color: 'var(--grey)', maxWidth: 400 }}>Select a prospect to generate their legally binding Strategic Plan of Action.</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div className="card" style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', padding: '24px' }}>
+            {/* Header Card */}
+            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px' }}>
               <div>
-                <h1 style={{ fontFamily: 'Playfair Display', fontSize: 28, margin: 0, color: 'var(--white)' }}>
-                  {selected.business_name}
-                </h1>
+                <h1 style={{ fontFamily: 'Playfair Display', fontSize: 28, margin: 0 }}>{selected.business_name}</h1>
                 <p style={{ color: 'var(--grey)', margin: '6px 0 0 0', fontFamily: 'DM Mono', fontSize: 12 }}>
                   {selected.vertical} // {selected.suburb}
                 </p>
               </div>
-              
               <button
                 className="btn-primary"
                 onClick={generateSPOA}
                 disabled={generating}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 24px', fontSize: 14, height: 'fit-content' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
               >
                 <Zap size={16} />
-                {generating ? 'Drafting Strategy...' : 'Generate SPOA →'}
+                {generating ? 'Compiling Strategy...' : 'Execute SPOA Generation →'}
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: spoaResult && !generating ? '1fr' : '350px 1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: spoaResult ? '1fr' : '350px 1fr', gap: 20 }}>
+              {/* Audit View (Hidden when SPOA is active) */}
               {!spoaResult && (
                 <div className="card" style={{ padding: 24 }}>
-                  <div className="section-label" style={{ marginBottom: 16 }}>Target Audit Data</div>
+                  <div className="section-label" style={{ marginBottom: 16 }}>Infrastructure Audit</div>
                   <GapBadge label="Google Reviews" value={selected.google_review_count || 0} />
                   <GapBadge label="Star Rating" value={selected.google_rating ? `${selected.google_rating}★` : 'Unrated'} />
                   <GapBadge label="Instagram" value={selected.instagram_handle ? `@${selected.instagram_handle}` : 'None'} />
                   <GapBadge label="Meta Ads Active" value={!!selected.has_meta_ads} />
-                  <GapBadge label="Last Post" value={selected.instagram_last_post_date || '—'} />
                   {selected.mjr_notes && (
                     <div style={{ marginTop: 20, padding: 14, background: 'var(--bg2)', borderRadius: 6 }}>
-                      <div style={{ fontSize: 10, color: 'var(--teal)', fontFamily: 'DM Mono', marginBottom: 8, textTransform: 'uppercase' }}>Analyst Notes</div>
+                      <div style={{ fontSize: 10, color: 'var(--teal)', fontFamily: 'DM Mono', marginBottom: 8 }}>ANALYSIS NOTES</div>
                       <div style={{ fontSize: 12, color: 'var(--grey)', lineHeight: 1.6 }}>{selected.mjr_notes}</div>
                     </div>
                   )}
                 </div>
               )}
 
+              {/* Result View */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 {generating && (
-                  <div className="card" style={{ textAlign: 'center', padding: '60px 40px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, marginBottom: 12 }}>Mapping Acquisition Strategy...</div>
+                  <div className="card" style={{ textAlign: 'center', padding: '80px 40px' }}>
+                    <div style={{ fontFamily: 'Playfair Display', fontSize: 24, marginBottom: 16 }}>Structuring Acquisition Engine...</div>
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
                       {[0, 1, 2].map(i => (
                         <div key={i} style={{
-                          width: 10, height: 10, borderRadius: '50%',
-                          background: 'var(--teal)', opacity: 0.6,
+                          width: 10, height: 10, borderRadius: '50%', background: 'var(--teal)',
                           animation: `pulse-dot 1.4s ease-in-out ${i * 0.2}s infinite`,
                         }} />
                       ))}
@@ -378,75 +318,71 @@ export default function SPOA() {
 
                 {spoaResult && !generating && (
                   <>
+                    {/* Success Toolbar */}
                     <div style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
-                      padding: '16px 20px', borderRadius: 8, background: 'rgba(0,201,167,0.08)', border: '1px solid rgba(0,201,167,0.25)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '16px 20px', borderRadius: 8, background: 'rgba(0,201,167,0.08)', border: '1px solid var(--teal-border)',
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <CheckCircle size={20} style={{ color: 'var(--teal)', flexShrink: 0 }} />
+                        <ShieldCheck size={20} style={{ color: 'var(--teal)' }} />
                         <div>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--white)' }}>Strategic Plan Compiled Successfully</div>
-                          <div style={{ fontSize: 11, color: 'var(--grey)', fontFamily: 'DM Mono', marginTop: 4 }}>
-                            {spoaResult.preview_stats.sector} · Generated at {new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}
-                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 600 }}>Strategic Plan Compiled</div>
+                          <div style={{ fontSize: 11, color: 'var(--grey)', fontFamily: 'DM Mono' }}>Version 1.0 // South African Law Compliant</div>
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 10 }}>
-                        <button className="btn-primary" onClick={openInNewTab} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', fontSize: 12 }}>
-                          <ExternalLink size={14} /> Open
+                        <button className="btn-secondary" onClick={printReport} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                          <Printer size={14} /> Print / Save PDF
                         </button>
-                        <button className="btn-secondary" onClick={printReport} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', fontSize: 12 }}>
-                          <Printer size={14} /> Save PDF
-                        </button>
-                        <button className="btn-secondary" onClick={() => setShowPreview(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', fontSize: 12 }}>
+                        <button className="btn-secondary" onClick={() => setShowPreview(!showPreview)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
                           <Eye size={14} /> {showPreview ? 'Hide' : 'Preview'}
                         </button>
+                        <button className="btn-primary" onClick={downloadHTML} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                          <Download size={14} /> Source
+                        </button>
                       </div>
                     </div>
 
+                    {/* Stats Grid */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-                      <div className="card" style={{ textAlign: 'center', padding: '20px 16px' }}>
-                        <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, color: '#FF4444', marginBottom: 6 }}>{spoaResult.preview_stats.estimated_missed}</div>
-                        <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', textTransform: 'uppercase' }}>Target Recapture</div>
+                      <div className="card" style={{ textAlign: 'center', padding: '20px' }}>
+                        <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, color: '#FF4444' }}>{spoaResult.preview_stats.estimated_missed}</div>
+                        <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', marginTop: 4 }}>REVENUE GAP</div>
                       </div>
-                      <div className="card" style={{ textAlign: 'center', padding: '20px 16px' }}>
-                        <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, color: 'var(--teal)', marginBottom: 6 }}>{spoaResult.preview_stats.annual_ltv}</div>
-                        <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', textTransform: 'uppercase' }}>Annual LTV / Client</div>
+                      <div className="card" style={{ textAlign: 'center', padding: '20px' }}>
+                        <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, color: 'var(--teal)' }}>{spoaResult.preview_stats.annual_ltv}</div>
+                        <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', marginTop: 4 }}>ANNUAL LTV</div>
                       </div>
-                      <div className="card" style={{ textAlign: 'center', padding: '20px 16px' }}>
-                        <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, color: 'var(--white)', marginBottom: 6 }}>{spoaResult.preview_stats.job_value_range}</div>
-                        <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', textTransform: 'uppercase' }}>Avg Job Value</div>
+                      <div className="card" style={{ textAlign: 'center', padding: '20px' }}>
+                        <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700 }}>{spoaResult.preview_stats.job_value_range}</div>
+                        <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', marginTop: 4 }}>AVG JOB VALUE</div>
                       </div>
                     </div>
 
-                    <div className="card" style={{ borderLeft: '3px solid var(--teal)', padding: '20px' }}>
-                      <div className="section-label" style={{ marginBottom: 16 }}>Delivery Sequence (SOP 03)</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
-                        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                          <div style={{ fontFamily: 'DM Mono', fontSize: 12, color: 'var(--teal)', fontWeight: 600 }}>01</div>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--white)', marginBottom: 4 }}>Save Document</div>
-                            <div style={{ fontSize: 11, color: 'var(--grey)', lineHeight: 1.5 }}>Click "Save PDF" above.</div>
+                    {/* SOP Steps */}
+                    <div className="card" style={{ borderLeft: '3px solid var(--teal)', padding: '24px' }}>
+                      <div className="section-label" style={{ marginBottom: 20 }}>SOP 03 — Delivery Sequence</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 24 }}>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                          <div style={{ fontFamily: 'DM Mono', color: 'var(--teal)', fontWeight: 'bold' }}>01</div>
+                          <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--off-white)' }}>
+                            <span style={{ fontWeight: 600, display: 'block', color: 'var(--white)' }}>Verification</span>
+                            Review Schedule A for geographic and sector accuracy.
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                          <div style={{ fontFamily: 'DM Mono', color: 'var(--teal)', fontWeight: 'bold' }}>02</div>
+                          <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--off-white)' }}>
+                            <span style={{ fontWeight: 600, display: 'block', color: 'var(--white)' }}>Legal Signature</span>
+                            Obtain signature from authorized representative (Party B).
                           </div>
                         </div>
                       </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: 12 }}>
-                      <button className="btn-secondary" onClick={generateSPOA} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'center' }}>
-                        <Zap size={13} /> Regenerate
-                      </button>
-                      <button className="btn-secondary" onClick={downloadHTML} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 24px' }}>
-                        <Download size={13} /> Source
-                      </button>
-                      <button className="btn-secondary" onClick={copyFullHTML} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 24px' }}>
-                        <Copy size={13} /> Copy
-                      </button>
                     </div>
 
                     {showPreview && (
                       <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border2)', marginTop: 8 }}>
-                        <ReportIframe html={spoaResult.html} title="SPOA Preview" />
+                        <ReportIframe html={spoaResult.html} title="SPOA Live Preview" />
                       </div>
                     )}
                   </>

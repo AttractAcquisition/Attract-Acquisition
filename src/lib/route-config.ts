@@ -9,12 +9,12 @@ export interface RouteMetadata {
 }
 
 export const ROUTE_CONFIG: Record<string, Omit<RouteMetadata, 'path'>> = {
-  dashboard: { label: 'Admin Dashboard', section: 'Overview', icon: Icons.LayoutDashboard, roles: ['admin'] },
+  dashboard: { label: 'Dashboard', section: 'Overview', icon: Icons.LayoutDashboard, roles: ['admin', 'client'] },
   distribution: { label: 'Ops Dashboard', section: 'Overview', icon: Icons.Activity, roles: ['distribution'] },
   'delivery-dash': { label: 'Ops Dashboard', section: 'Overview', icon: Icons.Target, roles: ['delivery'] },
   'distro-tracker': { label: 'Ops Tracker', section: 'Overview', icon: Icons.CalendarCheck, roles: ['distribution'] },
   'delivery-tracker': { label: 'Ops Tracker', section: 'Overview', icon: Icons.CalendarCheck, roles: ['delivery'] },
-  tracker: { label: 'Admin Tracker', section: 'Overview', icon: Icons.ClipboardList, roles: ['admin'] },
+  tracker: { label: 'Execution Tracker', section: 'Overview', icon: Icons.ClipboardList, roles: ['admin', 'client'] },
   scraper: { label: 'Scraper', section: 'Distribution Hub', icon: Icons.Search, roles: ['distribution', 'admin'] },
   prospects: { label: 'Prospects', section: 'Distribution Hub', icon: Icons.Users, roles: ['admin', 'distribution'] },
   outreach: { label: 'Outreach', section: 'Distribution Hub', icon: Icons.MessageSquare, roles: ['distribution', 'admin'] },

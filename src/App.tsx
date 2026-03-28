@@ -5,20 +5,17 @@ import { AuthProvider, useAuth } from './lib/auth';
 import RoleWrapper from './components/RoleWrapper';
 import Layout from './components/Layout';
 import Login from './pages/Login';
-import Portal from './pages/Portal';
 import { ROUTE_CONFIG } from './lib/route-config';
 
 // 1. Auto-discover all files in src/pages
 const pageModules = import.meta.glob('./pages/*.tsx');
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { session, loading, role } = useAuth();
+  const { session, loading } = useAuth();
   const location = useLocation();
 
   if (loading) return <LoadingScreen />;
   if (!session) return <Navigate to="/login" state={{ from: location }} replace />;
-  if (role === 'client' && location.pathname !== '/portal') return <Navigate to="/portal" replace />;
-  if (role !== 'client' && location.pathname === '/portal') return <Navigate to="/dashboard" replace />;
 
   return <>{children}</>;
 }
@@ -65,7 +62,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/portal" element={<RequireAuth><Portal /></RequireAuth>} />
+      <Route path="/portal" element={<Navigate to="/dashboard" replace />} />
 
       <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<Navigate to={role === 'distribution' ? '/distribution' : role === 'delivery' ? '/delivery-dash' : '/dashboard'} replace />} />

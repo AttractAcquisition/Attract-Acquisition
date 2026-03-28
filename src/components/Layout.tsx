@@ -25,7 +25,7 @@ export default function Layout() {
       section: 'Overview',
       items: [
         { label: 'Dashboard', path: '/dashboard', icon: ROUTE_CONFIG.dashboard.icon },
-        { label: 'Execution Tracker', path: '/delivery-tracker', icon: ROUTE_CONFIG['delivery-tracker'].icon }
+        { label: 'Execution Tracker', path: '/tracker', icon: ROUTE_CONFIG.tracker.icon }
       ]
     }];
 
@@ -43,8 +43,12 @@ export default function Layout() {
 
   const currentTitle = useMemo(() => {
     const path = location.pathname.split('/')[1];
+    if (isClient) {
+      if (path === 'dashboard') return 'Dashboard'
+      if (path === 'tracker') return 'Execution Tracker'
+    }
     return ROUTE_CONFIG[path]?.label || 'AA OS';
-  }, [location]);
+  }, [location, isClient]);
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg)' }}>

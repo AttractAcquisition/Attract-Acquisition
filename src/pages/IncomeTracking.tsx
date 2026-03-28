@@ -73,7 +73,8 @@ export default function IncomeTracking() {
       if (error) throw error
       setTransactions((data as unknown as Transaction[]) || [])
     } catch (error: any) {
-      toast({ title: 'Fetch Error', description: error.message, variant: 'destructive' })
+      // Fixed: Passing string arguments instead of an object
+      toast(error.message || 'Failed to fetch transactions', 'error')
     } finally {
       setLoading(false)
     }
@@ -92,12 +93,14 @@ export default function IncomeTracking() {
 
       if (error) throw error
       
-      toast({ title: 'Success', description: 'Transaction recorded.', variant: 'success' })
+      // Fixed: Passing string arguments instead of an object
+      toast('Transaction recorded successfully.', 'success')
       setIsModalOpen(false)
       setFormData({ amount: '', type: 'income', category: 'Subscription', description: '', date: new Date().toISOString().split('T')[0] })
       fetchTransactions()
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+      // Fixed: Passing string arguments instead of an object
+      toast(error.message || 'Failed to record transaction', 'error')
     }
   }
 

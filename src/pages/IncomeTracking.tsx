@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { 
   DollarSign, 
   Filter, Plus, ArrowUpRight, 
-  ArrowDownLeft, BarChart3 
+  ArrowDownLeft, BarChart3, X
 } from 'lucide-react'
 import { useToast } from '../lib/toast'
 
@@ -19,6 +19,8 @@ interface Transaction {
 }
 
 type ViewType = 'monthly' | 'weekly' | 'daily'
+
+const CATEGORIES = ['Ads', 'Software', 'Infrastructure', 'Content', 'Contractor', 'Setup Fee', 'Subscription']
 
 // ─── Sub-Components ───────────────────────────────────────────────────────────
 function StatCard({ title, amount, type }: { title: string; amount: number; type: 'income' | 'expense' | 'net' }) {
@@ -44,14 +46,23 @@ export default function IncomeTracking() {
   const [view, setView] = useState<ViewType>('monthly')
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const { toast } = useToast()
+
+  // Form State
+  const [formData, setFormData] = useState({
+    amount: '',
+    type: 'income',
+    category: 'Subscription',
+    description: '',
+    date: new Date().toISOString().split('T')[0]
+  })
 
   useEffect(() => {
     fetchTransactions()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
- async function fetchTransactions() {
+  async function fetchTransactions() {
     setLoading(true)
     try {
       const { data, error } = await supabase
@@ -60,14 +71,33 @@ export default function IncomeTracking() {
         .order('date', { ascending: false })
 
       if (error) throw error
-      
       setTransactions((data as unknown as Transaction[]) || [])
-    } catch (error) {
-      console.error('Financial fetch error:', error)
-      // FIX: Ensure toast matches the expected signature (usually string, then type)
-      toast('Failed to load financial data', 'error') 
+    } catch (error: any) {
+      toast({ title: 'Fetch Error', description: error.message, variant: 'destructive' })
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleAddTransaction(e: React.FormEvent) {
+    e.preventDefault()
+    try {
+      const { error } = await supabase.from('ledger').insert([{
+        amount: parseFloat(formData.amount),
+        type: formData.type,
+        category: formData.category,
+        description: formData.description,
+        date: formData.date
+      }])
+
+      if (error) throw error
+      
+      toast({ title: 'Success', description: 'Transaction recorded.', variant: 'success' })
+      setIsModalOpen(false)
+      setFormData({ amount: '', type: 'income', category: 'Subscription', description: '', date: new Date().toISOString().split('T')[0] })
+      fetchTransactions()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
     }
   }
 
@@ -78,11 +108,18 @@ export default function IncomeTracking() {
     return { income, expenses, net: income - expenses }
   }, [transactions])
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
+  const categoryShare = useMemo(() => {
+    const totalExp = stats.expenses || 1
+    return CATEGORIES.map(cat => {
+      const val = transactions.filter(t => t.type === 'expense' && t.category === cat).reduce((acc, t) => acc + t.amount, 0)
+      return { name: cat, percent: Math.round((val / totalExp) * 100) }
+    }).filter(c => c.percent > 0)
+  }, [transactions, stats.expenses])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 40, opacity: loading ? 0.7 : 1 }}>
       
-      {/* Header & Controls */}
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
           <h1 style={{ fontFamily: 'Playfair Display', fontSize: 32, margin: 0 }}>Capital Flow</h1>
@@ -109,7 +146,7 @@ export default function IncomeTracking() {
         </div>
       </div>
 
-      {/* Top Stats Grid */}
+      {/* Stats Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
         <StatCard title="Total Revenue" amount={stats.income} type="income" />
         <StatCard title="Total Expenses" amount={stats.expenses} type="expense" />
@@ -118,7 +155,7 @@ export default function IncomeTracking() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 24 }}>
         
-        {/* Visual Representation Placeholder */}
+        {/* Visualization */}
         <div className="card" style={{ minHeight: 400, display: 'flex', flexDirection: 'column', padding: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
             <div className="section-label">Cashflow Visualization ({view})</div>
@@ -128,40 +165,40 @@ export default function IncomeTracking() {
           <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 12, padding: '20px 0' }}>
             {[40, 70, 45, 90, 65, 80, 95].map((h, i) => (
               <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column-reverse', gap: 4, height: '100%' }}>
-                <div style={{ 
-                  height: `${h}%`, background: 'var(--teal)', borderRadius: '4px 4px 0 0', 
-                  opacity: 0.8, position: 'relative' 
-                }} />
+                <div style={{ height: `${h}%`, background: 'var(--teal)', borderRadius: '4px 4px 0 0', opacity: 0.8 }} />
                 <div style={{ height: `${h/3}%`, background: '#FF4444', borderRadius: '2px', opacity: 0.6 }} />
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--grey2)', fontSize: 10, fontFamily: 'DM Mono' }}>
-            <span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span>
-          </div>
         </div>
 
-        {/* Categories / Quick Entry */}
+        {/* Sidebar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div className="card" style={{ padding: 20 }}>
-            <button className="btn-primary" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <button 
+              className="btn-primary" 
+              onClick={() => setIsModalOpen(true)}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            >
               <Plus size={16} /> Record Transaction
             </button>
           </div>
 
           <div className="card" style={{ padding: 20, flex: 1 }}>
             <div className="section-label" style={{ marginBottom: 16 }}>Expense Distribution</div>
-            {['Ads', 'Software', 'Infrastructure', 'Content'].map(cat => (
-              <div key={cat} style={{ padding: '12px 0', borderBottom: '1px solid var(--border2)', display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 13, color: 'var(--white)' }}>{cat}</span>
-                <span style={{ fontSize: 11, fontFamily: 'DM Mono', color: 'var(--grey)' }}>32%</span>
+            {categoryShare.length > 0 ? categoryShare.map(cat => (
+              <div key={cat.name} style={{ padding: '12px 0', borderBottom: '1px solid var(--border2)', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 13, color: 'var(--white)' }}>{cat.name}</span>
+                <span style={{ fontSize: 11, fontFamily: 'DM Mono', color: 'var(--grey)' }}>{cat.percent}%</span>
               </div>
-            ))}
+            )) : (
+              <div style={{ fontSize: 11, color: 'var(--grey2)', textAlign: 'center', marginTop: 20 }}>No expenses tracked</div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Transaction Ledger */}
+      {/* Ledger Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div className="section-label" style={{ margin: 0 }}>Transaction Ledger</div>
@@ -173,7 +210,7 @@ export default function IncomeTracking() {
               <th style={tableHeaderStyle}>Date</th>
               <th style={tableHeaderStyle}>Description</th>
               <th style={tableHeaderStyle}>Category</th>
-              <th style={tableHeaderStyle}>Amount</th>
+              <th style={tableHeaderStyle} className="text-right">Amount</th>
             </tr>
           </thead>
           <tbody>
@@ -189,39 +226,71 @@ export default function IncomeTracking() {
             )) : (
               <tr>
                 <td colSpan={4} style={{ padding: 40, textAlign: 'center', color: 'var(--grey2)', fontSize: 12 }}>
-                  {loading ? 'Fetching intelligence...' : 'No financial data recorded for this period.'}
+                  No financial data recorded.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {/* Modal Overlay */}
+      {isModalOpen && (
+        <div style={modalOverlayStyle}>
+          <div className="card" style={modalContentStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
+              <h2 style={{ fontFamily: 'Playfair Display', margin: 0 }}>New Transaction</h2>
+              <X size={20} onClick={() => setIsModalOpen(false)} style={{ cursor: 'pointer', color: 'var(--grey)' }} />
+            </div>
+            
+            <form onSubmit={handleAddTransaction} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={inputGroupStyle}>
+                <label style={labelStyle}>Amount (ZAR)</label>
+                <input type="number" step="0.01" required value={formData.amount} 
+                  onChange={e => setFormData({...formData, amount: e.target.value})} style={inputStyle} />
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={inputGroupStyle}>
+                  <label style={labelStyle}>Type</label>
+                  <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})} style={inputStyle}>
+                    <option value="income">Income</option>
+                    <option value="expense">Expense</option>
+                  </select>
+                </div>
+                <div style={inputGroupStyle}>
+                  <label style={labelStyle}>Category</label>
+                  <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} style={inputStyle}>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div style={inputGroupStyle}>
+                <label style={labelStyle}>Description</label>
+                <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} style={inputStyle} />
+              </div>
+
+              <div style={inputGroupStyle}>
+                <label style={labelStyle}>Date</label>
+                <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} style={inputStyle} />
+              </div>
+
+              <button type="submit" className="btn-primary" style={{ marginTop: 12 }}>Post to Ledger</button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
-const tableHeaderStyle: React.CSSProperties = {
-  padding: '12px 24px',
-  fontSize: 10,
-  fontFamily: 'DM Mono',
-  color: 'var(--grey)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em'
-}
-
-const tableCellStyle: React.CSSProperties = {
-  padding: '16px 24px',
-  fontSize: 13,
-  color: 'var(--grey)'
-}
-
-const categoryBadgeStyle: React.CSSProperties = {
-  background: 'var(--bg2)',
-  padding: '4px 8px',
-  borderRadius: 4,
-  fontSize: 10,
-  fontFamily: 'DM Mono',
-  color: 'var(--teal)',
-  border: '1px solid var(--teal-border)'
-}
+const tableHeaderStyle: React.CSSProperties = { padding: '12px 24px', fontSize: 10, fontFamily: 'DM Mono', color: 'var(--grey)', textTransform: 'uppercase' }
+const tableCellStyle: React.CSSProperties = { padding: '16px 24px', fontSize: 13, color: 'var(--grey)' }
+const categoryBadgeStyle: React.CSSProperties = { background: 'var(--bg2)', padding: '4px 8px', borderRadius: 4, fontSize: 10, fontFamily: 'DM Mono', color: 'var(--teal)', border: '1px solid var(--teal-border)' }
+const modalOverlayStyle: React.CSSProperties = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }
+const modalContentStyle: React.CSSProperties = { width: '100%', maxWidth: 450, padding: 32, background: 'var(--bg1)', border: '1px solid var(--border2)' }
+const inputGroupStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6 }
+const labelStyle: React.CSSProperties = { fontSize: 10, fontFamily: 'DM Mono', color: 'var(--grey)', textTransform: 'uppercase' }
+const inputStyle: React.CSSProperties = { background: 'var(--bg2)', border: '1px solid var(--border2)', color: 'white', padding: '10px', borderRadius: 6, fontSize: 13, fontFamily: 'inherit' }

@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      ledger: {
+        Row: {
+          id: string
+          created_at: string
+          amount: number
+          category: string
+          type: string
+          description: string | null
+          date: string
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          amount: number
+          category: string
+          type: string
+          description?: string | null
+          date: string
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          amount?: number
+          category?: string
+          type?: string
+          description?: string | null
+          date?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           account_manager: string | null

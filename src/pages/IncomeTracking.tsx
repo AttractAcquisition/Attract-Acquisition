@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import type { Ledger } from '../lib/supabase'
 import { 
   DollarSign, 
   Filter, Plus, ArrowUpRight, 
@@ -8,15 +9,8 @@ import {
 import { useToast } from '../lib/toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface Transaction {
-  id: string
-  created_at: string
-  amount: number
-  category: string
-  type: 'income' | 'expense'
-  description: string
-  date: string
-}
+// Re-use the DB-derived Ledger type; narrow `type` for local logic
+type Transaction = Omit<Ledger, 'type'> & { type: 'income' | 'expense' }
 
 type ViewType = 'monthly' | 'weekly' | 'daily'
 
@@ -71,7 +65,7 @@ export default function IncomeTracking() {
         .order('date', { ascending: false })
 
       if (error) throw error
-      setTransactions((data as unknown as Transaction[]) || [])
+      setTransactions((data as Transaction[]) || [])
     } catch (error: any) {
       toast(error.message || 'Failed to fetch transactions', 'error')
     } finally {

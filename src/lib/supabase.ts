@@ -13,55 +13,29 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey)
  */
 type BaseProspect = Database['public']['Tables']['prospects']['Row'];
 
-export interface Prospect extends Omit<BaseProspect, 
-  | 'pipeline_stage' 
-  | 'icp_tier' 
-  | 'icp_total_score' 
-  | 'meta_ads_running' 
-  | 'ig_follower_count' 
-  | 'mjr_missed_revenue' 
-  | 'mjr_link'
-  | 'q_visual'
-  | 'q_high_ticket'
-  | 'q_owner_op'
-  | 'q_referral'
-  | 'q_weak_digital'
-  | 'msg_1_sent'
-  | 'msg_2_sent'
-  | 'msg_3_sent'
-  | 'msg_4_sent'
-  | 'msg_5_sent'
-  | 'is_archived'
-> {
-  // Core Pipeline (Optional for UI flexibility)
+// Prospect extends the DB Row directly. Fields that exist in the DB are already
+// typed there; we only augment with legacy/UI-only optional fields not yet in schema.
+export interface Prospect extends BaseProspect {
+  // Legacy field aliases (not yet in DB schema — kept for UI compatibility)
   pipeline_stage?: string | null;
-  icp_tier?: string | null;
-  icp_total_score?: number | null;
-  is_archived?: boolean | null;
-
-  // Digital Presence
   meta_ads_running?: boolean | null;
   ig_follower_count?: number | null;
-  
-  // MJR Data
   mjr_missed_revenue?: number | null;
   mjr_link?: string | null;
-  
-  // Qualification Checkboxes
   q_visual?: boolean | null;
   q_high_ticket?: boolean | null;
   q_owner_op?: boolean | null;
   q_referral?: boolean | null;
   q_weak_digital?: boolean | null;
-  
-  // Outreach Tracker
   msg_1_sent?: boolean | null;
   msg_2_sent?: boolean | null;
   msg_3_sent?: boolean | null;
   msg_4_sent?: boolean | null;
   msg_5_sent?: boolean | null;
+  is_archived?: boolean | null;
 }
 
+export type Ledger = Database['public']['Tables']['ledger']['Row']
 export type Client = Database['public']['Tables']['clients']['Row']
 export type ProofSprint = Database['public']['Tables']['proof_sprints']['Row']
 export type Task = Database['public']['Tables']['tasks']['Row']

@@ -28,7 +28,8 @@ import DeliveryTracker from './components/views/Tracker/DeliveryTracker'
 import Documents from './pages/Documents'
 import Brain     from './pages/Brain'
 import ChatPage  from './pages/ChatPage'
-import MJRPdfGenerator from './pages/html' // Added link to Repo B connector
+import MJRPdfGenerator from './pages/html'
+import SPOA from './pages/SPOA'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   // Add 'role' here 
@@ -116,6 +117,10 @@ function AppRoutes() {
         
         {/* --- PDF GENERATION --- */}
         <Route path="mjr-generator" element={<RoleWrapper allowedRoles={['admin', 'distribution']}><MJRPdfGenerator /></RoleWrapper>} />
+        <Route path="spoa" element={<RoleWrapper allowedRoles={['admin', 'distribution']}>
+    <SPOA />
+  </RoleWrapper>
+} />
 
         {/* --- AI TOOLS --- */}
         <Route path="brain" element={<RoleWrapper allowedRoles={['admin', 'distribution', 'delivery']}><Brain /></RoleWrapper>} />

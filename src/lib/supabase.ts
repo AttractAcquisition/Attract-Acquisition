@@ -8,15 +8,16 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey)
 
 /**
  * PROSPECT INTERFACE
- * We Omit all manually managed fields from the base Row type first.
- * This prevents "Incompatible Types" errors when we mark them as optional (?).
  */
 type BaseProspect = Database['public']['Tables']['prospects']['Row'];
 
-// Prospect extends the DB Row directly. Fields that exist in the DB are already
-// typed there; we only augment with legacy/UI-only optional fields not yet in schema.
-export interface Prospect extends BaseProspect {
-  // Legacy field aliases (not yet in DB schema — kept for UI compatibility)
+// We Omit the fields we want to manually "override" or add to the interface
+export interface Prospect extends Omit<BaseProspect, 'pipeline_stage' | 'is_archived'> {
+  // Database tracking fields (Must match your SQL columns)
+  spoa_delivered_at?: string | null;
+  mjr_delivered_at?: string | null;
+
+  // Legacy & UI-only optional fields
   pipeline_stage?: string | null;
   meta_ads_running?: boolean | null;
   ig_follower_count?: number | null;
@@ -33,8 +34,6 @@ export interface Prospect extends BaseProspect {
   msg_4_sent?: boolean | null;
   msg_5_sent?: boolean | null;
   is_archived?: boolean | null;
-  spoa_delivered_at?: string | null; 
-  mjr_delivered_at?: string | null;
 }
 
 export type Ledger = Database['public']['Tables']['ledger']['Row']

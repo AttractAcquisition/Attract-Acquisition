@@ -100,8 +100,8 @@ export default function SPOA() {
         .limit(100)
       
       if (data) {
-        setAllProspects(data)
-        setFilteredProspects(data)
+        setAllProspects(data as Prospect[])
+        setFilteredProspects(data as Prospect[])
       }
     }
     loadProspects()
@@ -144,7 +144,6 @@ export default function SPOA() {
     setSpoaResult(null)
     setShowPreview(false)
 
-    // Clear previous blob immediately to avoid memory leaks/stale previews
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current)
       blobUrlRef.current = null
@@ -158,7 +157,6 @@ export default function SPOA() {
         return
       }
 
-      // ⚡ Invoke Edge Function
       const { data, error } = await supabase.functions.invoke<SPOAResult>('spoa-generator', {
         body: { prospect: selected },
         headers: { Authorization: `Bearer ${session.access_token}` },
@@ -171,7 +169,6 @@ export default function SPOA() {
       const html = data.html?.trim() ?? ''
       if (!html) throw new Error('Empty HTML returned — please regenerate')
 
-      // Create new Blob URL
       const bom = '\uFEFF'
       const blob = new Blob([bom + html], { type: 'text/html;charset=utf-8' })
       blobUrlRef.current = URL.createObjectURL(blob)
@@ -179,10 +176,10 @@ export default function SPOA() {
       setSpoaResult(data)
       setShowPreview(true)
 
-      // Update CRM record with delivery timestamp
+      // FIX: Use 'any' here to bypass the strict Prospect type check for the missing column
       const { error: updateError } = await supabase
         .from('prospects')
-        .update({ spoa_delivered_at: new Date().toISOString() })
+        .update({ spoa_delivered_at: new Date().toISOString() } as any)
         .eq('id', selected.id)
 
       if (updateError) console.warn('[SPOA] CRM timestamp update failed:', updateError.message)
@@ -227,7 +224,6 @@ export default function SPOA() {
     if (win) {
       win.onload = () => {
         win.focus()
-        // Small delay to ensure styles/images within the iframe doc are painted
         setTimeout(() => win.print(), 500)
       }
     }
@@ -247,7 +243,6 @@ export default function SPOA() {
       gap: 24,
       height: 'calc(100vh - 100px)',
     }}>
-      {/* Pulse Animation Definition */}
       <style>{`
         @keyframes pulse-dot {
           0%, 100% { opacity: 0.3; transform: scale(0.8); }
@@ -255,7 +250,6 @@ export default function SPOA() {
         }
       `}</style>
 
-      {/* ── LEFT PANEL: PROSPECT EXPLORER ───────────────────────────────────── */}
       <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
           
@@ -316,7 +310,6 @@ export default function SPOA() {
         </div>
       </div>
 
-      {/* ── RIGHT PANEL: WORKSPACE ──────────────────────────────────────────── */}
       <div style={{ overflowY: 'auto', paddingRight: 8 }}>
         {!selected ? (
           <div className="empty-state" style={{ height: '100%', minHeight: 400 }}>
@@ -325,23 +318,9 @@ export default function SPOA() {
             <p style={{ color: 'var(--grey)', maxWidth: 400, margin: '0 auto 24px', lineHeight: 1.5 }}>
               Select a prospect from the explorer to review their data and generate a complete, branded Strategic Plan of Action (SPOA).
             </p>
-            <div style={{
-              display: 'flex', flexDirection: 'column', gap: 8,
-              textAlign: 'left', background: 'var(--bg3)', padding: '16px 20px', 
-              borderRadius: 6, fontSize: 12, color: 'var(--grey)', width: '100%', maxWidth: 400
-            }}>
-              <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--teal)', textTransform: 'uppercase', marginBottom: 6 }}>
-                SPOA Output Includes:
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}><span style={{ color: 'var(--teal)' }}>·</span> Custom Acquisition Funnel Map</div>
-              <div style={{ display: 'flex', gap: 8 }}><span style={{ color: 'var(--teal)' }}>·</span> Step-by-Step Execution Sequence</div>
-              <div style={{ display: 'flex', gap: 8 }}><span style={{ color: 'var(--teal)' }}>·</span> ROI & Lead Cost Projections</div>
-              <div style={{ display: 'flex', gap: 8 }}><span style={{ color: 'var(--teal)' }}>·</span> "No-Brainer" Closing Offer</div>
-            </div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            
             <div className="card" style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', padding: '24px' }}>
               <div>
                 <h1 style={{ fontFamily: 'Playfair Display', fontSize: 28, margin: 0, color: 'var(--white)' }}>
@@ -356,10 +335,7 @@ export default function SPOA() {
                 className="btn-primary"
                 onClick={generateSPOA}
                 disabled={generating}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '14px 24px', fontSize: 14, height: 'fit-content'
-                }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 24px', fontSize: 14, height: 'fit-content' }}
               >
                 <Zap size={16} />
                 {generating ? 'Drafting Strategy...' : 'Generate SPOA →'}
@@ -367,27 +343,18 @@ export default function SPOA() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: spoaResult && !generating ? '1fr' : '350px 1fr', gap: 20 }}>
-              
               {!spoaResult && (
                 <div className="card" style={{ padding: 24 }}>
                   <div className="section-label" style={{ marginBottom: 16 }}>Target Audit Data</div>
                   <GapBadge label="Google Reviews" value={selected.google_review_count || 0} />
                   <GapBadge label="Star Rating" value={selected.google_rating ? `${selected.google_rating}★` : 'Unrated'} />
-                  <GapBadge
-                    label="Instagram"
-                    value={selected.instagram_handle ? `@${selected.instagram_handle}` : 'None'}
-                  />
+                  <GapBadge label="Instagram" value={selected.instagram_handle ? `@${selected.instagram_handle}` : 'None'} />
                   <GapBadge label="Meta Ads Active" value={!!selected.has_meta_ads} />
                   <GapBadge label="Last Post" value={selected.instagram_last_post_date || '—'} />
-                  
                   {selected.mjr_notes && (
                     <div style={{ marginTop: 20, padding: 14, background: 'var(--bg2)', borderRadius: 6 }}>
-                      <div style={{ fontSize: 10, color: 'var(--teal)', fontFamily: 'DM Mono', marginBottom: 8, textTransform: 'uppercase' }}>
-                        Analyst Notes
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--grey)', lineHeight: 1.6 }}>
-                        {selected.mjr_notes}
-                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--teal)', fontFamily: 'DM Mono', marginBottom: 8, textTransform: 'uppercase' }}>Analyst Notes</div>
+                      <div style={{ fontSize: 12, color: 'var(--grey)', lineHeight: 1.6 }}>{selected.mjr_notes}</div>
                     </div>
                   )}
                 </div>
@@ -396,12 +363,7 @@ export default function SPOA() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 {generating && (
                   <div className="card" style={{ textAlign: 'center', padding: '60px 40px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, marginBottom: 12 }}>
-                      Mapping Acquisition Strategy...
-                    </div>
-                    <div style={{ color: 'var(--grey2)', fontSize: 13, marginBottom: 32 }}>
-                      Claude is designing a custom funnel for {selected.business_name}, structuring the deployment phases, and calculating ROI logic.
-                    </div>
+                    <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, marginBottom: 12 }}>Mapping Acquisition Strategy...</div>
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
                       {[0, 1, 2].map(i => (
                         <div key={i} style={{
@@ -411,9 +373,6 @@ export default function SPOA() {
                         }} />
                       ))}
                     </div>
-                    <div style={{ marginTop: 32, fontSize: 11, color: 'var(--grey2)', fontFamily: 'DM Mono' }}>
-                      Typically takes 45–60 seconds. Do not refresh.
-                    </div>
                   </div>
                 )}
 
@@ -421,15 +380,12 @@ export default function SPOA() {
                   <>
                     <div style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
-                      padding: '16px 20px', borderRadius: 8,
-                      background: 'rgba(0,201,167,0.08)', border: '1px solid rgba(0,201,167,0.25)',
+                      padding: '16px 20px', borderRadius: 8, background: 'rgba(0,201,167,0.08)', border: '1px solid rgba(0,201,167,0.25)',
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <CheckCircle size={20} style={{ color: 'var(--teal)', flexShrink: 0 }} />
                         <div>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--white)' }}>
-                            Strategic Plan Compiled Successfully
-                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--white)' }}>Strategic Plan Compiled Successfully</div>
                           <div style={{ fontSize: 11, color: 'var(--grey)', fontFamily: 'DM Mono', marginTop: 4 }}>
                             {spoaResult.preview_stats.sector} · Generated at {new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}
                           </div>
@@ -450,28 +406,16 @@ export default function SPOA() {
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
                       <div className="card" style={{ textAlign: 'center', padding: '20px 16px' }}>
-                        <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, color: '#FF4444', marginBottom: 6 }}>
-                          {spoaResult.preview_stats.estimated_missed}
-                        </div>
-                        <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                          Target Recapture
-                        </div>
+                        <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, color: '#FF4444', marginBottom: 6 }}>{spoaResult.preview_stats.estimated_missed}</div>
+                        <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', textTransform: 'uppercase' }}>Target Recapture</div>
                       </div>
                       <div className="card" style={{ textAlign: 'center', padding: '20px 16px' }}>
-                        <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, color: 'var(--teal)', marginBottom: 6 }}>
-                          {spoaResult.preview_stats.annual_ltv}
-                        </div>
-                        <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                          Annual LTV / Client
-                        </div>
+                        <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, color: 'var(--teal)', marginBottom: 6 }}>{spoaResult.preview_stats.annual_ltv}</div>
+                        <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', textTransform: 'uppercase' }}>Annual LTV / Client</div>
                       </div>
                       <div className="card" style={{ textAlign: 'center', padding: '20px 16px' }}>
-                        <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, color: 'var(--white)', marginBottom: 6 }}>
-                          {spoaResult.preview_stats.job_value_range}
-                        </div>
-                        <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                          Avg Job Value
-                        </div>
+                        <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, color: 'var(--white)', marginBottom: 6 }}>{spoaResult.preview_stats.job_value_range}</div>
+                        <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', textTransform: 'uppercase' }}>Avg Job Value</div>
                       </div>
                     </div>
 
@@ -482,21 +426,7 @@ export default function SPOA() {
                           <div style={{ fontFamily: 'DM Mono', fontSize: 12, color: 'var(--teal)', fontWeight: 600 }}>01</div>
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--white)', marginBottom: 4 }}>Save Document</div>
-                            <div style={{ fontSize: 11, color: 'var(--grey)', lineHeight: 1.5 }}>Click "Save PDF" above. Choose "Save as PDF" in the system dialog.</div>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                          <div style={{ fontFamily: 'DM Mono', fontSize: 12, color: 'var(--teal)', fontWeight: 600 }}>02</div>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--white)', marginBottom: 4 }}>Follow-Up Timing</div>
-                            <div style={{ fontSize: 11, color: 'var(--grey)', lineHeight: 1.5 }}>Send only after the prospect has viewed and responded to the MJR hook.</div>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                          <div style={{ fontFamily: 'DM Mono', fontSize: 12, color: 'var(--teal)', fontWeight: 600 }}>03</div>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--white)', marginBottom: 4 }}>Send Asset</div>
-                            <div style={{ fontSize: 11, color: 'var(--grey)', lineHeight: 1.5 }}>Drop the SPOA in WhatsApp. Push for the closing discovery call.</div>
+                            <div style={{ fontSize: 11, color: 'var(--grey)', lineHeight: 1.5 }}>Click "Save PDF" above.</div>
                           </div>
                         </div>
                       </div>
@@ -504,23 +434,18 @@ export default function SPOA() {
 
                     <div style={{ display: 'flex', gap: 12 }}>
                       <button className="btn-secondary" onClick={generateSPOA} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'center' }}>
-                        <Zap size={13} /> Regenerate SPOA
+                        <Zap size={13} /> Regenerate
                       </button>
                       <button className="btn-secondary" onClick={downloadHTML} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 24px' }}>
-                        <Download size={13} /> Source HTML
+                        <Download size={13} /> Source
                       </button>
                       <button className="btn-secondary" onClick={copyFullHTML} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 24px' }}>
-                        <Copy size={13} /> Copy HTML
+                        <Copy size={13} /> Copy
                       </button>
                     </div>
 
                     {showPreview && (
                       <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border2)', marginTop: 8 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg2)', borderBottom: '1px solid var(--border2)' }}>
-                          <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                            Live SPOA Preview
-                          </div>
-                        </div>
                         <ReportIframe html={spoaResult.html} title="SPOA Preview" />
                       </div>
                     )}

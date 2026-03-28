@@ -11,9 +11,17 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey)
  */
 type BaseProspect = Database['public']['Tables']['prospects']['Row'];
 
-// We Omit the fields we want to manually "override" or add to the interface
-export interface Prospect extends Omit<BaseProspect, 'pipeline_stage' | 'is_archived'> {
-  // Database tracking fields (Must match your SQL columns)
+// 1. Identify fields that cause conflicts (add any field that TypeScript complains about here)
+type OverriddenFields = 
+  | 'pipeline_stage' 
+  | 'is_archived' 
+  | 'mjr_link' 
+  | 'spoa_delivered_at' 
+  | 'mjr_delivered_at';
+
+// 2. Create the Clean Interface
+export interface Prospect extends Omit<BaseProspect, OverriddenFields> {
+  // New Tracking Fields
   spoa_delivered_at?: string | null;
   mjr_delivered_at?: string | null;
 

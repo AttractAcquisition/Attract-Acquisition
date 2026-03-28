@@ -1,10 +1,9 @@
 // src/pages/Studio.tsx
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Prospect } from '../lib/supabase'
 import {
-  Search, Zap, Copy, ExternalLink,
-  Download, Printer, CheckCircle, Eye,
+  Zap, Copy, Printer, Eye,
   Users, Target
 } from 'lucide-react'
 import { useToast } from '../lib/toast'

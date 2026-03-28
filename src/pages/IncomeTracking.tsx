@@ -51,7 +51,7 @@ export default function IncomeTracking() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function fetchTransactions() {
+ async function fetchTransactions() {
     setLoading(true)
     try {
       const { data, error } = await supabase
@@ -61,11 +61,11 @@ export default function IncomeTracking() {
 
       if (error) throw error
       
-      // Explicitly cast the data to Transaction[] to resolve the type mismatch
       setTransactions((data as unknown as Transaction[]) || [])
     } catch (error) {
       console.error('Financial fetch error:', error)
-      toast('Failed to load financial data', 'error')
+      // FIX: Ensure toast matches the expected signature (usually string, then type)
+      toast('Failed to load financial data', 'error') 
     } finally {
       setLoading(false)
     }

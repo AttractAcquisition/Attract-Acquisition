@@ -38,12 +38,6 @@ interface MJRFailure {
 }
 type MJRResult = MJRSuccess | MJRFailure
 
-// supabase.functions.invoke wraps errors differently from fetch errors —
-// define a narrow type so we can read .context safely.
-interface FunctionError {
-  message: string
-  context?: { json?: () => Promise<unknown> }
-}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 

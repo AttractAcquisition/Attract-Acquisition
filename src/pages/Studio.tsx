@@ -1,148 +1,281 @@
 // src/pages/Studio.tsx
-import { useState, useRef, useCallback, useEffect } from 'react'
+// ─────────────────────────────────────────────────────────────────────────────
+// MJR Studio — Prospect Explorer + Report Workspace
+// ─────────────────────────────────────────────────────────────────────────────
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Prospect } from '../lib/supabase'
-// Removed the unused formatRand import
 import {
-  Search, Zap, Copy, ExternalLink,
-  Download, Printer, CheckCircle, Eye,
-  Users, Target
+  Zap, Copy, Printer, Eye, EyeOff,
+  Users, Target, CheckCircle, AlertCircle,
+  Loader,
 } from 'lucide-react'
 import { useToast } from '../lib/toast'
 import { MJR_STYLES, wrapWithStyles } from '../lib/docStyles'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface PreviewStats {
-  business_name: string
-  sector: string
-  geography: string
+  business_name:   string
+  sector:          string
+  geography:       string
   job_value_range: string
-  annual_ltv: string
+  annual_ltv:      string
   estimated_missed: string
-  google_reviews: number
-  has_instagram: boolean
-  running_ads: boolean
+  google_reviews:  number
+  has_instagram:   boolean
+  running_ads:     boolean
 }
 
-interface MJRResult {
+// The shape we expect back from the Edge Function
+interface MJRSuccess {
+  success: true
   html: string
   preview_stats: PreviewStats
-  success: boolean
+}
+interface MJRFailure {
+  success: false
+  error: string
+}
+type MJRResult = MJRSuccess | MJRFailure
+
+// supabase.functions.invoke wraps errors differently from fetch errors —
+// define a narrow type so we can read .context safely.
+interface FunctionError {
+  message: string
+  context?: { json?: () => Promise<unknown> }
 }
 
-// ─── Components ───────────────────────────────────────────────────────────────
-function GapBadge({ label, value }: { label: string; value: boolean | number | string }) {
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+/** A single row in the "current context" audit panel */
+function AuditRow({
+  label,
+  value,
+}: {
+  label: string
+  value: boolean | number | string
+}) {
+  // Colouring heuristic
   const isGood =
     value === true ||
-    value === 'yes' ||
-    (typeof value === 'number' && value >= 50)
+    value === 'Active' ||
+    (typeof value === 'number' && value >= 30)
   const isBad =
     value === false ||
-    value === 'no' ||
+    value === 'Missing' ||
     value === 0 ||
     (typeof value === 'number' && value < 10)
 
-  const colour = isGood ? 'var(--teal)' : isBad ? '#FF4444' : '#F59E0B'
-  const display = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)
+  const colour = isGood
+    ? 'var(--teal)'
+    : isBad
+    ? '#FF4444'
+    : '#F59E0B'
+
+  const display =
+    typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)
 
   return (
-    <div style={{
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      padding: '8px 0', borderBottom: '1px solid var(--border2)',
-    }}>
-      <span style={{
-        color: 'var(--grey)', fontFamily: 'DM Mono', fontSize: 10,
-        textTransform: 'uppercase', letterSpacing: '0.06em',
-      }}>
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '10px 0',
+        borderBottom: '1px solid var(--border2)',
+      }}
+    >
+      <span
+        style={{
+          color: 'var(--grey)',
+          fontFamily: 'DM Mono, monospace',
+          fontSize: 10,
+          textTransform: 'uppercase',
+          letterSpacing: '1px',
+        }}
+      >
         {label}
       </span>
-      <span style={{ color: colour, fontFamily: 'DM Mono', fontSize: 11, fontWeight: 500 }}>
+      <span
+        style={{
+          color: colour,
+          fontFamily: 'DM Mono, monospace',
+          fontSize: 11,
+          fontWeight: 500,
+        }}
+      >
         {display}
       </span>
     </div>
   )
 }
 
-function ReportIframe({ html, title, height = 800 }: { html: string; title: string; height?: number }) {
+/**
+ * Renders the generated MJR HTML inside a sandboxed iframe.
+ * The iframe is the CSS isolation boundary — MJR styles never touch Studio.
+ */
+function ReportIframe({ html }: { html: string }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+
+  // Using srcDoc is correct but we also need to handle the iframe height
+  // auto-growing once content is loaded.
+  useEffect(() => {
+    const iframe = iframeRef.current
+    if (!iframe) return
+
+    const handleLoad = () => {
+      try {
+        const body = iframe.contentDocument?.body
+        if (body) {
+          // Let the iframe grow to its content height (max 1200px in studio)
+          const h = Math.min(body.scrollHeight + 32, 1200)
+          iframe.style.height = `${h}px`
+        }
+      } catch {
+        // Cross-origin guard (shouldn't happen with srcDoc but be safe)
+      }
+    }
+
+    iframe.addEventListener('load', handleLoad)
+    return () => iframe.removeEventListener('load', handleLoad)
+  }, [html])
+
   return (
     <iframe
-      key={html}
-      title={title}
+      ref={iframeRef}
+      // key forces React to remount (and therefore reload) when HTML changes
+      key={html.slice(-32)}
       srcDoc={html}
+      title="MJR Preview"
       style={{
         width: '100%',
-        height,
+        height: '800px',      // initial height — grows on load
         border: 'none',
-        display: 'block',
+        borderRadius: 8,
         background: '#0D0D0D',
+        display: 'block',
       }}
-      sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox"
+      // allow-scripts is needed if the report ever uses JS (e.g. charts)
+      // allow-same-origin is needed so iframe can read its own document height
+      sandbox="allow-same-origin allow-scripts allow-popups"
     />
   )
 }
 
-// ─── Main Studio Component ────────────────────────────────────────────────────
+/** Numeric stat card for the post-generation summary row */
+function StatCard({
+  value,
+  label,
+  colour = 'var(--white)',
+}: {
+  value: string
+  label: string
+  colour?: string
+}) {
+  return (
+    <div
+      className="card"
+      style={{ textAlign: 'center', padding: '20px 16px' }}
+    >
+      <div
+        style={{
+          fontSize: 22,
+          fontWeight: 700,
+          color: colour,
+          fontFamily: 'DM Mono, monospace',
+          lineHeight: 1.2,
+          marginBottom: 6,
+        }}
+      >
+        {value}
+      </div>
+      <div
+        className="section-label"
+        style={{ marginBottom: 0, fontSize: 9 }}
+      >
+        {label}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function Studio() {
-  const [search, setSearch] = useState('')
-  const [allProspects, setAllProspects] = useState<Prospect[]>([])
+  const [search, setSearch]                 = useState('')
+  const [allProspects, setAllProspects]     = useState<Prospect[]>([])
   const [filteredProspects, setFilteredProspects] = useState<Prospect[]>([])
-  const [selected, setSelected] = useState<Prospect | null>(null)
-  const [mjrResult, setMjrResult] = useState<MJRResult | null>(null)
-  const [generating, setGenerating] = useState(false)
-  const [showPreview, setShowPreview] = useState(false)
+  const [selected, setSelected]             = useState<Prospect | null>(null)
+  const [mjrResult, setMjrResult]           = useState<MJRSuccess | null>(null)
+  const [errorMsg, setErrorMsg]             = useState<string | null>(null)
+  const [generating, setGenerating]         = useState(false)
+  const [showPreview, setShowPreview]       = useState(true)
+  const [copied, setCopied]                 = useState(false)
+
+  // We store the blob URL separately so we can revoke it on cleanup
   const blobUrlRef = useRef<string | null>(null)
   const { toast } = useToast()
 
-  // ── Load Prospects on Mount ─────────────────────────────────────────────────
+  // ── Load prospects ─────────────────────────────────────────────────────────
   useEffect(() => {
-    async function loadProspects() {
-      // Fetch the latest 100 prospects for the explorer sidebar
-      const { data } = await supabase
+    let cancelled = false
+
+    async function load() {
+      const { data, error } = await supabase
         .from('prospects')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(100)
-      
-      if (data) {
-        setAllProspects(data)
-        setFilteredProspects(data)
+        .limit(200)
+
+      if (!cancelled) {
+        if (error) {
+          console.error('[Studio] Failed to load prospects:', error.message)
+          toast('Failed to load prospects', 'error')
+        } else {
+          setAllProspects(data ?? [])
+          setFilteredProspects(data ?? [])
+        }
       }
     }
-    loadProspects()
-  }, [])
 
-  // ── Client-side Filtering ───────────────────────────────────────────────────
+    load()
+    return () => { cancelled = true }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Search filter ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const q = search.toLowerCase()
+    const q = search.trim().toLowerCase()
+    if (!q) {
+      setFilteredProspects(allProspects)
+      return
+    }
     setFilteredProspects(
-      allProspects.filter(p => 
-        p.business_name.toLowerCase().includes(q) || 
-        p.suburb?.toLowerCase().includes(q) ||
-        p.vertical?.toLowerCase().includes(q)
+      allProspects.filter(
+        (p) =>
+          p.business_name.toLowerCase().includes(q) ||
+          p.suburb?.toLowerCase().includes(q) ||
+          p.vertical?.toLowerCase().includes(q)
       )
     )
   }, [search, allProspects])
 
-  // ── Cleanup Blob URLs ───────────────────────────────────────────────────────
+  // ── Revoke blob URL when component unmounts ────────────────────────────────
   useEffect(() => {
     return () => {
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
     }
   }, [])
 
-  // ── Actions ─────────────────────────────────────────────────────────────────
-  function selectProspect(p: Prospect) {
+  // ── Select prospect ────────────────────────────────────────────────────────
+  const handleSelectProspect = useCallback((p: Prospect) => {
     setSelected(p)
     setMjrResult(null)
-    setShowPreview(false)
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current)
-      blobUrlRef.current = null
-    }
-  }
+    setErrorMsg(null)
+    setShowPreview(true)
+  }, [])
 
+  // ── Generate MJR ──────────────────────────────────────────────────────────
   async function generateMJR() {
-    if (!selected) { toast('Select a prospect first', 'error'); return }
+    if (!selected || generating) return
 
     setGenerating(true)
     setMjrResult(null)
@@ -178,16 +311,19 @@ export default function Studio() {
       const blob = new Blob([bom + fullHtml], { type: 'text/html;charset=utf-8' })
       blobUrlRef.current = URL.createObjectURL(blob)
 
-      setMjrResult(data)
+      // 7. Update state
+      setMjrResult(result)
       setShowPreview(true)
+      toast(`MJR compiled for ${result.preview_stats.business_name} ✓`, 'success')
 
-      // Update CRM record
-      await supabase
+      // 8. Record delivery timestamp in the database (non-blocking)
+      supabase
         .from('prospects')
         .update({ mjr_delivered_at: new Date().toISOString() })
         .eq('id', selected.id)
-
-      toast('MJR generated successfully ✓', 'success')
+        .then(({ error: dbErr }) => {
+          if (dbErr) console.warn('[Studio] Failed to update mjr_delivered_at:', dbErr.message)
+        })
 
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -243,285 +379,455 @@ export default function Studio() {
     })
   }, [mjrResult, selected, toast])
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: '320px 1fr',
-      gap: 24,
-      height: 'calc(100vh - 100px)',
-    }}>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '300px 1fr',
+        gap: 24,
+        height: 'calc(100vh - 120px)',
+        minHeight: 0,
+      }}
+    >
+      {/* ── Sidebar — Prospect Explorer ───────────────────────────────────── */}
+      <aside
+        className="card"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+          padding: 16,
+          overflow: 'hidden',
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Users size={14} color="var(--teal)" />
+          <span className="section-label" style={{ marginBottom: 0 }}>
+            Prospect Explorer
+          </span>
+          <span
+            style={{
+              marginLeft: 'auto',
+              fontFamily: 'DM Mono, monospace',
+              fontSize: 10,
+              color: 'var(--grey)',
+            }}
+          >
+            {filteredProspects.length}
+          </span>
+        </div>
 
-      {/* ── LEFT PANEL: PROSPECT EXPLORER ───────────────────────────────────── */}
-      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Users size={16} style={{ color: 'var(--teal)' }} />
-            <div className="section-label" style={{ margin: 0 }}>Prospect Explorer</div>
-          </div>
-          
-          <div style={{ position: 'relative' }}>
-            <Search size={14} style={{
-              position: 'absolute', left: 12, top: '50%',
-              transform: 'translateY(-50%)', color: 'var(--grey2)',
-            }} />
-            <input
-              className="input"
-              placeholder="Search by name, suburb..."
-              style={{ paddingLeft: 34, fontSize: 13 }}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
+        {/* Search */}
+        <input
+          className="input"
+          placeholder="Search name, suburb, sector…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ fontSize: 13 }}
+        />
 
-          <div style={{ 
-            flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 4 
-          }}>
-            {filteredProspects.length === 0 ? (
-              <div style={{ color: 'var(--grey2)', fontSize: 12, textAlign: 'center', marginTop: 20, fontFamily: 'DM Mono' }}>
-                No prospects found
-              </div>
-            ) : (
-              filteredProspects.map(p => (
+        {/* List */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+          }}
+        >
+          {filteredProspects.length === 0 && (
+            <p
+              style={{
+                color: 'var(--grey)',
+                fontSize: 12,
+                textAlign: 'center',
+                paddingTop: 32,
+              }}
+            >
+              No prospects found
+            </p>
+          )}
+          {filteredProspects.map((p) => {
+            const isActive = selected?.id === p.id
+            return (
+              <button
+                key={p.id}
+                onClick={() => handleSelectProspect(p)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  background: isActive ? 'var(--teal-faint, rgba(0,201,167,0.08))' : 'var(--bg3, #222)',
+                  border: `1px solid ${isActive ? 'var(--teal)' : 'var(--border2, #2a2a2a)'}`,
+                  textAlign: 'left',
+                  width: '100%',
+                  transition: 'border-color 0.15s, background 0.15s',
+                }}
+              >
                 <div
-                  key={p.id}
-                  onClick={() => selectProspect(p)}
                   style={{
-                    padding: '12px', cursor: 'pointer', borderRadius: 6,
-                    background: selected?.id === p.id ? 'var(--teal-faint)' : 'var(--bg3)',
-                    border: `1px solid ${selected?.id === p.id ? 'var(--teal-border)' : 'var(--border2)'}`,
-                    transition: 'all 0.15s ease',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    color: 'var(--white)',
+                    marginBottom: 2,
                   }}
                 >
-                  <div style={{ fontSize: 13, fontWeight: 600, color: selected?.id === p.id ? 'var(--teal)' : 'var(--white)', marginBottom: 2 }}>
-                    {p.business_name}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--grey)', fontFamily: 'DM Mono' }}>
-                    {p.vertical} · {p.suburb}
-                  </div>
-                  {p.icp_tier && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 10, fontFamily: 'DM Mono' }}>
-                      <span style={{ color: 'var(--teal)' }}>TIER {p.icp_tier}</span>
-                      <span style={{ color: 'var(--grey2)' }}>{p.icp_total_score}/25 pts</span>
-                    </div>
-                  )}
+                  {p.business_name}
                 </div>
-              ))
-            )}
-          </div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: 'var(--grey)',
+                    fontFamily: 'DM Mono, monospace',
+                  }}
+                >
+                  {[p.suburb, p.vertical].filter(Boolean).join(' · ')}
+                </div>
+              </button>
+            )
+          })}
         </div>
-      </div>
+      </aside>
 
-      {/* ── RIGHT PANEL: WORKSPACE ──────────────────────────────────────────── */}
-      <div style={{ overflowY: 'auto', paddingRight: 8 }}>
-        
-        {!selected ? (
-          // Empty State
-          <div className="empty-state" style={{ height: '100%', minHeight: 400 }}>
-            <Target size={40} style={{ color: 'var(--border2)', marginBottom: 16 }} />
-            <h2 style={{ fontFamily: 'Playfair Display', margin: '0 0 12px 0' }}>Studio Workspace</h2>
-            <p style={{ color: 'var(--grey)', maxWidth: 400, margin: '0 auto 24px', lineHeight: 1.5 }}>
-              Select a prospect from the explorer to review their digital gap audit and generate a complete, branded Missed Jobs Report.
+      {/* ── Main Workspace ────────────────────────────────────────────────── */}
+      <main style={{ overflowY: 'auto', minHeight: 0 }}>
+        {/* Empty state */}
+        {!selected && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              gap: 16,
+              color: 'var(--grey)',
+            }}
+          >
+            <Target size={48} color="var(--border2, #2a2a2a)" strokeWidth={1} />
+            <h2
+              style={{
+                fontFamily: 'Playfair Display, serif',
+                fontSize: 24,
+                color: 'var(--white)',
+                fontStyle: 'italic',
+              }}
+            >
+              Ready for Generation
+            </h2>
+            <p style={{ fontSize: 13 }}>
+              Select a prospect from the sidebar to begin the digital audit.
             </p>
-            <div style={{
-              display: 'flex', flexDirection: 'column', gap: 8,
-              textAlign: 'left', background: 'var(--bg3)', padding: '16px 20px', 
-              borderRadius: 6, fontSize: 12, color: 'var(--grey)', width: '100%', maxWidth: 400
-            }}>
-              <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--teal)', textTransform: 'uppercase', marginBottom: 6 }}>
-                Report Output Includes:
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}><span style={{ color: 'var(--teal)' }}>·</span> Live-researched missed revenue stats</div>
-              <div style={{ display: 'flex', gap: 8 }}><span style={{ color: 'var(--teal)' }}>·</span> Real named competitors in target suburb</div>
-              <div style={{ display: 'flex', gap: 8 }}><span style={{ color: 'var(--teal)' }}>·</span> Specific pipeline gap audit with figures</div>
-              <div style={{ display: 'flex', gap: 8 }}><span style={{ color: 'var(--teal)' }}>·</span> Priority action plan & Sprint CTA</div>
-            </div>
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            
-            {/* Header Control Bar */}
-            <div className="card" style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', padding: '24px' }}>
+        )}
+
+        {/* Workspace */}
+        {selected && (
+          <div
+            style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+          >
+            {/* ── Control Bar ─────────────────────────────────────────── */}
+            <div
+              className="card"
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '20px 24px',
+                flexWrap: 'wrap',
+                gap: 16,
+              }}
+            >
               <div>
-                <h1 style={{ fontFamily: 'Playfair Display', fontSize: 28, margin: 0, color: 'var(--white)' }}>
+                <h1
+                  style={{
+                    fontFamily: 'Playfair Display, serif',
+                    fontSize: 26,
+                    fontStyle: 'italic',
+                    margin: 0,
+                    lineHeight: 1.2,
+                  }}
+                >
                   {selected.business_name}
                 </h1>
-                <p style={{ color: 'var(--grey)', margin: '6px 0 0 0', fontFamily: 'DM Mono', fontSize: 12 }}>
-                  {selected.vertical} // {selected.suburb}
+                <p
+                  style={{
+                    color: 'var(--grey)',
+                    fontSize: 11,
+                    fontFamily: 'DM Mono, monospace',
+                    marginTop: 4,
+                  }}
+                >
+                  {[selected.suburb, selected.vertical]
+                    .filter(Boolean)
+                    .join('  //  ')}
                 </p>
               </div>
-              
+
               <button
                 className="btn-primary"
                 onClick={generateMJR}
                 disabled={generating}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '14px 24px', fontSize: 14, height: 'fit-content'
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  minWidth: 160,
+                  justifyContent: 'center',
+                  opacity: generating ? 0.7 : 1,
                 }}
               >
-                <Zap size={16} />
-                {generating ? 'Building Report...' : 'Generate MJR →'}
+                {generating ? (
+                  <>
+                    <Loader size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                    Researching…
+                  </>
+                ) : (
+                  <>
+                    <Zap size={15} />
+                    Generate MJR
+                  </>
+                )}
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: mjrResult && !generating ? '1fr' : '350px 1fr', gap: 20 }}>
-              
-              {/* Data Audit Sidebar (Hides/Moves to top when report is generated to give iframe space) */}
-              {!mjrResult && (
-                <div className="card" style={{ padding: 24 }}>
-                  <div className="section-label" style={{ marginBottom: 16 }}>Digital Audit Inputs</div>
-                  <GapBadge label="Google Reviews" value={selected.google_review_count || 0} />
-                  <GapBadge label="Star Rating" value={selected.google_rating ? `${selected.google_rating}★` : 'Unrated'} />
-                  <GapBadge
-                    label="Instagram"
-                    value={selected.instagram_handle ? `@${selected.instagram_handle}` : 'None'}
-                  />
-                  <GapBadge label="Meta Ads Active" value={!!selected.has_meta_ads} />
-                  <GapBadge label="Last Post" value={selected.instagram_last_post_date || '—'} />
-                  
-                  {selected.mjr_notes && (
-                    <div style={{ marginTop: 20, padding: 14, background: 'var(--bg2)', borderRadius: 6 }}>
-                      <div style={{ fontSize: 10, color: 'var(--teal)', fontFamily: 'DM Mono', marginBottom: 8, textTransform: 'uppercase' }}>
-                        Analyst Notes / USP
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--grey)', lineHeight: 1.6 }}>
-                        {selected.mjr_notes}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Dynamic Content Area */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                
-                {/* Generating State */}
-                {generating && (
-                  <div className="card" style={{ textAlign: 'center', padding: '60px 40px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, marginBottom: 12 }}>
-                      Analyzing Market Data...
-                    </div>
-                    <div style={{ color: 'var(--grey2)', fontSize: 13, marginBottom: 32 }}>
-                      Claude is researching {selected.suburb}, auditing local competitors, and calculating the exact revenue gap.
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-                      {[0, 1, 2].map(i => (
-                        <div key={i} style={{
-                          width: 10, height: 10, borderRadius: '50%',
-                          background: 'var(--teal)', opacity: 0.6,
-                          animation: `pulse-dot 1.4s ease-in-out ${i * 0.2}s infinite`,
-                        }} />
-                      ))}
-                    </div>
-                    <div style={{ marginTop: 32, fontSize: 11, color: 'var(--grey2)', fontFamily: 'DM Mono' }}>
-                      Typically takes 30–60 seconds. Do not refresh.
-                    </div>
+            {/* ── Error Banner ─────────────────────────────────────────── */}
+            {errorMsg && (
+              <div
+                style={{
+                  background: 'rgba(255,68,68,0.08)',
+                  border: '1px solid rgba(255,68,68,0.3)',
+                  borderRadius: 8,
+                  padding: '14px 20px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 12,
+                }}
+              >
+                <AlertCircle
+                  size={16}
+                  color="#FF4444"
+                  style={{ marginTop: 1, flexShrink: 0 }}
+                />
+                <div>
+                  <div
+                    style={{
+                      fontFamily: 'DM Mono, monospace',
+                      fontSize: 10,
+                      color: '#FF4444',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      marginBottom: 4,
+                    }}
+                  >
+                    Generation Failed
                   </div>
+                  <div style={{ fontSize: 13, color: 'var(--white)' }}>
+                    {errorMsg}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Generating Indicator ──────────────────────────────────── */}
+            {generating && (
+              <div
+                className="card"
+                style={{
+                  padding: 32,
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 16,
+                }}
+              >
+                <Loader
+                  size={32}
+                  color="var(--teal)"
+                  style={{ animation: 'spin 1s linear infinite' }}
+                />
+                <div>
+                  <div
+                    style={{
+                      fontFamily: 'Playfair Display, serif',
+                      fontSize: 18,
+                      fontStyle: 'italic',
+                      marginBottom: 8,
+                    }}
+                  >
+                    Researching {selected.business_name}…
+                  </div>
+                  <div
+                    style={{
+                      color: 'var(--grey)',
+                      fontSize: 12,
+                      fontFamily: 'DM Mono, monospace',
+                    }}
+                  >
+                    Auditing competitors in {selected.suburb ?? 'Cape Town'} ·
+                    Calculating revenue gaps · Building report
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Idle Context Panel (pre-generation) ──────────────────── */}
+            {!generating && !mjrResult && !errorMsg && (
+              <div className="card" style={{ padding: 24 }}>
+                <span className="section-label">Current Audit Context</span>
+                <AuditRow
+                  label="Google Reviews"
+                  value={selected.google_review_count ?? 0}
+                />
+                <AuditRow
+                  label="Star Rating"
+                  value={selected.google_rating ?? 0}
+                />
+                <AuditRow
+                  label="Meta Ads Running"
+                  value={!!selected.has_meta_ads}
+                />
+                <AuditRow
+                  label="Instagram"
+                  value={selected.instagram_handle ? 'Active' : 'Missing'}
+                />
+                {selected.suburb && (
+                  <AuditRow label="Location" value={selected.suburb} />
                 )}
+                {selected.vertical && (
+                  <AuditRow label="Sector" value={selected.vertical} />
+                )}
+              </div>
+            )}
 
-                {/* Results View */}
-                {mjrResult && !generating && (
-                  <>
-                    {/* Success Banner & Quick Actions */}
-                    <div style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
-                      padding: '16px 20px', borderRadius: 8,
-                      background: 'rgba(0,201,167,0.08)', border: '1px solid rgba(0,201,167,0.25)',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <CheckCircle size={20} style={{ color: 'var(--teal)', flexShrink: 0 }} />
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--white)' }}>
-                            MJR Compiled Successfully
-                          </div>
-                          <div style={{ fontSize: 11, color: 'var(--grey)', fontFamily: 'DM Mono', marginTop: 4 }}>
-                            {mjrResult.preview_stats.sector} · Generated at {new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        <button className="btn-primary" onClick={openInNewTab} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', fontSize: 12 }}>
-                          <ExternalLink size={14} /> Open
-                        </button>
-                        <button className="btn-secondary" onClick={printReport} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', fontSize: 12 }}>
-                          <Printer size={14} /> Save PDF
-                        </button>
-                        <button className="btn-secondary" onClick={() => setShowPreview(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', fontSize: 12 }}>
-                          <Eye size={14} /> {showPreview ? 'Hide' : 'Preview'}
-                        </button>
-                      </div>
-                    </div>
+            {/* ── Generated Report UI ───────────────────────────────────── */}
+            {!generating && mjrResult && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-                    {/* Report Stats Grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-                      <div className="card" style={{ textAlign: 'center', padding: '20px 16px' }}>
-                        <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, color: '#FF4444', marginBottom: 6 }}>
-                          {mjrResult.preview_stats.estimated_missed}
-                        </div>
-                        <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                          Est. Missed Revenue
-                        </div>
-                      </div>
-                      <div className="card" style={{ textAlign: 'center', padding: '20px 16px' }}>
-                        <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, color: 'var(--teal)', marginBottom: 6 }}>
-                          {mjrResult.preview_stats.annual_ltv}
-                        </div>
-                        <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                          Annual LTV / Client
-                        </div>
-                      </div>
-                      <div className="card" style={{ textAlign: 'center', padding: '20px 16px' }}>
-                        <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, color: 'var(--white)', marginBottom: 6 }}>
-                          {mjrResult.preview_stats.job_value_range}
-                        </div>
-                        <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                          Avg Job Value
-                        </div>
-                      </div>
-                    </div>
+                {/* Stats row */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: 16,
+                  }}
+                >
+                  <StatCard
+                    value={mjrResult.preview_stats.estimated_missed}
+                    label="Est. Missed / Month"
+                    colour="var(--red, #FF4444)"
+                  />
+                  <StatCard
+                    value={mjrResult.preview_stats.annual_ltv}
+                    label="Annual LTV Potential"
+                    colour="var(--teal)"
+                  />
+                  <StatCard
+                    value={mjrResult.preview_stats.job_value_range}
+                    label="Avg Job Value Range"
+                  />
+                </div>
 
-                    {/* Delivery Instructions */}
-                    <div className="card" style={{ borderLeft: '3px solid var(--teal)', padding: '20px' }}>
-                      <div className="section-label" style={{ marginBottom: 16 }}>Delivery Sequence (SOP 02)</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
-                        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                          <div style={{ fontFamily: 'DM Mono', fontSize: 12, color: 'var(--teal)', fontWeight: 600 }}>01</div>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--white)', marginBottom: 4 }}>Save Document</div>
-                            <div style={{ fontSize: 11, color: 'var(--grey)', lineHeight: 1.5 }}>Click "Save PDF" above. Use Cmd+P/Ctrl+P and choose "Save as PDF".</div>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                          <div style={{ fontFamily: 'DM Mono', fontSize: 12, color: 'var(--teal)', fontWeight: 600 }}>02</div>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--white)', marginBottom: 4 }}>Send Framing Msg</div>
-                            <div style={{ fontSize: 11, color: 'var(--grey)', lineHeight: 1.5 }}>Drop the PDF in WhatsApp with the initial text framing template.</div>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                          <div style={{ fontFamily: 'DM Mono', fontSize: 12, color: 'var(--teal)', fontWeight: 600 }}>03</div>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--white)', marginBottom: 4 }}>Voice Note</div>
-                            <div style={{ fontSize: 11, color: 'var(--grey)', lineHeight: 1.5 }}>Wait 1 hour. Send VN referencing the {mjrResult.preview_stats.estimated_missed} missed revenue figure.</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                {/* Additional signal badges */}
+                <div
+                  className="card"
+                  style={{
+                    padding: '14px 20px',
+                    display: 'flex',
+                    gap: 12,
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                  }}
+                >
+                  <CheckCircle size={14} color="var(--teal)" />
+                  <span
+                    style={{
+                      fontFamily: 'DM Mono, monospace',
+                      fontSize: 10,
+                      color: 'var(--teal)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                    }}
+                  >
+                    Report Ready
+                  </span>
+                  <span style={{ margin: '0 4px', color: 'var(--border2)' }}>|</span>
+                  <span style={{ fontSize: 11, color: 'var(--grey)' }}>
+                    {mjrResult.preview_stats.geography} ·{' '}
+                    {mjrResult.preview_stats.sector}
+                  </span>
+                  <span style={{ margin: '0 4px', color: 'var(--border2)' }}>|</span>
+                  <span style={{ fontSize: 11, color: 'var(--grey)' }}>
+                    {mjrResult.preview_stats.google_reviews} reviews
+                  </span>
+                  <span style={{ margin: '0 4px', color: 'var(--border2)' }}>|</span>
+                  <span style={{ fontSize: 11, color: 'var(--grey)' }}>
+                    Instagram:{' '}
+                    <span
+                      style={{
+                        color: mjrResult.preview_stats.has_instagram
+                          ? 'var(--teal)'
+                          : '#FF4444',
+                      }}
+                    >
+                      {mjrResult.preview_stats.has_instagram ? 'Active' : 'Missing'}
+                    </span>
+                  </span>
+                </div>
 
-                    {/* Secondary Actions Row */}
-                    <div style={{ display: 'flex', gap: 12 }}>
-                      <button className="btn-secondary" onClick={generateMJR} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'center' }}>
-                        <Zap size={13} /> Regenerate Report
-                      </button>
-                      <button className="btn-secondary" onClick={downloadHTML} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 24px' }}>
-                        <Download size={13} /> Source HTML
-                      </button>
-                      <button className="btn-secondary" onClick={copyFullHTML} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 24px' }}>
-                        <Copy size={13} /> Copy HTML
-                      </button>
-                    </div>
+                {/* Action bar */}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    className="btn-secondary"
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                    }}
+                    onClick={printReport}
+                  >
+                    <Printer size={14} />
+                    Save as PDF
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                    }}
+                    onClick={() => setShowPreview((v) => !v)}
+                  >
+                    {showPreview ? <EyeOff size={14} /> : <Eye size={14} />}
+                    {showPreview ? 'Hide Preview' : 'Show Preview'}
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      minWidth: 44,
+                    }}
+                    onClick={copyHtml}
+                    title="Copy HTML to clipboard"
+                  >
+                    {copied ? (
+                      <CheckCircle size={14} color="var(--teal)" />
+                    ) : (
+                      <Copy size={14} />
+                    )}
+                  </button>
+                </div>
 
                     {/* Inline Iframe Preview */}
                     {showPreview && (
@@ -537,10 +843,18 @@ export default function Studio() {
                   </>
                 )}
               </div>
-            </div>
+            )}
           </div>
         )}
-      </div>
+      </main>
+
+      {/* Spinner keyframe — injected once, scoped to this component's output */}
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }

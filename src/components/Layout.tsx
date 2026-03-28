@@ -31,13 +31,18 @@ const ADMIN_OPERATOR_NAV = [
       { label: 'Clients',       path: '/clients',      icon: Briefcase,     roles: ['admin', 'delivery'] },
     ],
   },
-  {
-    section: 'Delivery Engine',
+    {
+    section: 'Delivery Tools',
     items: [
       { label: 'MJR Studio',      path: '/studio',    icon: FileText,  roles: ['distribution', 'admin', 'delivery'] },
       { label: 'PDF Tool',   path: '/mjr-generator', icon: Printer, roles: ['admin', 'distribution'] }, 
-      { label: 'Proof Sprint',   path: '/sprints',   icon: Zap,       roles: ['admin', 'delivery'] },
       { label: 'SPOA Studio', path: '/spoa', icon: Target, roles: ['admin', 'distribution'] },
+    ],
+  },
+  {
+    section: 'Delivery Engine',
+    items: [
+      { label: 'Proof Sprint',   path: '/sprints',   icon: Zap,       roles: ['admin', 'delivery'] },
       { label: 'Proof Brand',     path: '/proof',     icon: BookOpen,  roles: ['admin', 'delivery'] },
       { label: 'Authority Brand', path: '/authority', icon: Shield,    roles: ['admin', 'delivery'] },
     ],

@@ -8,15 +8,24 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey)
 
 /**
  * PROSPECT INTERFACE
- * We Omit all manually managed fields from the base Row type first.
- * This prevents "Incompatible Types" errors when we mark them as optional (?).
  */
 type BaseProspect = Database['public']['Tables']['prospects']['Row'];
 
-// Prospect extends the DB Row directly. Fields that exist in the DB are already
-// typed there; we only augment with legacy/UI-only optional fields not yet in schema.
-export interface Prospect extends BaseProspect {
-  // Legacy field aliases (not yet in DB schema — kept for UI compatibility)
+// 1. Identify fields that cause conflicts (add any field that TypeScript complains about here)
+type OverriddenFields = 
+  | 'pipeline_stage' 
+  | 'is_archived' 
+  | 'mjr_link' 
+  | 'spoa_delivered_at' 
+  | 'mjr_delivered_at';
+
+// 2. Create the Clean Interface
+export interface Prospect extends Omit<BaseProspect, OverriddenFields> {
+  // New Tracking Fields
+  spoa_delivered_at?: string | null;
+  mjr_delivered_at?: string | null;
+
+  // Legacy & UI-only optional fields
   pipeline_stage?: string | null;
   meta_ads_running?: boolean | null;
   ig_follower_count?: number | null;

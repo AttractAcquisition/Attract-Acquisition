@@ -1,4 +1,3 @@
-import React from 'react';
 import { ExternalLink, Sparkles, Zap, Layout, Monitor } from 'lucide-react';
 
 const CONTENT_PLATFORMS = [

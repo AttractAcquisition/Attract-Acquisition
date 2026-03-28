@@ -35,8 +35,9 @@ const ADMIN_OPERATOR_NAV = [
     section: 'Delivery Engine',
     items: [
       { label: 'MJR Studio',      path: '/studio',    icon: FileText,  roles: ['distribution', 'admin', 'delivery'] },
-      { label: 'PDF Tool',   path: '/mjr-generator', icon: Printer, roles: ['admin', 'distribution'] }, // NEW: Linked to html.tsx
+      { label: 'PDF Tool',   path: '/mjr-generator', icon: Printer, roles: ['admin', 'distribution'] }, 
       { label: 'Proof Sprint',   path: '/sprints',   icon: Zap,       roles: ['admin', 'delivery'] },
+      { label: 'SPOA Studio', path: '/spoa', icon: <Target size={18} />, roles: ['admin', 'distribution'] },
       { label: 'Proof Brand',     path: '/proof',     icon: BookOpen,  roles: ['admin', 'delivery'] },
       { label: 'Authority Brand', path: '/authority', icon: Shield,    roles: ['admin', 'delivery'] },
     ],

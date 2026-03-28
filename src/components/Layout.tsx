@@ -57,8 +57,8 @@ const ADMIN_OPERATOR_NAV = [
   {
   section: 'Finance',
   items: [
+    { label: 'Capital Flow',  path: '/income',  icon: Activity,  roles: ['admin'] },
     { label: 'MRR Dashboard', path: '/finance', icon: BarChart3, roles: ['admin'] },
-    { label: 'Capital Flow',  path: '/income',  icon: Activity,  roles: ['admin'] }, // Added Income Tracking
   ],
 },
   {

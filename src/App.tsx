@@ -10,6 +10,7 @@ import Tracker       from './pages/Tracker'
 import Prospects     from './pages/Prospects'
 import CRM           from './pages/crm' 
 import Finance       from './pages/Finance'
+import IncomeTracking from './pages/INcomeTracking' 
 import Outreach      from './pages/Outreach'
 import Sprints       from './pages/Sprints'
 import SprintDetail  from './pages/SprintDetail'
@@ -130,7 +131,8 @@ function AppRoutes() {
         <Route path="clients"    element={<RoleWrapper allowedRoles={['admin', 'delivery', 'client']}><Clients /></RoleWrapper>} />
         <Route path="sprints"    element={<RoleWrapper allowedRoles={['admin', 'delivery', 'client']}><Sprints /></RoleWrapper>} />
         <Route path="sprints/:id" element={<RoleWrapper allowedRoles={['admin', 'delivery', 'client']}><SprintDetail /></RoleWrapper>} />
-        <Route path="finance"    element={<RoleWrapper allowedRoles={['admin']}><Finance /></RoleWrapper>} />
+        <Route path="income"    element={<RoleWrapper allowedRoles={['admin']}><IncomeTracking /></RoleWrapper>} />
+        <Route path="finance"    element={<RoleWrapper allowedRoles={['admin']}><Finance /></RoleWrapper>} />    
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

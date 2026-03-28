@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { 
-  TrendingUp, TrendingDown, DollarSign, 
-  Calendar, Filter, Plus, ArrowUpRight, 
-  ArrowDownLeft, BarChart3, PieChart
+  DollarSign, 
+  Filter, Plus, ArrowUpRight, 
+  ArrowDownLeft, BarChart3 
 } from 'lucide-react'
 import { useToast } from '../lib/toast'
 
@@ -48,21 +48,27 @@ export default function IncomeTracking() {
 
   useEffect(() => {
     fetchTransactions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function fetchTransactions() {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('ledger') // Ensure this table exists in your Supabase
-      .select('*')
-      .order('date', { ascending: false })
+    try {
+      const { data, error } = await supabase
+        .from('ledger') 
+        .select('*')
+        .order('date', { ascending: false })
 
-    if (error) {
+      if (error) throw error
+      
+      // Explicitly cast the data to Transaction[] to resolve the type mismatch
+      setTransactions((data as unknown as Transaction[]) || [])
+    } catch (error) {
+      console.error('Financial fetch error:', error)
       toast('Failed to load financial data', 'error')
-    } else {
-      setTransactions(data || [])
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   // ─── Calculations ───────────────────────────────────────────────────────────
@@ -74,7 +80,7 @@ export default function IncomeTracking() {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 40 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 40, opacity: loading ? 0.7 : 1 }}>
       
       {/* Header & Controls */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
@@ -120,7 +126,6 @@ export default function IncomeTracking() {
           </div>
           
           <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 12, padding: '20px 0' }}>
-            {/* Mock Chart Bars - In a real app, you'd map your aggregated data here */}
             {[40, 70, 45, 90, 65, 80, 95].map((h, i) => (
               <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column-reverse', gap: 4, height: '100%' }}>
                 <div style={{ 
@@ -146,7 +151,6 @@ export default function IncomeTracking() {
 
           <div className="card" style={{ padding: 20, flex: 1 }}>
             <div className="section-label" style={{ marginBottom: 16 }}>Expense Distribution</div>
-            {/* Simple CSS-based category list */}
             {['Ads', 'Software', 'Infrastructure', 'Content'].map(cat => (
               <div key={cat} style={{ padding: '12px 0', borderBottom: '1px solid var(--border2)', display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 13, color: 'var(--white)' }}>{cat}</span>
@@ -185,7 +189,7 @@ export default function IncomeTracking() {
             )) : (
               <tr>
                 <td colSpan={4} style={{ padding: 40, textAlign: 'center', color: 'var(--grey2)', fontSize: 12 }}>
-                  No financial data recorded for this period.
+                  {loading ? 'Fetching intelligence...' : 'No financial data recorded for this period.'}
                 </td>
               </tr>
             )}

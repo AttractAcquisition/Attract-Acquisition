@@ -6,6 +6,8 @@ export interface RouteMetadata {
   section: string;
   icon: any;
   roles?: string[];
+  /** Page filename (without .tsx) when it differs from the route key */
+  file?: string;
 }
 
 export const ROUTE_CONFIG: Record<string, Omit<RouteMetadata, 'path'>> = {
@@ -26,12 +28,12 @@ export const ROUTE_CONFIG: Record<string, Omit<RouteMetadata, 'path'>> = {
   // ADDED: Content Hub Entry
   content: { label: 'Content Hub', section: 'Delivery Tools', icon: Icons.Video, roles: ['admin', 'distribution', 'delivery'] },
   sprints: { label: 'Proof Sprint', section: 'Delivery Engine', icon: Icons.Zap, roles: ['admin', 'delivery'] },
-  proof: { label: 'Proof Brand', section: 'Delivery Engine', icon: Icons.BookOpen, roles: ['admin', 'delivery'] },
-  authority: { label: 'Authority Brand', section: 'Delivery Engine', icon: Icons.Shield, roles: ['admin', 'delivery'] },
+  proof: { label: 'Proof Brand', section: 'Delivery Engine', icon: Icons.BookOpen, roles: ['admin', 'delivery'], file: 'ProofBrand' },
+  authority: { label: 'Authority Brand', section: 'Delivery Engine', icon: Icons.Shield, roles: ['admin', 'delivery'], file: 'AuthorityBrand' },
   sops: { label: 'SOP Library', section: 'Build', icon: Icons.BookOpen, roles: ['admin', 'distribution', 'delivery'] },
   templates: { label: 'Templates', section: 'Build', icon: Icons.FileCode, roles: ['admin', 'distribution', 'delivery'] },
-  income: { label: 'Capital Flow', section: 'Finance', icon: Icons.Activity, roles: ['admin'] },
+  income: { label: 'Capital Flow', section: 'Finance', icon: Icons.Activity, roles: ['admin'], file: 'IncomeTracking' },
   finance: { label: 'MRR Dashboard', section: 'Finance', icon: Icons.BarChart3, roles: ['admin'] },
-  admin: { label: 'Command Center', section: 'System', icon: Icons.Shield, roles: ['admin'] },
+  admin: { label: 'Command Center', section: 'System', icon: Icons.Shield, roles: ['admin'], file: 'AdminControl' },
   brain: { label: 'AA Ai', section: 'System', icon: Icons.BrainIcon, roles: ['admin', 'distribution', 'delivery'] },
 };

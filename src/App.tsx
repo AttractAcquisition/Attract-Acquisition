@@ -10,6 +10,13 @@ import { ROUTE_CONFIG } from './lib/route-config';
 // 1. Auto-discover all files in src/pages
 const pageModules = import.meta.glob('./pages/*.tsx');
 
+// 2. Build a filename → route-key map from ROUTE_CONFIG (handles mismatched names)
+const fileToRouteKey: Record<string, string> = {};
+Object.entries(ROUTE_CONFIG).forEach(([key, config]) => {
+  const filename = (config.file || key).toLowerCase();
+  fileToRouteKey[filename] = key;
+});
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
   const location = useLocation();
@@ -33,13 +40,15 @@ function AppRoutes() {
     return Object.keys(pageModules).map((path) => {
       const fileName = path.split('/').pop()?.replace('.tsx', '') || '';
       const lowerName = fileName.toLowerCase();
-      
+
       // Handle special cases or index pages
       if (['Login', 'Portal', 'Layout'].includes(fileName)) return null;
 
+      // Resolve the correct route key (uses file→key map for mismatched filenames)
+      const routeKey = fileToRouteKey[lowerName] || lowerName;
       const Component = React.lazy(pageModules[path] as any);
-      const config = ROUTE_CONFIG[lowerName];
-      const routePath = lowerName === 'dashboard' ? 'dashboard' : lowerName;
+      const config = ROUTE_CONFIG[routeKey];
+      const routePath = routeKey;
 
       return (
         <Route 

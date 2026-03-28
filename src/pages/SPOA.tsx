@@ -2,9 +2,9 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Prospect } from '../lib/supabase'
 import {
-  Search, Zap, Copy, ExternalLink,
-  Download, Printer, CheckCircle, Eye,
-  Users, Target, FileText, ShieldCheck
+  Search, Zap,
+  Download, Printer, Eye,
+  Users, Target, ShieldCheck
 } from 'lucide-react'
 import { useToast } from '../lib/toast'
 

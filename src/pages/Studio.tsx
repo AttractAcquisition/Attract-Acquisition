@@ -6,7 +6,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Prospect } from '../lib/supabase'
 import {
-  Zap, Copy, Printer, Eye, EyeOff,
+  Zap, Copy, Download, Printer, Eye, EyeOff,
   Users, Target, CheckCircle, AlertCircle,
   Loader,
 } from 'lucide-react'
@@ -312,9 +312,9 @@ export default function Studio() {
       blobUrlRef.current = URL.createObjectURL(blob)
 
       // 7. Update state
-      setMjrResult(result)
+      setMjrResult(data as MJRSuccess)
       setShowPreview(true)
-      toast(`MJR compiled for ${result.preview_stats.business_name} ✓`, 'success')
+      toast(`MJR compiled for ${(data as MJRSuccess).preview_stats.business_name} ✓`, 'success')
 
       // 8. Record delivery timestamp in the database (non-blocking)
       supabase
@@ -333,11 +333,6 @@ export default function Studio() {
 
     setGenerating(false)
   }
-
-  const openInNewTab = useCallback(() => {
-    if (!blobUrlRef.current) return
-    window.open(blobUrlRef.current, '_blank', 'noopener')
-  }, [])
 
   const downloadHTML = useCallback(() => {
     if (!mjrResult?.html || !selected) return
@@ -376,6 +371,8 @@ export default function Studio() {
     const fullHtml = wrapWithStyles(mjrResult.html, MJR_STYLES, `MJR — ${selected.business_name}`)
     navigator.clipboard.writeText(fullHtml).then(() => {
       toast('Full HTML copied to clipboard ✓', 'success')
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     })
   }, [mjrResult, selected, toast])
 
@@ -783,13 +780,7 @@ export default function Studio() {
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button
                     className="btn-secondary"
-                    style={{
-                      flex: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                    }}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                     onClick={printReport}
                   >
                     <Printer size={14} />
@@ -797,13 +788,7 @@ export default function Studio() {
                   </button>
                   <button
                     className="btn-secondary"
-                    style={{
-                      flex: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                    }}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                     onClick={() => setShowPreview((v) => !v)}
                   >
                     {showPreview ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -811,36 +796,31 @@ export default function Studio() {
                   </button>
                   <button
                     className="btn-secondary"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      minWidth: 44,
-                    }}
-                    onClick={copyHtml}
-                    title="Copy HTML to clipboard"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 16px' }}
+                    onClick={downloadHTML}
+                    title="Download .html file"
                   >
-                    {copied ? (
-                      <CheckCircle size={14} color="var(--teal)" />
-                    ) : (
-                      <Copy size={14} />
-                    )}
+                    <Download size={14} />
+                    Download
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minWidth: 44 }}
+                    onClick={copyFullHTML}
+                    title="Copy full HTML to clipboard"
+                  >
+                    {copied ? <CheckCircle size={14} color="var(--teal)" /> : <Copy size={14} />}
                   </button>
                 </div>
 
-                    {/* Inline Iframe Preview */}
-                    {showPreview && (
-                      <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border2)', marginTop: 8 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg2)', borderBottom: '1px solid var(--border2)' }}>
-                          <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                            Live Document Preview
-                          </div>
-                        </div>
-                        <ReportIframe html={wrapWithStyles(mjrResult.html, MJR_STYLES, `MJR — ${selected.business_name}`)} title="MJR Preview" />
-                      </div>
-                    )}
-                  </>
+                {/* Inline Iframe Preview */}
+                {showPreview && (
+                  <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border2)', marginTop: 8 }}>
+                    <div style={{ padding: '12px 16px', background: 'var(--bg2)', borderBottom: '1px solid var(--border2)', fontFamily: 'DM Mono', fontSize: 10, color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                      Live Document Preview
+                    </div>
+                    <ReportIframe html={wrapWithStyles(mjrResult.html, MJR_STYLES, `MJR — ${selected.business_name}`)} />
+                  </div>
                 )}
               </div>
             )}

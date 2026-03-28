@@ -3,12 +3,11 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Prospect } from '../lib/supabase'
 import {
-  Search, Zap,
+  Search, Zap, Copy,
   Download, Printer, Eye,
   Users, Target, ShieldCheck,
 } from 'lucide-react'
 import { useToast } from '../lib/toast'
-import { SPOA_STYLES, wrapWithStyles } from '../lib/docStyles'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface PreviewStats {
@@ -500,16 +499,16 @@ export default function SPOA() {
       if (!data) throw new Error('No response data received')
       if (!data.success) throw new Error((data as any).error || 'Generation failed')
 
-      const html = data.html?.trim() ?? ''
+      const html = data.body_html?.trim() ?? ''
       if (!html) throw new Error('Empty HTML returned — please regenerate')
 
-      const fullHtml = wrapWithStyles(html, SPOA_STYLES, `SPOA — ${selected.business_name}`)
+      const assembledDoc = buildFullDocument(html, data.preview_stats.ref, new Date().getFullYear())
       const bom = '\uFEFF'
-      const blob = new Blob([bom + fullHtml], { type: 'text/html;charset=utf-8' })
+      const blob = new Blob([bom + assembledDoc], { type: 'text/html;charset=utf-8' })
       blobUrlRef.current = URL.createObjectURL(blob)
 
       setSpoaResult(data)
-      setFullHtml(assembled)
+      setFullHtml(assembledDoc)
       setShowPreview(true)
 
       // Update CRM timestamp
@@ -533,10 +532,10 @@ export default function SPOA() {
 
   // ── Download HTML ───────────────────────────────────────────────────────────
   const downloadHTML = useCallback(() => {
-    if (!spoaResult?.html || !selected) return
-    const fullHtml = wrapWithStyles(spoaResult.html, SPOA_STYLES, `SPOA — ${selected.business_name}`)
+    if (!spoaResult?.body_html || !selected) return
+    const assembledDoc = buildFullDocument(spoaResult.body_html, spoaResult.preview_stats.ref, new Date().getFullYear())
     const bom = '\uFEFF'
-    const blob = new Blob([bom + fullHtml], { type: 'text/html;charset=utf-8' })
+    const blob = new Blob([bom + assembledDoc], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     const name = selected.business_name.replace(/[^a-zA-Z0-9]/g, '_')
@@ -547,16 +546,16 @@ export default function SPOA() {
     a.click()
     URL.revokeObjectURL(url)
     console.log('[SPOA] HTML download triggered')
-  }, [fullHtml, selected])
+  }, [spoaResult, selected])
 
   // ── Print ───────────────────────────────────────────────────────────────────
   const printReport = useCallback(() => {
-    if (!spoaResult?.html || !selected) return
-    const fullHtml = wrapWithStyles(spoaResult.html, SPOA_STYLES, `SPOA — ${selected.business_name}`)
+    if (!spoaResult?.body_html || !selected) return
+    const assembledDoc = buildFullDocument(spoaResult.body_html, spoaResult.preview_stats.ref, new Date().getFullYear())
     const win = window.open('', '_blank', 'noopener')
     if (win) {
       win.document.open()
-      win.document.write(fullHtml)
+      win.document.write(assembledDoc)
       win.document.close()
       win.focus()
       setTimeout(() => win.print(), 500)
@@ -564,9 +563,9 @@ export default function SPOA() {
   }, [spoaResult, selected])
 
   const copyFullHTML = useCallback(() => {
-    if (!spoaResult?.html || !selected) return
-    const fullHtml = wrapWithStyles(spoaResult.html, SPOA_STYLES, `SPOA — ${selected.business_name}`)
-    navigator.clipboard.writeText(fullHtml).then(() => {
+    if (!spoaResult?.body_html || !selected) return
+    const assembledDoc = buildFullDocument(spoaResult.body_html, spoaResult.preview_stats.ref, new Date().getFullYear())
+    navigator.clipboard.writeText(assembledDoc).then(() => {
       toast('Full HTML copied to clipboard ✓', 'success')
     })
   }, [spoaResult, selected, toast])
@@ -980,7 +979,7 @@ export default function SPOA() {
 
                     {showPreview && (
                       <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border2)', marginTop: 8 }}>
-                        <ReportIframe html={wrapWithStyles(spoaResult.html, SPOA_STYLES, `SPOA — ${selected.business_name}`)} title="SPOA Preview" />
+                        <ReportIframe html={fullHtml ?? ''} title="SPOA Preview" />
                       </div>
                     )}
                   </>

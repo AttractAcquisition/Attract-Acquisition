@@ -93,7 +93,6 @@ export default function SPOA() {
   // ── Load Prospects on Mount ─────────────────────────────────────────────────
   useEffect(() => {
     async function loadProspects() {
-      // Fetch the latest 100 prospects for the explorer sidebar
       const { data } = await supabase
         .from('prospects')
         .select('*')
@@ -145,6 +144,7 @@ export default function SPOA() {
     setSpoaResult(null)
     setShowPreview(false)
 
+    // Clear previous blob immediately to avoid memory leaks/stale previews
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current)
       blobUrlRef.current = null
@@ -158,7 +158,7 @@ export default function SPOA() {
         return
       }
 
-      // ⚡ Link to the new edge function
+      // ⚡ Invoke Edge Function
       const { data, error } = await supabase.functions.invoke<SPOAResult>('spoa-generator', {
         body: { prospect: selected },
         headers: { Authorization: `Bearer ${session.access_token}` },
@@ -166,11 +166,12 @@ export default function SPOA() {
 
       if (error) throw error
       if (!data) throw new Error('No response data received')
-      if (!data.success) throw new Error((data as unknown as { error: string }).error || 'Generation failed')
+      if (!data.success) throw new Error((data as any).error || 'Generation failed')
 
       const html = data.html?.trim() ?? ''
       if (!html) throw new Error('Empty HTML returned — please regenerate')
 
+      // Create new Blob URL
       const bom = '\uFEFF'
       const blob = new Blob([bom + html], { type: 'text/html;charset=utf-8' })
       blobUrlRef.current = URL.createObjectURL(blob)
@@ -178,11 +179,13 @@ export default function SPOA() {
       setSpoaResult(data)
       setShowPreview(true)
 
-      // Update CRM record (Note: ensure 'spoa_delivered_at' column exists in Supabase!)
-      await supabase
+      // Update CRM record with delivery timestamp
+      const { error: updateError } = await supabase
         .from('prospects')
         .update({ spoa_delivered_at: new Date().toISOString() })
         .eq('id', selected.id)
+
+      if (updateError) console.warn('[SPOA] CRM timestamp update failed:', updateError.message)
 
       toast('SPOA generated successfully ✓', 'success')
 
@@ -190,9 +193,9 @@ export default function SPOA() {
       const msg = e instanceof Error ? e.message : String(e)
       console.error('[SPOA Studio] generateSPOA error:', msg)
       toast(msg || 'Generation failed — check API logs', 'error')
+    } finally {
+      setGenerating(false)
     }
-
-    setGenerating(false)
   }
 
   const openInNewTab = useCallback(() => {
@@ -222,9 +225,11 @@ export default function SPOA() {
     if (!blobUrlRef.current) return
     const win = window.open(blobUrlRef.current, '_blank', 'noopener')
     if (win) {
-      win.addEventListener('load', () => {
-        setTimeout(() => win.print(), 800)
-      })
+      win.onload = () => {
+        win.focus()
+        // Small delay to ensure styles/images within the iframe doc are painted
+        setTimeout(() => win.print(), 500)
+      }
     }
   }, [])
 
@@ -235,7 +240,6 @@ export default function SPOA() {
     })
   }, [spoaResult, toast])
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <div style={{
       display: 'grid',
@@ -243,6 +247,13 @@ export default function SPOA() {
       gap: 24,
       height: 'calc(100vh - 100px)',
     }}>
+      {/* Pulse Animation Definition */}
+      <style>{`
+        @keyframes pulse-dot {
+          0%, 100% { opacity: 0.3; transform: scale(0.8); }
+          50% { opacity: 1; transform: scale(1.1); }
+        }
+      `}</style>
 
       {/* ── LEFT PANEL: PROSPECT EXPLORER ───────────────────────────────────── */}
       <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -307,9 +318,7 @@ export default function SPOA() {
 
       {/* ── RIGHT PANEL: WORKSPACE ──────────────────────────────────────────── */}
       <div style={{ overflowY: 'auto', paddingRight: 8 }}>
-        
         {!selected ? (
-          // Empty State
           <div className="empty-state" style={{ height: '100%', minHeight: 400 }}>
             <Target size={40} style={{ color: 'var(--border2)', marginBottom: 16 }} />
             <h2 style={{ fontFamily: 'Playfair Display', margin: '0 0 12px 0' }}>SPOA Workspace</h2>
@@ -333,7 +342,6 @@ export default function SPOA() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             
-            {/* Header Control Bar */}
             <div className="card" style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', padding: '24px' }}>
               <div>
                 <h1 style={{ fontFamily: 'Playfair Display', fontSize: 28, margin: 0, color: 'var(--white)' }}>
@@ -360,7 +368,6 @@ export default function SPOA() {
 
             <div style={{ display: 'grid', gridTemplateColumns: spoaResult && !generating ? '1fr' : '350px 1fr', gap: 20 }}>
               
-              {/* Data Audit Sidebar */}
               {!spoaResult && (
                 <div className="card" style={{ padding: 24 }}>
                   <div className="section-label" style={{ marginBottom: 16 }}>Target Audit Data</div>
@@ -386,10 +393,7 @@ export default function SPOA() {
                 </div>
               )}
 
-              {/* Dynamic Content Area */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                
-                {/* Generating State */}
                 {generating && (
                   <div className="card" style={{ textAlign: 'center', padding: '60px 40px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                     <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, marginBottom: 12 }}>
@@ -413,10 +417,8 @@ export default function SPOA() {
                   </div>
                 )}
 
-                {/* Results View */}
                 {spoaResult && !generating && (
                   <>
-                    {/* Success Banner & Quick Actions */}
                     <div style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
                       padding: '16px 20px', borderRadius: 8,
@@ -446,7 +448,6 @@ export default function SPOA() {
                       </div>
                     </div>
 
-                    {/* Report Stats Grid */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
                       <div className="card" style={{ textAlign: 'center', padding: '20px 16px' }}>
                         <div style={{ fontFamily: 'Playfair Display', fontSize: 24, fontWeight: 700, color: '#FF4444', marginBottom: 6 }}>
@@ -474,7 +475,6 @@ export default function SPOA() {
                       </div>
                     </div>
 
-                    {/* Delivery Instructions */}
                     <div className="card" style={{ borderLeft: '3px solid var(--teal)', padding: '20px' }}>
                       <div className="section-label" style={{ marginBottom: 16 }}>Delivery Sequence (SOP 03)</div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
@@ -482,7 +482,7 @@ export default function SPOA() {
                           <div style={{ fontFamily: 'DM Mono', fontSize: 12, color: 'var(--teal)', fontWeight: 600 }}>01</div>
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--white)', marginBottom: 4 }}>Save Document</div>
-                            <div style={{ fontSize: 11, color: 'var(--grey)', lineHeight: 1.5 }}>Click "Save PDF" above. Use Cmd+P/Ctrl+P and choose "Save as PDF".</div>
+                            <div style={{ fontSize: 11, color: 'var(--grey)', lineHeight: 1.5 }}>Click "Save PDF" above. Choose "Save as PDF" in the system dialog.</div>
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
@@ -502,7 +502,6 @@ export default function SPOA() {
                       </div>
                     </div>
 
-                    {/* Secondary Actions Row */}
                     <div style={{ display: 'flex', gap: 12 }}>
                       <button className="btn-secondary" onClick={generateSPOA} style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'center' }}>
                         <Zap size={13} /> Regenerate SPOA
@@ -515,7 +514,6 @@ export default function SPOA() {
                       </button>
                     </div>
 
-                    {/* Inline Iframe Preview */}
                     {showPreview && (
                       <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border2)', marginTop: 8 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg2)', borderBottom: '1px solid var(--border2)' }}>

@@ -23,6 +23,8 @@ export const ROUTE_CONFIG: Record<string, Omit<RouteMetadata, 'path'>> = {
   studio: { label: 'MJR Studio', section: 'Delivery Tools', icon: Icons.FileText, roles: ['distribution', 'admin', 'delivery'] },
   html: { label: 'PDF Tool', section: 'Delivery Tools', icon: Icons.Printer, roles: ['admin', 'distribution'] },
   spoa: { label: 'SPOA Studio', section: 'Delivery Tools', icon: Icons.Target, roles: ['admin', 'distribution'] },
+  // ADDED: Content Hub Entry
+  content: { label: 'Content Hub', section: 'Delivery Tools', icon: Icons.Video, roles: ['admin', 'distribution', 'delivery'] },
   sprints: { label: 'Proof Sprint', section: 'Delivery Engine', icon: Icons.Zap, roles: ['admin', 'delivery'] },
   proof: { label: 'Proof Brand', section: 'Delivery Engine', icon: Icons.BookOpen, roles: ['admin', 'delivery'] },
   authority: { label: 'Authority Brand', section: 'Delivery Engine', icon: Icons.Shield, roles: ['admin', 'delivery'] },

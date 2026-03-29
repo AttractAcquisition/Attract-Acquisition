@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
-import type { Prospect } from '../lib/supabase'
-import { Search, User, Copy, Check } from 'lucide-react'
+import { useEffect, useState, useMemo } from 'react'
+import { supabase, type Prospect } from '../lib/supabase'
+import { 
+  Search, User, Copy, Check, Calendar as CalendarIcon, 
+  ChevronLeft, ChevronRight, Target, RefreshCw 
+} from 'lucide-react'
 import { useToast } from '../lib/toast'
+import { format, subDays, addDays } from 'date-fns'
 
 interface Template {
   id: string
@@ -12,40 +15,55 @@ interface Template {
   variables: string[] | null
 }
 
+const DAILY_TARGET = 25;
+
 export default function Outreach() {
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [templates, setTemplates] = useState<Template[]>([])
+  const [selectedDate, setSelectedDate] = useState(new Date())
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedProspectId, setSelectedProspectId] = useState<string | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [preview, setPreview] = useState('')
   const [copied, setCopied] = useState(false)
+  const [loading, setLoading] = useState(true)
   const { toast } = useToast()
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  // Load templates once, load prospects when date changes
+  useEffect(() => { loadTemplates() }, [])
+  useEffect(() => { loadDailyProspects() }, [selectedDate])
 
-  async function loadData() {
-    const [p, t] = await Promise.all([
-      supabase
-        .from('prospects')
-        .select('*')
-        .not('status', 'eq', 'closed_won')
-        .order('icp_total_score', { ascending: false }),
-      supabase.from('templates').select('*').eq('category', 'whatsapp'),
-    ])
-
-    // Fix: Cast the data to Prospect[] to resolve the type mismatch
-    setProspects((p.data as Prospect[]) || [])
-    setTemplates((t.data || []).map(template => ({
-      ...template,
-      category: template.category ?? null,
-      content: template.content ?? '',
-      variables: template.variables ?? [],
-    })))
+  async function loadTemplates() {
+    const { data } = await supabase.from('templates').select('*').eq('category', 'whatsapp')
+    if (data) {
+      setTemplates(data.map(t => ({
+        ...t,
+        category: t.category ?? null,
+        content: t.content ?? '',
+        variables: t.variables ?? [],
+      })))
+    }
   }
 
+  async function loadDailyProspects() {
+    setLoading(true)
+    const dateStr = format(selectedDate, 'yyyy-MM-dd')
+    const { data, error } = await supabase
+      .from('prospects')
+      .select('*')
+      .eq('target_date', dateStr)
+      .eq('is_archived', false)
+      .order('icp_total_score', { ascending: false })
+
+    if (error) {
+      toast(`Error: ${error.message}`, 'error')
+    } else {
+      setProspects((data as Prospect[]) || [])
+    }
+    setLoading(false)
+  }
+
+  // Preview Logic
   useEffect(() => {
     const prospect = prospects.find(p => p.id === selectedProspectId) || null
     if (selectedTemplate && prospect) {
@@ -61,21 +79,40 @@ export default function Outreach() {
     return template.content
       .replace(/{business_name}/g, prospect?.business_name ?? '{business_name}')
       .replace(/{owner_name}/g, prospect?.owner_name ?? '{owner_name}')
-      .replace(/{vertical}/g, prospect?.vertical ?? '{vertical}')
-      .replace(/{suburb}/g, prospect?.suburb ?? '{suburb}')
+      .replace(/{vertical}/g, (prospect as any)?.vertical ?? '{vertical}')
+      .replace(/{suburb}/g, (prospect as any)?.suburb ?? '{suburb}')
   }
 
   const handleCopy = async () => {
-    if (!preview) return
+    if (!preview || !selectedProspectId) return
     try {
       await navigator.clipboard.writeText(preview)
       setCopied(true)
       toast('Message copied to clipboard ✓')
+
+      // Update Pipeline Stage to 'Positive Response' or similar to track progress
+      const { error } = await supabase
+        .from('prospects')
+        .update({ pipeline_stage: 'MJR Sent' }) // Or whatever your "sent" stage is
+        .eq('id', selectedProspectId)
+
+      if (!error) {
+        setProspects(prev => prev.map(p => 
+          p.id === selectedProspectId ? { ...p, pipeline_stage: 'MJR Sent' } : p
+        ))
+      }
+
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
       toast('Failed to copy', 'error')
     }
   }
+
+  const stats = useMemo(() => {
+    const completed = prospects.filter(p => (p as any).pipeline_stage !== 'First Touch').length
+    const progress = Math.min((completed / DAILY_TARGET) * 100, 100)
+    return { completed, progress }
+  }, [prospects])
 
   const filteredProspects = prospects.filter(p => 
     p.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -83,100 +120,137 @@ export default function Outreach() {
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div className="section-label" style={{ margin: 0 }}>Outreach</div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-        
-        {/* PROSPECT SELECTION */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div>
-            <div className="label" style={{ marginBottom: 8 }}>Select Prospect</div>
-            <div style={{ position: 'relative', marginBottom: 12 }}>
-              <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--grey)' }} />
-              <input 
-                className="input" 
-                placeholder="Search business..." 
-                style={{ paddingLeft: 38 }}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+    <div className="max-w-6xl mx-auto space-y-6">
+      
+      {/* Date Navigation & Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center bg-bg2 border border-border2 rounded-lg p-1">
+            <button onClick={() => setSelectedDate(subDays(selectedDate, 1))} className="p-1 hover:text-teal"><ChevronLeft size={20} /></button>
+            <div className="px-4 font-semibold flex items-center gap-2 text-sm">
+              <CalendarIcon size={14} className="text-teal" />
+              {format(selectedDate, 'EEE, MMM do')}
             </div>
+            <button onClick={() => setSelectedDate(addDays(selectedDate, 1))} className="p-1 hover:text-teal"><ChevronRight size={20} /></button>
+          </div>
+          {format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd') && (
+            <button onClick={() => setSelectedDate(new Date())} className="text-xs text-teal hover:underline font-mono">TODAY</button>
+          )}
+        </div>
+        <div className="text-grey text-xs font-mono uppercase tracking-widest">Outreach Terminal</div>
+      </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '65vh', overflowY: 'auto', paddingRight: 4 }}>
-              {filteredProspects.map(p => (
-                <div
-                  key={p.id}
-                  onClick={() => setSelectedProspectId(p.id)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', cursor: 'pointer', borderRadius: 6,
-                    border: `1px solid ${selectedProspectId === p.id ? 'var(--teal)' : 'var(--border2)'}`,
-                    background: selectedProspectId === p.id ? 'rgba(0, 242, 166, 0.05)' : 'var(--bg2)',
-                    transition: 'all 0.1s'
-                  }}
-                >
-                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: selectedProspectId === p.id ? 'var(--teal)' : 'var(--grey)' }}>
-                    <User size={14} />
+      {/* Daily Progress (Matches Prospects page) */}
+      <div className="card p-4 border-teal/10 bg-teal/5">
+        <div className="flex justify-between items-center gap-4">
+           <div className="flex items-center gap-3">
+              <Target size={18} className="text-teal" />
+              <span className="text-sm font-bold uppercase tracking-tight">Today's Outreach Progress</span>
+           </div>
+           <div className="flex items-center gap-4 flex-1 max-w-xs">
+              <div className="h-1.5 w-full bg-bg3 rounded-full overflow-hidden">
+                <div className="h-full bg-teal transition-all duration-500" style={{ width: `${stats.progress}%` }} />
+              </div>
+              <span className="text-xs font-mono whitespace-nowrap">{stats.completed} / {DAILY_TARGET}</span>
+           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        
+        {/* LEFT COLUMN: PROSPECT LIST */}
+        <div className="space-y-4">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-grey" />
+            <input 
+              className="input w-full pl-10 text-sm" 
+              placeholder="Search batch..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            {loading ? (
+              [1, 2, 3].map(i => <div key={i} className="h-16 w-full bg-white/5 animate-pulse rounded-lg" />)
+            ) : filteredProspects.map(p => (
+              <div
+                key={p.id}
+                onClick={() => setSelectedProspectId(p.id)}
+                className={`p-4 cursor-pointer rounded-lg border transition-all ${
+                  selectedProspectId === p.id 
+                    ? 'border-teal bg-teal/5 shadow-[0_0_15px_rgba(0,242,166,0.1)]' 
+                    : 'border-border2 bg-bg2 hover:border-grey'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    (p as any).pipeline_stage !== 'First Touch' ? 'bg-teal/20 text-teal' : 'bg-bg3 text-grey'
+                  }`}>
+                    { (p as any).pipeline_stage !== 'First Touch' ? <Check size={14} /> : <User size={14} /> }
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: selectedProspectId === p.id ? 'var(--teal)' : 'var(--white)' }}>{p.business_name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--grey)', fontFamily: 'DM Mono' }}>{p.owner_name || 'No Owner'} · {p.suburb}</div>
+                  <div className="flex-1 overflow-hidden">
+                    <div className={`text-sm font-bold truncate ${selectedProspectId === p.id ? 'text-teal' : ''}`}>
+                      {p.business_name}
+                    </div>
+                    <div className="text-[10px] text-grey uppercase font-mono truncate">
+                      {p.owner_name || 'No Owner'} • {p.suburb}
+                    </div>
+                  </div>
+                  <div className="text-xs font-mono bg-bg3 px-2 py-0.5 rounded text-teal">
+                    {p.icp_total_score || 0}
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* TEMPLATES & PREVIEW */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div>
-            <div className="label" style={{ marginBottom: 12 }}>Choose Template</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* RIGHT COLUMN: TEMPLATES & PREVIEW */}
+        <div className="flex flex-col gap-6">
+          <div className="space-y-3">
+            <label className="text-[10px] font-mono text-grey uppercase tracking-widest">Select Template</label>
+            <div className="grid grid-cols-1 gap-2">
               {templates.map(t => (
                 <button
                   key={t.id}
                   onClick={() => setSelectedTemplate(t)}
-                  style={{
-                    textAlign: 'left', padding: '14px 18px', cursor: 'pointer', borderRadius: 6,
-                    border: `1px solid ${selectedTemplate?.id === t.id ? 'var(--teal)' : 'var(--border2)'}`,
-                    background: selectedTemplate?.id === t.id ? 'rgba(0, 242, 166, 0.05)' : 'var(--bg2)',
-                    color: 'inherit'
-                  }}
+                  className={`text-left p-3 rounded border transition-all ${
+                    selectedTemplate?.id === t.id ? 'border-teal bg-teal/5' : 'border-border2 bg-bg2'
+                  }`}
                 >
-                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{t.title}</div>
-                  <div style={{ fontSize: 11, color: 'var(--grey)' }}>{t.content?.slice(0, 70)}...</div>
+                  <div className="text-xs font-bold">{t.title}</div>
+                  <div className="text-[10px] text-grey line-clamp-1">{t.content?.slice(0, 50)}...</div>
                 </button>
               ))}
             </div>
           </div>
 
-          {preview ? (
-            <div style={{ marginTop: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 8 }}>
-                <div className="section-label" style={{ margin: 0 }}>Message Preview</div>
-                <button 
-                  onClick={handleCopy}
-                  className={copied ? "btn-primary" : "btn-secondary"}
-                  style={{ padding: '6px 12px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 6, height: 32 }}
-                >
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
-                  {copied ? 'Copied' : 'Copy Message'}
-                </button>
+          <div className="flex-1 flex flex-col min-h-[300px]">
+            {preview ? (
+              <div className="flex flex-col h-full">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-[10px] font-mono text-grey uppercase tracking-widest">Message Preview</label>
+                  <button 
+                    onClick={handleCopy}
+                    className={copied ? "btn-primary text-[10px] py-1 px-3" : "btn-secondary text-[10px] py-1 px-3"}
+                  >
+                    {copied ? <Check size={12} className="mr-1" /> : <Copy size={12} className="mr-1" />}
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <div className="flex-1 p-6 bg-bg3 border border-border2 rounded-lg text-sm leading-relaxed whitespace-pre-wrap font-sans text-white/90">
+                  {preview}
+                </div>
               </div>
-              <div style={{
-                background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8,
-                padding: 20, fontSize: 14, lineHeight: 1.7, color: 'var(--white)',
-                fontFamily: 'Barlow', whiteSpace: 'pre-wrap'
-              }}>
-                {preview}
+            ) : (
+              <div className="flex-1 border-2 border-dashed border-border2 rounded-lg flex flex-center items-center justify-center p-8 text-center">
+                <p className="text-xs text-grey italic leading-relaxed">
+                  Select a prospect from today's batch and an outreach template to generate a message.
+                </p>
               </div>
-            </div>
-          ) : (
-            <div style={{ flex: 1, border: '2px dashed var(--border2)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--grey)', fontSize: 13, padding: 40, textAlign: 'center' }}>
-              Select a prospect and a template to generate your outreach message.
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

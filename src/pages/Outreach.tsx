@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { supabase, type Prospect } from '../lib/supabase'
 import { 
   Search, User, Copy, Check, Calendar as CalendarIcon, 
-  ChevronLeft, ChevronRight, Target, RefreshCw 
+  ChevronLeft, ChevronRight, Target 
 } from 'lucide-react'
 import { useToast } from '../lib/toast'
 import { format, subDays, addDays } from 'date-fns'
@@ -90,10 +90,10 @@ export default function Outreach() {
       setCopied(true)
       toast('Message copied to clipboard ✓')
 
-      // Update Pipeline Stage to 'Positive Response' or similar to track progress
+      // Fix: Cast update object as any to allow pipeline_stage if not in generated types
       const { error } = await supabase
         .from('prospects')
-        .update({ pipeline_stage: 'MJR Sent' }) // Or whatever your "sent" stage is
+        .update({ pipeline_stage: 'MJR Sent' } as any) 
         .eq('id', selectedProspectId)
 
       if (!error) {
@@ -134,13 +134,13 @@ export default function Outreach() {
             <button onClick={() => setSelectedDate(addDays(selectedDate, 1))} className="p-1 hover:text-teal"><ChevronRight size={20} /></button>
           </div>
           {format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd') && (
-            <button onClick={() => setSelectedDate(new Date())} className="text-xs text-teal hover:underline font-mono">TODAY</button>
+            <button onClick={() => setSelectedDate(new Date())} className="text-xs text-teal hover:underline font-mono">RETURN TO TODAY</button>
           )}
         </div>
         <div className="text-grey text-xs font-mono uppercase tracking-widest">Outreach Terminal</div>
       </div>
 
-      {/* Daily Progress (Matches Prospects page) */}
+      {/* Daily Progress */}
       <div className="card p-4 border-teal/10 bg-teal/5">
         <div className="flex justify-between items-center gap-4">
            <div className="flex items-center gap-3">
@@ -244,7 +244,7 @@ export default function Outreach() {
                 </div>
               </div>
             ) : (
-              <div className="flex-1 border-2 border-dashed border-border2 rounded-lg flex flex-center items-center justify-center p-8 text-center">
+              <div className="flex-1 border-2 border-dashed border-border2 rounded-lg flex flex-col items-center justify-center p-8 text-center">
                 <p className="text-xs text-grey italic leading-relaxed">
                   Select a prospect from today's batch and an outreach template to generate a message.
                 </p>

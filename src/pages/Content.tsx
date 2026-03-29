@@ -1,6 +1,11 @@
-import { ExternalLink, Sparkles, Zap, Layout, Monitor, MessageSquare, Database, Workflow, Calendar, Instagram, BarChart, Settings, Search } from 'lucide-react';
+import { useState } from 'react';
+import { 
+  ExternalLink, Sparkles, Zap, Layout, Monitor, MessageSquare, 
+  Database, Workflow, Calendar, Instagram, BarChart, Settings, 
+  Search, Plus, Trash2, Edit3, X, Save 
+} from 'lucide-react';
 
-const CONTENT_PLATFORMS = [
+const INITIAL_PLATFORMS = [
   {
     id: 'aa-studio',
     name: 'AA Studio',
@@ -10,6 +15,36 @@ const CONTENT_PLATFORMS = [
     status: 'Live',
     color: '#00C9A7',
     icon: Layout
+  },
+  {
+    id: 'supabase',
+    name: 'Supabase',
+    description: 'Backend infrastructure, SQL database, and real-time prospect storage.',
+    url: 'https://supabase.com/dashboard',
+    isInternal: false,
+    status: 'Backend',
+    color: '#3ECF8E',
+    icon: Database
+  },
+  {
+    id: 'whatsapp',
+    name: 'WhatsApp Business',
+    description: 'Direct client communication via +31 6 28960405.',
+    url: 'https://wa.me/31628960405',
+    isInternal: false,
+    status: 'Communication',
+    color: '#25D366',
+    icon: MessageSquare
+  },
+  {
+    id: 'instagram',
+    name: 'Instagram',
+    description: 'Primary brand distribution for @attractacq.',
+    url: 'https://instagram.com/attractacq',
+    isInternal: false,
+    status: 'Social',
+    color: '#E1306C',
+    icon: Instagram
   },
   {
     id: 'ad-creative',
@@ -22,29 +57,9 @@ const CONTENT_PLATFORMS = [
     icon: Monitor
   },
   {
-    id: 'whatsapp',
-    name: 'WhatsApp Business',
-    description: 'Direct client communication and Proof Sprint enquiry management.',
-    url: 'https://wa.me/33700000000', // Replace with your full +33 number
-    isInternal: false,
-    status: 'Communication',
-    color: '#25D366',
-    icon: MessageSquare
-  },
-  {
-    id: 'apify',
-    name: 'Apify',
-    description: 'Web scraping and automation for lead extraction and market data.',
-    url: 'https://console.apify.com/',
-    isInternal: false,
-    status: 'Data',
-    color: '#FF1744',
-    icon: Database
-  },
-  {
     id: 'n8n',
     name: 'n8n',
-    description: 'Workflow automation hub for connecting AA infrastructure to CRMs.',
+    description: 'Workflow automation hub for connecting AA infrastructure.',
     url: 'https://n8n.io/',
     isInternal: false,
     status: 'Automation',
@@ -54,22 +69,12 @@ const CONTENT_PLATFORMS = [
   {
     id: 'calendly',
     name: 'Calendly',
-    description: 'Booking infrastructure for 1:1 strategy calls and onboarding.',
+    description: 'Booking infrastructure for 1:1 strategy calls.',
     url: 'https://calendly.com/attractacquisition',
     isInternal: false,
     status: 'Booking',
     color: '#006BFF',
     icon: Calendar
-  },
-  {
-    id: 'instagram',
-    name: 'Instagram',
-    description: 'Primary brand distribution and community engagement channel.',
-    url: 'https://instagram.com/attractacquisition',
-    isInternal: false,
-    status: 'Social',
-    color: '#E1306C',
-    icon: Instagram
   },
   {
     id: 'meta-ads',
@@ -80,40 +85,48 @@ const CONTENT_PLATFORMS = [
     status: 'Advertising',
     color: '#0081FB',
     icon: BarChart
-  },
-  {
-    id: 'meta-business',
-    name: 'Business Manager',
-    description: 'Meta asset permissions, pixel management, and tracking.',
-    url: 'https://business.facebook.com/',
-    isInternal: false,
-    status: 'Admin',
-    color: '#0668E1',
-    icon: Settings
-  },
-  {
-    id: 'ad-library',
-    name: 'Meta Ad Library',
-    description: 'Competitor research and creative transparency monitoring.',
-    url: 'https://www.facebook.com/ads/library/',
-    isInternal: false,
-    status: 'Research',
-    color: '#1C1E21',
-    icon: Search
   }
 ];
 
 export default function ContentPage() {
+  const [platforms, setPlatforms] = useState(INITIAL_PLATFORMS);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  const deletePlatform = (id: string) => {
+    setPlatforms(platforms.filter(p => p.id !== id));
+  };
+
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
+    <div className="space-y-8 max-w-6xl mx-auto p-4">
       {/* Header Section */}
-      <div className="flex flex-col gap-2">
-        <h1 style={{ fontFamily: 'Playfair Display', fontSize: '32px', fontWeight: 700 }}>
-          Content <span style={{ color: 'var(--teal)' }}>Hub</span>
-        </h1>
-        <p style={{ color: 'var(--grey)', fontSize: '14px', maxWidth: '600px' }}>
-          Centralized access points for creative production. Toggle between internal proprietary tools and external AI infrastructure.
-        </p>
+      <div className="flex justify-between items-start">
+        <div className="flex flex-col gap-2">
+          <h1 style={{ fontFamily: 'Playfair Display', fontSize: '32px', fontWeight: 700 }}>
+            Content <span style={{ color: 'var(--teal)' }}>Hub</span>
+          </h1>
+          <p style={{ color: 'var(--grey)', fontSize: '14px', maxWidth: '600px' }}>
+            Centralized access points for your ecosystem.
+          </p>
+        </div>
+        
+        {/* Subtle Toggle Button */}
+        <button 
+          onClick={() => setIsEditMode(!isEditMode)}
+          style={{
+            padding: '8px 12px',
+            borderRadius: '6px',
+            background: isEditMode ? 'var(--teal)' : 'rgba(255,255,255,0.05)',
+            color: isEditMode ? '#000' : 'var(--grey)',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.2s'
+          }}
+        >
+          <Settings size={14} className={isEditMode ? 'animate-spin-slow' : ''} />
+          {isEditMode ? 'Finish Editing' : 'Manage Links'}
+        </button>
       </div>
 
       {/* Grid Container */}
@@ -122,32 +135,54 @@ export default function ContentPage() {
         gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
         gap: '20px' 
       }}>
-        {CONTENT_PLATFORMS.map((platform) => {
-          const Icon = platform.icon;
+        {platforms.map((platform) => {
+          const Icon = platform.icon || Monitor;
           return (
             <div 
               key={platform.id}
               style={{
                 background: 'var(--bg2)',
-                border: `1px solid var(--border2)`,
+                border: `1px solid ${isEditMode ? 'rgba(255,255,255,0.1)' : 'var(--border2)'}`,
                 borderRadius: '12px',
                 padding: '24px',
                 position: 'relative',
                 overflow: 'hidden',
-                transition: 'transform 0.2s, border-color 0.2s',
-                cursor: 'pointer'
+                transition: 'all 0.2s',
+                cursor: isEditMode ? 'default' : 'pointer'
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = platform.color;
-                e.currentTarget.style.transform = 'translateY(-4px)';
+              onClick={() => {
+                if (!isEditMode) {
+                  platform.isInternal ? window.location.href = platform.url : window.open(platform.url, '_blank')
+                }
               }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border2)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-              onClick={() => platform.isInternal ? window.location.href = platform.url : window.open(platform.url, '_blank')}
             >
-              {/* Background Glow Effect */}
+              {/* Edit Actions Overlay */}
+              {isEditMode && (
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'rgba(0,0,0,0.6)',
+                  backdropFilter: 'blur(2px)',
+                  zIndex: 10,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '12px'
+                }}>
+                  <button style={{ background: 'var(--bg3)', padding: '10px', borderRadius: '50%' }} title="Edit">
+                    <Edit3 size={18} color="var(--white)" />
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); deletePlatform(platform.id); }}
+                    style={{ background: '#ff4d4d', padding: '10px', borderRadius: '50%' }} 
+                    title="Delete"
+                  >
+                    <Trash2 size={18} color="white" />
+                  </button>
+                </div>
+              )}
+
+              {/* Background Glow */}
               <div style={{
                 position: 'absolute',
                 top: '-50px',
@@ -156,7 +191,7 @@ export default function ContentPage() {
                 height: '100px',
                 background: platform.color,
                 filter: 'blur(60px)',
-                opacity: 0.15,
+                opacity: 0.12,
                 zIndex: 0
               }} />
 
@@ -171,9 +206,8 @@ export default function ContentPage() {
                     <Icon size={24} color={platform.color} />
                   </div>
                   <span style={{ 
-                    fontSize: '10px', 
+                    fontSize: '9px', 
                     fontFamily: 'DM Mono', 
-                    textTransform: 'uppercase', 
                     padding: '4px 8px', 
                     borderRadius: '4px',
                     background: 'var(--bg)',
@@ -195,7 +229,8 @@ export default function ContentPage() {
                   gap: '8px', 
                   fontSize: '12px', 
                   fontWeight: 600,
-                  color: 'var(--white)'
+                  color: 'var(--white)',
+                  opacity: isEditMode ? 0.3 : 1
                 }}>
                   {platform.isInternal ? 'Launch Tool' : 'Open Platform'}
                   {platform.isInternal ? <Zap size={14} /> : <ExternalLink size={14} />}
@@ -205,20 +240,26 @@ export default function ContentPage() {
           );
         })}
 
-        {/* Dynamic Placeholder */}
-        <div style={{
-          border: '2px dashed var(--border2)',
-          borderRadius: '12px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '40px',
-          color: 'var(--grey2)',
-          textAlign: 'center'
-        }}>
-          <Sparkles size={32} style={{ marginBottom: '12px', opacity: 0.5 }} />
-          <div style={{ fontFamily: 'DM Mono', fontSize: '12px' }}>Request Tool Integration</div>
+        {/* Add Connection Placeholder */}
+        <div 
+          onClick={() => isEditMode && alert('Open Add Modal')}
+          style={{
+            border: `2px dashed ${isEditMode ? 'var(--teal)' : 'var(--border2)'}`,
+            borderRadius: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '40px',
+            color: isEditMode ? 'var(--teal)' : 'var(--grey2)',
+            textAlign: 'center',
+            cursor: isEditMode ? 'pointer' : 'default',
+            transition: 'all 0.2s'
+          }}>
+          {isEditMode ? <Plus size={32} /> : <Sparkles size={32} style={{ marginBottom: '12px', opacity: 0.5 }} />}
+          <div style={{ fontFamily: 'DM Mono', fontSize: '12px', marginTop: '8px' }}>
+            {isEditMode ? 'Add New Connection' : 'Request Tool Integration'}
+          </div>
         </div>
       </div>
     </div>

@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { 
   ExternalLink, Sparkles, Zap, Layout, Monitor, MessageSquare, 
-  Database, Workflow, Calendar, Instagram, BarChart, Settings, 
-  Search, Plus, Trash2, Edit3, X, Save 
+  Database, Workflow, Calendar, Instagram, BarChart, Settings, Plus, Trash2, Edit3
 } from 'lucide-react';
 
 const INITIAL_PLATFORMS = [

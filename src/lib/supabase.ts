@@ -58,12 +58,29 @@ export interface Prospect extends Omit<BaseProspect, OverriddenFields> {
   msg_5_sent?: boolean | null;
 }
 
+// NEW: AppFile Interface
+// This represents a row in your new 'app_files' Supabase table
+export type AppFile = {
+  id: string;
+  created_at: string;
+  file_name: string;
+  file_path: string; // This will store the public URL from Supabase Storage
+  file_type: string;
+  associated_sop_id: string; // Foreign key linking to the 'sops' table
+  uploaded_by?: string; // Optional: UUID of the user who uploaded the file
+};
+
 export type Ledger = Database['public']['Tables']['ledger']['Row']
 export type Client = Database['public']['Tables']['clients']['Row']
 export type ProofSprint = Database['public']['Tables']['proof_sprints']['Row']
 export type Task = Database['public']['Tables']['tasks']['Row']
 export type MonthlyRevenue = Database['public']['Tables']['monthly_revenue']['Row']
-export type Sop = Database['public']['Tables']['sops']['Row']
+
+// Updated Sop type to include the files array
+export type Sop = Database['public']['Tables']['sops']['Row'] & {
+  files?: AppFile[]; // Attach associated files to the SOP
+}
+
 export type OutreachMessage = Database['public']['Tables']['outreach_messages']['Row']
 
 export type IcpTier = '★★★' | '★★' | '★' | 'unscored'

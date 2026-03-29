@@ -45,7 +45,9 @@ export default function Prospects() {
     icp_tier: 'unscored',
     target_date: format(new Date(), 'yyyy-MM-dd')
   }
-  const [newProspect, setNewProspect] = useState<Partial<Prospect>>(initialFormState)
+  
+  // Use a more flexible type for the form to avoid "Property does not exist" errors
+  const [newProspect, setNewProspect] = useState<any>(initialFormState)
 
   useEffect(() => { load() }, [selectedDate, metadata_id])
 
@@ -63,7 +65,8 @@ export default function Prospects() {
     if (error) {
       toast(`Error: ${error.message}`, 'error')
     } else {
-      setProspects((data || []).map(p => ({ ...p, pipeline_stage: p.pipeline_stage || 'First Touch' })))
+      // Cast to Prospect[] and ensure pipeline_stage is handled if it's missing from DB schema
+      setProspects((data || []).map(p => ({ ...p, pipeline_stage: (p as any).pipeline_stage || 'First Touch' })))
     }
     setLoading(false)
   }
@@ -89,7 +92,8 @@ export default function Prospects() {
       toast(`Error: ${error.message}`, 'error')
     } else if (data) {
       toast('Prospect added to daily batch')
-      setProspects(prev => [data[0], ...prev])
+      // Ensure the UI recognizes the new item as a Prospect
+      setProspects(prev => [data[0] as Prospect, ...prev])
       setShowAdd(false)
       setNewProspect(initialFormState)
     }
@@ -98,13 +102,14 @@ export default function Prospects() {
 
   // Daily Progress Stats
   const stats = useMemo(() => {
-    const completed = prospects.filter(p => p.pipeline_stage !== 'First Touch').length
+    // Accessing pipeline_stage via any to bypass strict Prospect type if it's not in the interface
+    const completed = prospects.filter(p => (p as any).pipeline_stage !== 'First Touch').length
     const progress = Math.min((completed / DAILY_TARGET) * 100, 100)
     return { completed, progress }
   }, [prospects])
 
   const filtered = prospects.filter((p: Prospect) => {
-    return !search || [p.business_name, p.owner_name, p.suburb, p.vertical]
+    return !search || [p.business_name, p.owner_name, p.suburb, (p as any).vertical]
       .some(f => f?.toLowerCase().includes(search.toLowerCase()))
   })
 
@@ -203,15 +208,15 @@ export default function Prospects() {
                     <div className="font-medium group-hover:text-teal transition-colors">{p.business_name}</div>
                     <div className="text-xs text-grey">{p.suburb}</div>
                   </td>
-                  <td className="text-sm text-grey">{p.vertical}</td>
+                  <td className="text-sm text-grey">{(p as any).vertical}</td>
                   <td>
                     <span className="font-mono text-teal text-sm bg-teal/5 px-2 py-1 rounded">
                       {p.icp_total_score || 0}/25
                     </span>
                   </td>
                   <td>
-                    <span className={`badge text-[10px] ${p.pipeline_stage !== 'First Touch' ? 'bg-teal/20 text-teal' : 'bg-bg3 text-grey'}`}>
-                      {p.pipeline_stage}
+                    <span className={`badge text-[10px] ${(p as any).pipeline_stage !== 'First Touch' ? 'bg-teal/20 text-teal' : 'bg-bg3 text-grey'}`}>
+                      {(p as any).pipeline_stage}
                     </span>
                   </td>
                   <td><ChevronRight size={14} className="text-grey opacity-0 group-hover:opacity-100 transition-opacity" /></td>
@@ -249,6 +254,14 @@ export default function Prospects() {
                     {ICP_TIERS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
+              </div>
+
+              {/* Integrating the STAGES constant here */}
+              <div>
+                <label className="text-xs font-mono text-grey block mb-1">INITIAL STAGE</label>
+                <select className="input w-full" value={newProspect.pipeline_stage} onChange={e => setNewProspect({...newProspect, pipeline_stage: e.target.value})}>
+                  {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
               </div>
 
               <button type="submit" disabled={isSaving} className="btn-primary w-full py-3 mt-4 flex justify-center gap-2">

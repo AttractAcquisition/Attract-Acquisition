@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { Play, CheckCircle, XCircle, Clock, ChevronDown, ChevronUp, Copy } from 'lucide-react'
 import { useToast } from '../lib/toast'
+import { format } from 'date-fns'
 
 const VERTICALS = [
   'Auto Detailing', 'Vehicle Wrapping', 'Car Wash',
@@ -29,17 +30,28 @@ const LANGUAGES = [
 ]
 
 interface ProspectRow {
-  business_name: string; vertical: string; city: string; suburb: string
-  address: string; phone: string; whatsapp: string; website: string
-  google_rating: number | null; google_review_count: number
-  status: string; data_source: string; apify_run_id: string
-  last_scraped_at: string; saved?: boolean; duplicate?: boolean
+  business_name: string; 
+  vertical: string; 
+  city: string; 
+  suburb: string;
+  address: string; 
+  phone: string; 
+  whatsapp: string; 
+  website: string;
+  google_rating: number | null; 
+  google_review_count: number;
+  status: string; 
+  data_source: string; 
+  apify_run_id: string;
+  last_scraped_at: string; 
+  saved?: boolean; 
+  duplicate?: boolean;
 }
 
 type RunStatus = 'idle' | 'starting' | 'running' | 'succeeded' | 'failed'
 
 interface AdvancedSettings {
-  language:                   string
+  language:                  string
   skipClosedPlaces:           boolean
   includeWebResults:          boolean
   scrapeContacts:             boolean
@@ -76,7 +88,6 @@ export default function Scraper() {
     youtube:                   false,
   })
   const [runStatus, setRunStatus]       = useState<RunStatus>('idle')
-  // Removed unused runId state to fix TS6133
   const [activeRunId, setActiveRunId]   = useState('') 
   const [results, setResults]           = useState<ProspectRow[]>([])
   const [selected, setSelected]         = useState<Set<number>>(new Set())
@@ -156,7 +167,6 @@ export default function Scraper() {
       })
       if (error || data?.error) { setErrorMsg(data?.error || String(error)); setRunStatus('failed'); return }
       
-      // Update our active run ID for the UI
       setActiveRunId(data.run_id)
       setRunStatus('running')
       startTimer()
@@ -198,7 +208,18 @@ export default function Scraper() {
     const toSave = results.filter((_, i) => selected.has(i) && !results[i].duplicate)
     if (toSave.length === 0) { toast('No new prospects selected', 'error'); return }
     setSaving(true)
-    const { error } = await supabase.from('prospects').insert(toSave.map(({ saved, duplicate, ...p }) => p))
+
+    // NEW: Inject target_date and pipeline_stage for CRM/Outreach compatibility
+    const today = format(new Date(), 'yyyy-MM-dd')
+    const formattedData = toSave.map(({ saved, duplicate, ...p }) => ({
+      ...p,
+      target_date: today,
+      pipeline_stage: 'First Touch',
+      is_archived: false
+    }))
+
+    const { error } = await supabase.from('prospects').insert(formattedData as any)
+    
     if (error) { toast(`Save failed: ${error.message}`, 'error'); setSaving(false); return }
     setResults(prev => prev.map((r, i) => selected.has(i) ? { ...r, saved: true } : r))
     setSaving(false)
@@ -323,7 +344,6 @@ export default function Scraper() {
               </span>
             </div>
             
-            {/* Added visual Run ID feedback */}
             {activeRunId && (
               <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: 'var(--bg2)', borderRadius: 4 }}>
                 <span style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey2)' }}>ID: {activeRunId.slice(0, 8)}...</span>
@@ -349,12 +369,12 @@ export default function Scraper() {
             {runStatus === 'succeeded' && results.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {[
-                  { label: 'Total found',   value: results.length,                        color: 'var(--white)' },
-                  { label: 'New prospects', value: newCount,                              color: 'var(--teal)' },
-                  { label: 'Duplicates',    value: dupCount,                              color: 'var(--grey2)' },
+                  { label: 'Total found',    value: results.length,                        color: 'var(--white)' },
+                  { label: 'New prospects', value: newCount,                               color: 'var(--teal)' },
+                  { label: 'Duplicates',     value: dupCount,                               color: 'var(--grey2)' },
                   { label: 'With phone',    value: results.filter(r => r.phone).length,  color: 'var(--white)' },
                   { label: 'Selected',      value: selected.size,                        color: 'var(--amber)' },
-                  { label: 'Saved',         value: savedCount,                           color: 'var(--green)' },
+                  { label: 'Saved',          value: savedCount,                           color: 'var(--green)' },
                 ].map(s => (
                   <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                     <span style={{ color: 'var(--grey)' }}>{s.label}</span>
@@ -420,9 +440,7 @@ export default function Scraper() {
             <div style={{ maxHeight: 620, overflowY: 'auto' }}>
               {results.map((r, i) => (
                 <div key={i} onClick={() => toggleOne(i)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 18px', borderBottom: '1px solid var(--border2)', cursor: r.duplicate ? 'default' : 'pointer', background: r.saved ? 'rgba(29,158,117,0.05)' : selected.has(i) ? 'var(--teal-faint)' : 'transparent', opacity: r.duplicate ? 0.45 : 1, transition: 'background 0.1s' }}
-                  onMouseEnter={e => { if (!r.duplicate && !selected.has(i)) e.currentTarget.style.background = 'var(--bg3)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = r.saved ? 'rgba(29,158,117,0.05)' : selected.has(i) ? 'var(--teal-faint)' : 'transparent' }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 18px', borderBottom: '1px solid var(--border2)', cursor: r.duplicate ? 'default' : 'pointer', background: r.saved ? 'rgba(29,158,117,0.05)' : selected.has(i) ? 'var(--teal-faint)' : 'transparent', opacity: r.duplicate ? 0.45 : 1, transition: 'background 0.1s' }}>
                   <div style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0, border: `1.5px solid ${r.duplicate ? 'var(--grey2)' : selected.has(i) ? 'var(--teal)' : 'var(--grey2)'}`, background: selected.has(i) ? 'var(--teal)' : 'transparent' }}>
                     {selected.has(i) && <svg width="10" height="8" viewBox="0 0 10 8" fill="none" style={{ display: 'block' }}><path d="M1 4L3.5 6.5L9 1" stroke="#070F0D" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </div>

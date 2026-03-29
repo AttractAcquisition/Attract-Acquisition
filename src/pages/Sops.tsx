@@ -81,13 +81,19 @@ export default function Sops() {
 
     // Fix for the "No overload matches this call" error: 
     // Ensure we only send fields that exist in the DB schema for upsert
-    const { error } = await supabase
-      .from('sops')
-      .upsert(updatedSops.map(s => ({
-        id: s.id,
-        sop_number: s.sop_number,
-        updated_at: new Date().toISOString()
-      })) as any[]);
+const { error } = await supabase
+  .from('sops')
+  .upsert(
+    updatedSops.map(s => ({
+      id: s.id,               // This MUST be the Primary Key from your DB
+      sop_number: s.sop_number,
+      title: s.title,         // Include these to satisfy "NOT NULL" constraints
+      category: s.category,
+      status: s.status,
+      updated_at: new Date().toISOString()
+    })), 
+    { onConflict: 'id' }      // This tells Supabase: "If the ID matches, UPDATE it."
+  );
 
     if (error) {
       toast('Failed to update order', 'error');

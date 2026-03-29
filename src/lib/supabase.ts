@@ -11,22 +11,35 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey)
  */
 type BaseProspect = Database['public']['Tables']['prospects']['Row'];
 
-// 1. Identify fields that cause conflicts (add any field that TypeScript complains about here)
+// 1. Identify fields that cause conflicts or are missing from base types
 type OverriddenFields = 
   | 'pipeline_stage' 
   | 'is_archived' 
   | 'mjr_link' 
   | 'spoa_delivered_at' 
-  | 'mjr_delivered_at';
+  | 'mjr_delivered_at'
+  | 'target_date'
+  | 'suburb'
+  | 'vertical'
+  | 'icp_total_score';
 
 // 2. Create the Clean Interface
 export interface Prospect extends Omit<BaseProspect, OverriddenFields> {
-  // New Tracking Fields
+  // New Tracking & Daily Logic Fields
+  target_date?: string | null;
   spoa_delivered_at?: string | null;
   mjr_delivered_at?: string | null;
+  
+  // Pipeline & Status
+  pipeline_stage?: string | null;
+  is_archived?: boolean | null;
+  
+  // Data Fields used in Outreach/CRM
+  suburb?: string | null;
+  vertical?: string | null;
+  icp_total_score?: number | null;
 
   // Legacy & UI-only optional fields
-  pipeline_stage?: string | null;
   meta_ads_running?: boolean | null;
   ig_follower_count?: number | null;
   mjr_missed_revenue?: number | null;
@@ -36,12 +49,13 @@ export interface Prospect extends Omit<BaseProspect, OverriddenFields> {
   q_owner_op?: boolean | null;
   q_referral?: boolean | null;
   q_weak_digital?: boolean | null;
+  
+  // Sequence Tracking
   msg_1_sent?: boolean | null;
   msg_2_sent?: boolean | null;
   msg_3_sent?: boolean | null;
   msg_4_sent?: boolean | null;
   msg_5_sent?: boolean | null;
-  is_archived?: boolean | null;
 }
 
 export type Ledger = Database['public']['Tables']['ledger']['Row']

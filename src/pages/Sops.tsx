@@ -10,7 +10,7 @@ import { useAuth } from '../lib/auth'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import type { DropResult, DroppableProvided, DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 
-const CATEGORIES = ['Outreach & Pipeline', 'Sales Distribution', 'Missed Jobs Report', 'Strategic Plan of Action', 'Sales Delivery', 'Proof Sprint', 'Proof Brand', 'Authority Brand', 'General']
+const CATEGORIES = ['Outreach & Pipeline', 'Missed Jobs Report', 'Strategic Plan of Action', 'Proof Sprint', 'Proof Brand', 'Authority Brand', 'General']
 const STATUS_COLORS: Record<string, string> = {
   draft:    'badge-new',
   active:   'badge-clients',
@@ -39,9 +39,9 @@ export default function Sops() {
     let q = supabase.from('sops').select('*').order('sop_number', { ascending: true })
 
     if (role === 'delivery') {
-      q = q.in('category', ['Sales Delivery', 'Proof Sprint', 'Proof Brand', 'Authority Brand', 'General'])
+      q = q.in('category', ['Proof Sprint', 'Proof Brand', 'Authority Brand', 'General'])
     } else if (role === 'distribution') {
-      q = q.in('category', ['Outreach & Pipeline', 'Sales Distribution', 'Missed Jobs Report', 'Strategic Plan of Action', 'General'])
+      q = q.in('category', ['Outreach & Pipeline', 'Missed Jobs Report', 'Strategic Plan of Action', 'General'])
     }
 
     if (role !== 'admin') {

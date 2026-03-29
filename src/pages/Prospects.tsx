@@ -1,11 +1,17 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase, type Prospect } from '../lib/supabase'
-import { Search, Plus, RefreshCw, ChevronRight, X, Save } from 'lucide-react'
+import { 
+  Search, Plus, RefreshCw, ChevronRight, X, Save, 
+  Calendar as CalendarIcon, CheckCircle2, ChevronLeft, Target 
+} from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import ProspectDetailView from '../components/prospects/ProspectDetailView'
 import { useToast } from '../lib/toast'
+import { format, subDays, addDays } from 'date-fns'
 
 const STAGES = ['First Touch', 'Positive Response', 'MJR Sent', 'Follow Up', 'Call Booked', 'Sprint Booked']
+const DAILY_TARGET = 25;
+
 const ICP_TIERS = [
   { value: '★★★', label: '3 Star (High)' },
   { value: '★★', label: '2 Star (Mid)' },
@@ -16,21 +22,19 @@ const ICP_TIERS = [
 export default function Prospects() {
   const { role, metadata_id } = useAuth()
   const { toast } = useToast()
+  
+  // Core State
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedDate, setSelectedDate] = useState(new Date())
   const [search, setSearch] = useState('')
   
-  // Filter States
-  const [filterStage, setFilterStage] = useState('')
-  const [filterVertical, setFilterVertical] = useState('')
-  const [filterSuburb, setFilterSuburb] = useState('')
-  const [filterTier, setFilterTier] = useState('')
-
+  // UI States
   const [selected, setSelected] = useState<Prospect | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
-  // Initial Form State
+  // Form State
   const initialFormState = {
     business_name: '',
     vertical: '',
@@ -38,25 +42,29 @@ export default function Prospects() {
     phone: '',
     website: '',
     pipeline_stage: 'First Touch',
-    icp_tier: 'unscored'
+    icp_tier: 'unscored',
+    target_date: format(new Date(), 'yyyy-MM-dd')
   }
-
   const [newProspect, setNewProspect] = useState<Partial<Prospect>>(initialFormState)
 
-  useEffect(() => { load() }, [metadata_id])
+  useEffect(() => { load() }, [selectedDate, metadata_id])
 
   async function load() {
     setLoading(true)
-    let q = supabase
+    const dateStr = format(selectedDate, 'yyyy-MM-dd')
+    
+    let { data, error } = await supabase
       .from('prospects')
-      .select<string, Prospect>('*')
+      .select('*')
+      .eq('target_date', dateStr)
       .eq('is_archived', false)
       .order('created_at', { ascending: false })
     
-    // REMOVED: role === 'distribution' check to allow global view of all prospects
-    
-    const { data } = await q
-    setProspects((data || []).map(p => ({ ...p, pipeline_stage: p.pipeline_stage || 'First Touch' })))
+    if (error) {
+      toast(`Error: ${error.message}`, 'error')
+    } else {
+      setProspects((data || []).map(p => ({ ...p, pipeline_stage: p.pipeline_stage || 'First Touch' })))
+    }
     setLoading(false)
   }
 
@@ -65,15 +73,9 @@ export default function Prospects() {
     if (!newProspect.business_name) return toast('Business name is required', 'error')
     
     setIsSaving(true)
-    
     const payload = {
-      business_name: newProspect.business_name,
-      vertical: newProspect.vertical || '',
-      suburb: newProspect.suburb || '',
-      phone: newProspect.phone || '',
-      website: newProspect.website || '',
-      pipeline_stage: newProspect.pipeline_stage || 'First Touch',
-      icp_tier: newProspect.icp_tier || 'unscored',
+      ...newProspect,
+      target_date: format(selectedDate, 'yyyy-MM-dd'),
       data_source: 'manual',
       assigned_to: role === 'distribution' ? metadata_id : null
     }
@@ -86,7 +88,7 @@ export default function Prospects() {
     if (error) {
       toast(`Error: ${error.message}`, 'error')
     } else if (data) {
-      toast('Prospect added successfully')
+      toast('Prospect added to daily batch')
       setProspects(prev => [data[0], ...prev])
       setShowAdd(false)
       setNewProspect(initialFormState)
@@ -94,123 +96,164 @@ export default function Prospects() {
     setIsSaving(false)
   }
 
-  const verticals = useMemo(() => Array.from(new Set(prospects.map(p => p.vertical).filter(Boolean))).sort(), [prospects])
-  const suburbs = useMemo(() => Array.from(new Set(prospects.map(p => p.suburb).filter(Boolean))).sort(), [prospects])
+  // Daily Progress Stats
+  const stats = useMemo(() => {
+    const completed = prospects.filter(p => p.pipeline_stage !== 'First Touch').length
+    const progress = Math.min((completed / DAILY_TARGET) * 100, 100)
+    return { completed, progress }
+  }, [prospects])
 
   const filtered = prospects.filter((p: Prospect) => {
-    const matchesSearch = !search || [p.business_name, p.owner_name, p.suburb, p.vertical].some(f => f?.toLowerCase().includes(search.toLowerCase()))
-    const matchesStage = !filterStage || p.pipeline_stage === filterStage
-    const matchesVertical = !filterVertical || p.vertical === filterVertical
-    const matchesSuburb = !filterSuburb || p.suburb === filterSuburb
-    const matchesTier = !filterTier || p.icp_tier === filterTier
-    return matchesSearch && matchesStage && matchesVertical && matchesSuburb && matchesTier
+    return !search || [p.business_name, p.owner_name, p.suburb, p.vertical]
+      .some(f => f?.toLowerCase().includes(search.toLowerCase()))
   })
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontFamily: 'Playfair Display' }}>Prospect Pipeline</h2>
-        <div style={{ display: 'flex', gap: 10 }}>
-           <button className="btn-secondary" onClick={load}><RefreshCw size={11} /> Refresh</button>
-           <button className="btn-primary" onClick={() => setShowAdd(true)}><Plus size={11} /> Add Prospect</button>
-        </div>
-      </div>
-
-      {/* Filter Bar */}
-      <div className="card" style={{ marginBottom: 20, padding: 16 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-          <div style={{ position: 'relative' }}>
-            <Search size={13} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--grey2)' }} />
-            <input className="input" placeholder="Search..." style={{ paddingLeft: 36, width: '100%' }} value={search} onChange={e => setSearch(e.target.value)} />
+    <div className="max-w-6xl mx-auto space-y-6">
+      
+      {/* Batch Navigation Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-bg2 border border-border2 rounded-lg p-1">
+              <button onClick={() => setSelectedDate(subDays(selectedDate, 1))} className="p-1 hover:text-teal"><ChevronLeft size={20} /></button>
+              <div className="px-4 font-semibold flex items-center gap-2">
+                <CalendarIcon size={14} className="text-teal" />
+                {format(selectedDate, 'EEE, MMM do')}
+              </div>
+              <button onClick={() => setSelectedDate(addDays(selectedDate, 1))} className="p-1 hover:text-teal"><ChevronRight size={20} /></button>
+            </div>
+            {format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd') && (
+              <button 
+                onClick={() => setSelectedDate(new Date())}
+                className="text-xs text-teal hover:underline font-mono"
+              >
+                RETURN TO TODAY
+              </button>
+            )}
           </div>
-          <select className="input" value={filterStage} onChange={e => setFilterStage(e.target.value)}>
-            <option value="">All Stages</option>
-            {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select className="input" value={filterVertical} onChange={e => setFilterVertical(e.target.value)}>
-            <option value="">All Verticals</option>
-            {verticals.map(v => <option key={v} value={v!}>{v}</option>)}
-          </select>
-          <select className="input" value={filterSuburb} onChange={e => setFilterSuburb(e.target.value)}>
-            <option value="">All Suburbs</option>
-            {suburbs.map(s => <option key={s} value={s!}>{s}</option>)}
-          </select>
-          <select className="input" value={filterTier} onChange={e => setFilterTier(e.target.value)}>
-            <option value="">All Tiers</option>
-            {ICP_TIERS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
+        </div>
+
+        <div className="flex gap-3">
+           <button className="btn-secondary" onClick={load}><RefreshCw size={14} /> Refresh</button>
+           <button className="btn-primary" onClick={() => setShowAdd(true)}><Plus size={14} /> Add Prospect</button>
         </div>
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        {loading ? <div style={{ padding: 24 }} className="skeleton" /> : (
+      {/* Daily Target Tracker */}
+      <div className="card p-6 border-teal/10 bg-teal/5 relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-full border-2 border-teal/30 flex items-center justify-center text-teal">
+              <Target size={24} />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg">Daily Outreach Goal</h3>
+              <p className="text-sm text-grey">Target: {DAILY_TARGET} personalized messages</p>
+            </div>
+          </div>
+          
+          <div className="w-full md:w-64">
+            <div className="flex justify-between mb-2 text-xs font-mono">
+              <span>PROGRESS</span>
+              <span>{stats.completed} / {DAILY_TARGET}</span>
+            </div>
+            <div className="h-2 w-full bg-bg3 rounded-full overflow-hidden border border-white/5">
+              <div 
+                className="h-full bg-teal shadow-[0_0_10px_rgba(0,201,167,0.5)] transition-all duration-700" 
+                style={{ width: `${stats.progress}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Search Bar */}
+      <div className="relative">
+        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-grey" />
+        <input 
+          className="input w-full pl-11" 
+          placeholder="Filter today's batch..." 
+          value={search} 
+          onChange={e => setSearch(e.target.value)} 
+        />
+      </div>
+
+      {/* Main List / Table */}
+      <div className="card p-0 overflow-hidden min-h-[400px]">
+        {loading ? (
+          <div className="p-12 space-y-4">
+            {[1,2,3].map(i => <div key={i} className="h-16 w-full bg-white/5 animate-pulse rounded-lg" />)}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-20 text-center">
+            <CheckCircle2 size={48} className="mx-auto mb-4 text-grey opacity-20" />
+            <h3 className="text-grey font-medium">Clean Slate</h3>
+            <p className="text-sm text-grey2">No prospects assigned to this date yet.</p>
+          </div>
+        ) : (
           <table className="aa-table">
             <thead>
               <tr><th>Business</th><th>Vertical</th><th>Score</th><th>Stage</th><th></th></tr>
             </thead>
             <tbody>
-              {filtered.map((p: Prospect) => {
-                return (
-                  <tr key={p.id} onClick={() => setSelected(p)} style={{ cursor: 'pointer' }}>
-                    <td><div style={{ fontWeight: 500 }}>{p.business_name}</div><div style={{ fontSize: 12, color: 'var(--grey)' }}>{p.suburb}</div></td>
-                    <td style={{ color: 'var(--grey)', fontSize: 13 }}>{p.vertical}</td>
-                    <td><span style={{ fontFamily: 'DM Mono', color: 'var(--teal)' }}>{p.icp_total_score || 0}/25</span></td>
-                    <td><span className="badge" style={{ background: 'var(--bg3)', color: 'var(--teal)', fontSize: 10 }}>{p.pipeline_stage}</span></td>
-                    <td><ChevronRight size={14} color="var(--grey2)" /></td>
-                  </tr>
-                )
-              })}
+              {filtered.map((p: Prospect) => (
+                <tr key={p.id} onClick={() => setSelected(p)} className="cursor-pointer group">
+                  <td>
+                    <div className="font-medium group-hover:text-teal transition-colors">{p.business_name}</div>
+                    <div className="text-xs text-grey">{p.suburb}</div>
+                  </td>
+                  <td className="text-sm text-grey">{p.vertical}</td>
+                  <td>
+                    <span className="font-mono text-teal text-sm bg-teal/5 px-2 py-1 rounded">
+                      {p.icp_total_score || 0}/25
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`badge text-[10px] ${p.pipeline_stage !== 'First Touch' ? 'bg-teal/20 text-teal' : 'bg-bg3 text-grey'}`}>
+                      {p.pipeline_stage}
+                    </span>
+                  </td>
+                  <td><ChevronRight size={14} className="text-grey opacity-0 group-hover:opacity-100 transition-opacity" /></td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
       </div>
 
+      {/* Add Modal */}
       {showAdd && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div onClick={() => !isSaving && setShowAdd(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(7, 15, 13, 0.8)', backdropFilter: 'blur(4px)' }} />
-          <div className="card" style={{ position: 'relative', width: '100%', maxWidth: 500, padding: 24, zIndex: 101 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-              <h3 style={{ margin: 0, fontFamily: 'Playfair Display' }}>Add New Prospect</h3>
-              <button onClick={() => setShowAdd(false)} className="btn-ghost" style={{ padding: 4 }}><X size={18} /></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div onClick={() => !isSaving && setShowAdd(false)} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          <div className="card relative w-full max-w-lg p-8 z-[101] border-teal/20">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold font-playfair">Add to {format(selectedDate, 'MMM do')} Batch</h3>
+              <button onClick={() => setShowAdd(false)} className="hover:text-teal"><X size={20} /></button>
             </div>
 
-            <form onSubmit={handleManualAdd} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <form onSubmit={handleManualAdd} className="space-y-4">
               <div>
-                <label className="label">Business Name *</label>
-                <input required className="input" value={newProspect.business_name || ''} onChange={e => setNewProspect({...newProspect, business_name: e.target.value})} />
+                <label className="text-xs font-mono text-grey block mb-1">BUSINESS NAME *</label>
+                <input required className="input w-full" value={newProspect.business_name || ''} onChange={e => setNewProspect({...newProspect, business_name: e.target.value})} />
               </div>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="label">Vertical</label>
-                  <input className="input" value={newProspect.vertical || ''} onChange={e => setNewProspect({...newProspect, vertical: e.target.value})} placeholder="e.g. Plumbing" />
+                  <label className="text-xs font-mono text-grey block mb-1">VERTICAL</label>
+                  <input className="input w-full" value={newProspect.vertical || ''} onChange={e => setNewProspect({...newProspect, vertical: e.target.value})} />
                 </div>
                 <div>
-                  <label className="label">Suburb</label>
-                  <input className="input" value={newProspect.suburb || ''} onChange={e => setNewProspect({...newProspect, suburb: e.target.value})} placeholder="e.g. Claremont" />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label className="label">Phone</label>
-                  <input className="input" value={newProspect.phone || ''} onChange={e => setNewProspect({...newProspect, phone: e.target.value})} />
-                </div>
-                <div>
-                  <label className="label">Tier</label>
-                  <select className="input" value={newProspect.icp_tier || 'unscored'} onChange={e => setNewProspect({...newProspect, icp_tier: e.target.value})}>
+                  <label className="text-xs font-mono text-grey block mb-1">TIER</label>
+                  <select className="input w-full" value={newProspect.icp_tier || 'unscored'} onChange={e => setNewProspect({...newProspect, icp_tier: e.target.value})}>
                     {ICP_TIERS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
               </div>
 
-              <div>
-                <label className="label">Website</label>
-                <input className="input" value={newProspect.website || ''} onChange={e => setNewProspect({...newProspect, website: e.target.value})} placeholder="https://..." />
-              </div>
-
-              <button type="submit" className="btn-primary" disabled={isSaving} style={{ marginTop: 10, width: '100%', display: 'flex', justifyContent: 'center', gap: 8 }}>
-                <Save size={14} /> {isSaving ? 'Saving...' : 'Create Prospect'}
+              <button type="submit" disabled={isSaving} className="btn-primary w-full py-3 mt-4 flex justify-center gap-2">
+                {isSaving ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
+                {isSaving ? 'Saving...' : 'Confirm for Today'}
               </button>
             </form>
           </div>

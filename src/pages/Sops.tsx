@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import type { Sop, AppFile } from '../lib/supabase' // Import AppFile
+import type { Sop, AppFile } from '../lib/supabase' // AppFile is now correctly exported
 import { formatDate } from '../lib/utils'
-import { Edit2, ChevronRight, Save, X, Plus, Trash2, GripVertical, Upload, FileText, File } from 'lucide-react' // Added Upload, FileText, File icons
+import { Edit2, ChevronRight, Save, X, Plus, Trash2, GripVertical, Upload, FileText, File } from 'lucide-react'
 import { useToast } from '../lib/toast'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -18,7 +18,7 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default function Sops() {
-  const { role, user } = useAuth() // Get user for uploaded_by
+  const { role, user } = useAuth()
   const [sops, setSops] = useState<Sop[]>([])
   const [selected, setSelected] = useState<Sop | null>(null)
   const [editing, setEditing] = useState(false)
@@ -29,7 +29,6 @@ export default function Sops() {
   const [filter, setFilter] = useState('')
   const { toast } = useToast()
 
-  // NEW: State for files and uploading
   const [associatedFiles, setAssociatedFiles] = useState<AppFile[]>([])
   const [uploading, setUploading] = useState(false)
 
@@ -52,7 +51,8 @@ export default function Sops() {
       q = q.eq('status', 'active')
     }
 
-    const { data: sopsData } = await q
+    // Explicitly cast data to Sop[] type for TypeScript to recognize the 'files' property later
+    const { data: sopsData } = await q as { data: Sop[] | null };
 
     const normalizedSops: Sop[] = (sopsData || []).map((s: any) => ({
      ...s,
@@ -65,10 +65,10 @@ export default function Sops() {
     }))
 
     // NEW: Fetch all associated files and map them to their SOPs
+    // Explicitly cast the query result to AppFile[]
     const { data: filesData, error: filesError } = await supabase
      .from('app_files')
-     .select('*')
-     .in('associated_sop_id', normalizedSops.map(s => s.id));
+     .select('*') as { data: AppFile[] | null, error: any }; // Cast data to AppFile[]
 
     if (filesError) {
       console.error('Error fetching files:', filesError);
@@ -96,17 +96,12 @@ export default function Sops() {
     }));
 
     setSops(prev => {
-      // Find SOPs that are not in the 'filtered' list (i.e., not currently displayed due to filter)
       const others = prev.filter(p =>!filtered.some(f => f.id === p.id));
-      // Combine 'others' with the reordered 'updatedSops' and sort them correctly by sop_number
-      // Then re-sort the combined list to ensure the correct global order
       const combined = [...others,...updatedSops];
       combined.sort((a, b) => (a.sop_number || 0) - (b.sop_number || 0));
       return combined;
     });
 
-    // Fix for the "No overload matches this call" error:
-    // Ensure we only send fields that exist in the DB schema for upsert
     const { error } = await supabase
      .from('sops')
      .upsert(
@@ -123,7 +118,7 @@ export default function Sops() {
 
     if (error) {
       toast('Failed to update order', 'error');
-      load(); // Reload to revert to correct order if update failed
+      load();
     } else {
       toast('Order updated');
     }
@@ -135,14 +130,14 @@ export default function Sops() {
     setEditTitle(s.title || '')
     setEditCategory(s.category || 'General')
     setEditing(false)
-    setAssociatedFiles(s.files || []); // NEW: Set associated files for selected SOP
+    setAssociatedFiles(s.files || []);
   }
 
   async function createNewSop() {
     if (!canEdit) return
     const nextNum = sops.length > 0? Math.max(...sops.map(s => s.sop_number || 0)) + 1 : 1
 
-    const newSop = {
+    const newSopData = { // Renamed to avoid confusion with the Sop interface
       title: 'New Strategic SOP',
       category: 'General',
       status: 'draft',
@@ -152,13 +147,13 @@ export default function Sops() {
       last_reviewed_at: new Date().toISOString().split('T')[0]
     }
 
-    const { data, error } = await supabase.from('sops').insert(newSop).select().single()
+    const { data, error } = await supabase.from('sops').insert(newSopData).select().single() as { data: Sop | null, error: any };
     if (error) {
       toast('Failed to create SOP', 'error')
       return
     }
 
-    const createdSop: Sop = {...data, files: [] }; // Ensure files array is initialized
+    const createdSop: Sop = {...data, files: [] };
     setSops(prev => [...prev, createdSop])
     selectSop(createdSop)
     setEditing(true)
@@ -169,9 +164,8 @@ export default function Sops() {
     if (!selected ||!canEdit) return
     if (!confirm(`Are you sure you want to delete SOP #${selected.sop_number}? This will also delete all associated files.`)) return
 
-    // NEW: Delete associated files from storage and database first
     for (const file of associatedFiles) {
-      await handleFileDelete(file); // This handles both storage and DB entry
+      await handleFileDelete(file);
     }
 
     const { error } = await supabase.from('sops').delete().eq('id', selected.id)
@@ -183,7 +177,7 @@ export default function Sops() {
     setSops(prev => prev.filter(s => s.id!== selected.id))
     setSelected(null)
     setEditing(false)
-    setAssociatedFiles([]); // Clear files for deleted SOP
+    setAssociatedFiles([]);
     toast('SOP Deleted')
   }
 
@@ -202,7 +196,7 @@ export default function Sops() {
     const { data, error } = await supabase.from('sops')
      .update(updates)
      .eq('id', selected.id)
-     .select().single()
+     .select().single() as { data: Sop | null, error: any }; // Explicit cast here too
 
     if (error ||!data) {
       toast('Save failed', 'error');
@@ -210,7 +204,7 @@ export default function Sops() {
       return
     }
 
-    const updatedSop: Sop = {...data, files: associatedFiles }; // Merge existing files
+    const updatedSop: Sop = {...data, files: associatedFiles };
     setSops(prev => prev.map(s => s.id === updatedSop.id? updatedSop : s))
     setSelected(updatedSop)
     setEditing(false)
@@ -220,61 +214,57 @@ export default function Sops() {
 
   async function setStatus(status: string) {
     if (!selected) return
-    const { data } = await supabase.from('sops').update({ status }).eq('id', selected.id).select().single()
+    const { data } = await supabase.from('sops').update({ status }).eq('id', selected.id).select().single() as { data: Sop | null, error: any }; // Explicit cast
     if (data) {
-      const updatedSop: Sop = {...data, files: associatedFiles }; // Merge existing files
+      const updatedSop: Sop = {...data, files: associatedFiles };
       setSops(prev => prev.map(s => s.id === updatedSop.id? updatedSop : s))
       setSelected(updatedSop)
       toast(`Status set to ${status}`)
     }
   }
 
-  // NEW: File upload logic
   async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
     if (!selected ||!canEdit ||!event.target.files || event.target.files.length === 0) return;
 
     setUploading(true);
     const file = event.target.files[0];
     const fileExtension = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${file.name}`; // Unique filename
-    const filePath = `sop_files/${selected.id}/${fileName}`; // Path in storage bucket
+    const fileName = `${Date.now()}-${file.name}`;
+    const filePath = `sop_files/${selected.id}/${fileName}`;
 
     try {
-      // 1. Upload to Supabase Storage
       const { data: storageData, error: storageError } = await supabase.storage
-       .from('app_documents') // Use your bucket name
-       .upload(filePath, file, {
+      .from('app_documents')
+      .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false,
         });
 
       if (storageError) throw storageError;
 
-      // 2. Get public URL
       const { data: publicUrlData } = supabase.storage
-       .from('app_documents')
-       .getPublicUrl(filePath);
+      .from('app_documents')
+      .getPublicUrl(filePath);
 
       if (!publicUrlData ||!publicUrlData.publicUrl) throw new Error("Could not get public URL for file.");
 
-      // 3. Save file metadata to app_files table
       const { data: fileDbData, error: fileDbError } = await supabase
-       .from('app_files')
-       .insert({
+      .from('app_files')
+      .insert({
           file_name: file.name,
-          file_path: publicUrlData.publicUrl, // Store the public URL
+          file_path: publicUrlData.publicUrl,
           file_type: file.type || `application/${fileExtension}`,
           associated_sop_id: selected.id,
-          uploaded_by: user?.id, // Use the current user's ID
+          uploaded_by: user?.id,
         })
-       .select()
-       .single();
+      .select()
+      .single() as { data: AppFile | null, error: any }; // Explicit cast here
 
       if (fileDbError) throw fileDbError;
+      if (!fileDbData) throw new Error("No data returned after file DB insert.");
 
       const newFile: AppFile = fileDbData;
       setAssociatedFiles(prev => [...prev, newFile]);
-      // Update the selected SOP's files and global sops list
       setSelected(prev => prev? {...prev, files: [...(prev.files || []), newFile] } : null);
       setSops(prev => prev.map(s => s.id === selected.id? {...s, files: [...(s.files || []), newFile] } : s));
       toast('File uploaded successfully! ✓');
@@ -284,37 +274,38 @@ export default function Sops() {
       toast(`File upload failed: ${error.message}`, 'error');
     } finally {
       setUploading(false);
-      event.target.value = ''; // Clear the input so same file can be uploaded again
+      event.target.value = '';
     }
   }
 
-  // NEW: File deletion logic
   async function handleFileDelete(fileToDelete: AppFile) {
     if (!canEdit) return;
-    if (!confirm(`Are you sure you want to delete "${fileToDelete.file_name}"?`)) return;
+    // Removed the confirm() here as it's already done in deleteSop, or we trust individual file deletion
+    // if (!confirm(`Are you sure you want to delete "${fileToDelete.file_name}"?`)) return;
 
     try {
-      // 1. Delete from Supabase Storage
-      // Extract the path within the bucket from the publicUrl
-      const pathInBucket = fileToDelete.file_path.split('app_documents/').pop();
-      if (!pathInBucket) throw new Error('Invalid file path for deletion.');
+      // Supabase storage paths for delete need to be relative to the bucket root,
+      // not the full public URL. We reconstruct it from the publicUrl.
+      // Example: 'https://xyz.supabase.co/storage/v1/object/public/app_documents/sop_files/sopId/filename'
+      // We need: 'sop_files/sopId/filename'
+      const pathSegments = fileToDelete.file_path.split('/app_documents/');
+      if (pathSegments.length < 2) throw new Error('Invalid file path for deletion.');
+      const pathInBucket = pathSegments[1];
 
       const { error: storageError } = await supabase.storage
-       .from('app_documents')
-       .remove([pathInBucket]);
+      .from('app_documents')
+      .remove([pathInBucket]);
 
       if (storageError) throw storageError;
 
-      // 2. Delete from app_files table
       const { error: fileDbError } = await supabase
-       .from('app_files')
-       .delete()
-       .eq('id', fileToDelete.id);
+      .from('app_files')
+      .delete()
+      .eq('id', fileToDelete.id);
 
       if (fileDbError) throw fileDbError;
 
       setAssociatedFiles(prev => prev.filter(f => f.id!== fileToDelete.id));
-      // Update the selected SOP's files and global sops list
       setSelected(prev => prev? {...prev, files: (prev.files || []).filter(f => f.id!== fileToDelete.id) } : null);
       setSops(prev => prev.map(s => s.id === selected?.id? {...s, files: (s.files || []).filter(f => f.id!== fileToDelete.id) } : s));
       toast('File deleted successfully!');
@@ -476,7 +467,7 @@ export default function Sops() {
                   onChange={handleFileUpload}
                   disabled={uploading}
                   style={{ display: 'none' }}
-                  accept="application/pdf, text/html" // Accept PDFs and HTML files
+                  accept="application/pdf, text/html"
                 />
                 <span style={{ fontSize: 12, color: 'var(--grey)' }}>Attach PDF or HTML files to this SOP</span>
               </div>

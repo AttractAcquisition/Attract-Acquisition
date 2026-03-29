@@ -51,11 +51,10 @@ export default function Sops() {
       q = q.eq('status', 'active')
     }
 
-    // Explicitly cast data to Sop[] type for TypeScript to recognize the 'files' property later
-    const { data: sopsData } = await q as { data: Sop[] | null };
+    const { data: sopsData } = await q; // Keep it simple, we'll cast later
 
-    const normalizedSops: Sop[] = (sopsData || []).map((s: any) => ({
-     ...s,
+    const normalizedSops: Sop[] = (sopsData || []).map(s => ({
+    ...s,
       content: s.content || '',
       version: s.version || '1.0',
       category: s.category || 'General',
@@ -64,11 +63,9 @@ export default function Sops() {
       files: [], // Initialize files array
     }))
 
-    // NEW: Fetch all associated files and map them to their SOPs
-    // Explicitly cast the query result to AppFile[]
     const { data: filesData, error: filesError } = await supabase
-     .from('app_files')
-     .select('*') as { data: AppFile[] | null, error: any }; // Cast data to AppFile[]
+    .from('app_files')
+    .select('*'); // Keep it simple
 
     if (filesError) {
       console.error('Error fetching files:', filesError);
@@ -76,7 +73,7 @@ export default function Sops() {
     }
 
     const sopsWithFiles = normalizedSops.map(sop => ({
-     ...sop,
+    ...sop,
       files: (filesData || []).filter(file => file.associated_sop_id === sop.id)
     }));
 
@@ -91,30 +88,26 @@ export default function Sops() {
     items.splice(result.destination.index, 0, reorderedItem);
 
     const updatedSops = items.map((sop, index) => ({
-     ...sop,
+    ...sop,
       sop_number: index + 1
     }));
 
     setSops(prev => {
-      const others = prev.filter(p =>!filtered.some(f => f.id === p.id));
+      const others = prev.filter(p =>!updatedSops.some(f => f.id === p.id));
       const combined = [...others,...updatedSops];
       combined.sort((a, b) => (a.sop_number || 0) - (b.sop_number || 0));
       return combined;
     });
 
+    // FIX: Remove 'files' property before sending to upsert
+    const sopsForDb = updatedSops.map(({ files,...rest }) => ({
+       ...rest,
+        updated_at: new Date().toISOString()
+    }));
+
     const { error } = await supabase
-     .from('sops')
-     .upsert(
-        updatedSops.map(s => ({
-          id: s.id,
-          sop_number: s.sop_number,
-          title: s.title,
-          category: s.category,
-          status: s.status,
-          updated_at: new Date().toISOString()
-        })),
-        { onConflict: 'id' }
-      );
+    .from('sops')
+    .upsert(sopsForDb, { onConflict: 'id' });
 
     if (error) {
       toast('Failed to update order', 'error');
@@ -137,7 +130,7 @@ export default function Sops() {
     if (!canEdit) return
     const nextNum = sops.length > 0? Math.max(...sops.map(s => s.sop_number || 0)) + 1 : 1
 
-    const newSopData = { // Renamed to avoid confusion with the Sop interface
+    const newSopData = {
       title: 'New Strategic SOP',
       category: 'General',
       status: 'draft',
@@ -147,8 +140,8 @@ export default function Sops() {
       last_reviewed_at: new Date().toISOString().split('T')[0]
     }
 
-    const { data, error } = await supabase.from('sops').insert(newSopData).select().single() as { data: Sop | null, error: any };
-    if (error) {
+    const { data, error } = await supabase.from('sops').insert(newSopData).select().single();
+    if (error ||!data) { // FIX: Handle null data case
       toast('Failed to create SOP', 'error')
       return
     }
@@ -194,9 +187,9 @@ export default function Sops() {
     }
 
     const { data, error } = await supabase.from('sops')
-     .update(updates)
-     .eq('id', selected.id)
-     .select().single() as { data: Sop | null, error: any }; // Explicit cast here too
+    .update(updates)
+    .eq('id', selected.id)
+    .select().single();
 
     if (error ||!data) {
       toast('Save failed', 'error');
@@ -214,7 +207,7 @@ export default function Sops() {
 
   async function setStatus(status: string) {
     if (!selected) return
-    const { data } = await supabase.from('sops').update({ status }).eq('id', selected.id).select().single() as { data: Sop | null, error: any }; // Explicit cast
+    const { data } = await supabase.from('sops').update({ status }).eq('id', selected.id).select().single();
     if (data) {
       const updatedSop: Sop = {...data, files: associatedFiles };
       setSops(prev => prev.map(s => s.id === updatedSop.id? updatedSop : s))
@@ -233,9 +226,10 @@ export default function Sops() {
     const filePath = `sop_files/${selected.id}/${fileName}`;
 
     try {
-      const { data: storageData, error: storageError } = await supabase.storage
-      .from('app_documents')
-      .upload(filePath, file, {
+      // FIX: Removed 'storageData' as it's not used
+      const { error: storageError } = await supabase.storage
+     .from('app_documents')
+     .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false,
         });
@@ -243,28 +237,29 @@ export default function Sops() {
       if (storageError) throw storageError;
 
       const { data: publicUrlData } = supabase.storage
-      .from('app_documents')
-      .getPublicUrl(filePath);
+     .from('app_documents')
+     .getPublicUrl(filePath);
 
       if (!publicUrlData ||!publicUrlData.publicUrl) throw new Error("Could not get public URL for file.");
 
       const { data: fileDbData, error: fileDbError } = await supabase
-      .from('app_files')
-      .insert({
+     .from('app_files')
+     .insert({
           file_name: file.name,
           file_path: publicUrlData.publicUrl,
           file_type: file.type || `application/${fileExtension}`,
           associated_sop_id: selected.id,
           uploaded_by: user?.id,
         })
-      .select()
-      .single() as { data: AppFile | null, error: any }; // Explicit cast here
+     .select()
+     .single();
 
       if (fileDbError) throw fileDbError;
       if (!fileDbData) throw new Error("No data returned after file DB insert.");
 
       const newFile: AppFile = fileDbData;
       setAssociatedFiles(prev => [...prev, newFile]);
+      // FIX: Handle null case for setSelected
       setSelected(prev => prev? {...prev, files: [...(prev.files || []), newFile] } : null);
       setSops(prev => prev.map(s => s.id === selected.id? {...s, files: [...(s.files || []), newFile] } : s));
       toast('File uploaded successfully! ✓');
@@ -280,28 +275,23 @@ export default function Sops() {
 
   async function handleFileDelete(fileToDelete: AppFile) {
     if (!canEdit) return;
-    // Removed the confirm() here as it's already done in deleteSop, or we trust individual file deletion
-    // if (!confirm(`Are you sure you want to delete "${fileToDelete.file_name}"?`)) return;
+    if (!confirm(`Are you sure you want to delete "${fileToDelete.file_name}"?`)) return;
 
     try {
-      // Supabase storage paths for delete need to be relative to the bucket root,
-      // not the full public URL. We reconstruct it from the publicUrl.
-      // Example: 'https://xyz.supabase.co/storage/v1/object/public/app_documents/sop_files/sopId/filename'
-      // We need: 'sop_files/sopId/filename'
       const pathSegments = fileToDelete.file_path.split('/app_documents/');
       if (pathSegments.length < 2) throw new Error('Invalid file path for deletion.');
       const pathInBucket = pathSegments[1];
 
       const { error: storageError } = await supabase.storage
-      .from('app_documents')
-      .remove([pathInBucket]);
+     .from('app_documents')
+     .remove([pathInBucket]);
 
       if (storageError) throw storageError;
 
       const { error: fileDbError } = await supabase
-      .from('app_files')
-      .delete()
-      .eq('id', fileToDelete.id);
+     .from('app_files')
+     .delete()
+     .eq('id', fileToDelete.id);
 
       if (fileDbError) throw fileDbError;
 
@@ -322,6 +312,7 @@ export default function Sops() {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20, height: 'calc(100vh - 120px)' }}>
+      {/*... Rest of the JSX is unchanged... */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 4 }}>
           <div style={{ display: 'flex', gap: 16 }}>
@@ -361,7 +352,7 @@ export default function Sops() {
                           {...provided.draggableProps}
                           onClick={() => selectSop(s)}
                           style={{
-                           ...provided.draggableProps.style,
+                          ...provided.draggableProps.style,
                             padding: '10px 12px',
                             borderRadius: 4,
                             cursor: 'pointer',
@@ -455,7 +446,6 @@ export default function Sops() {
               )}
             </div>
 
-            {/* NEW: File Upload Section */}
             {canEdit && selected && editing && (
               <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, padding: '10px', background: 'var(--bg3)', borderRadius: 6, border: '1px solid var(--border2)' }}>
                 <label htmlFor="file-upload" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '7px 14px', fontSize: 11 }}>
@@ -472,7 +462,6 @@ export default function Sops() {
                 <span style={{ fontSize: 12, color: 'var(--grey)' }}>Attach PDF or HTML files to this SOP</span>
               </div>
             )}
-            {/* END NEW: File Upload Section */}
 
             {editing && canEdit? (
               <textarea value={content} onChange={e => setContent(e.target.value)}
@@ -512,7 +501,6 @@ export default function Sops() {
                   </div>
                 )}
 
-                {/* NEW: Display Associated Files */}
                 {associatedFiles.length > 0 && (
                   <div style={{ marginTop: 30, paddingTop: 20, borderTop: '1px solid var(--border2)' }}>
                     <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 15, color: 'var(--white)' }}>Associated Files</h4>
@@ -544,7 +532,6 @@ export default function Sops() {
                     </div>
                   </div>
                 )}
-                {/* END NEW: Display Associated Files */}
               </div>
             )}
           </>

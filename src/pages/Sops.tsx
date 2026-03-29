@@ -10,7 +10,7 @@ import { useAuth } from '../lib/auth'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import type { DropResult, DroppableProvided, DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 
-const CATEGORIES = ['Cold Outreach', 'Pipeline & Sales', 'Proof Sprint', 'Client Delivery', 'General']
+const CATEGORIES = ['Outreach & Pipeline', 'Sales Distribution', 'Missed Jobs Report', 'Strategic Plan of Action', 'Sales Delivery', 'Proof Sprint', 'Proof Brand', 'Authority Brand', 'General']
 const STATUS_COLORS: Record<string, string> = {
   draft:    'badge-new',
   active:   'badge-clients',
@@ -39,9 +39,9 @@ export default function Sops() {
     let q = supabase.from('sops').select('*').order('sop_number', { ascending: true })
 
     if (role === 'delivery') {
-      q = q.in('category', ['Proof Sprint', 'Client Delivery', 'General'])
+      q = q.in('category', ['Sales Delivery', 'Proof Sprint', 'Proof Brand', 'Authority Brand', 'General'])
     } else if (role === 'distribution') {
-      q = q.in('category', ['Cold Outreach', 'Pipeline & Sales', 'General'])
+      q = q.in('category', ['Outreach & Pipeline', 'Sales Distribution', 'Missed Jobs Report', 'Strategic Plan of Action', 'General'])
     }
 
     if (role !== 'admin') {
@@ -85,14 +85,14 @@ const { error } = await supabase
   .from('sops')
   .upsert(
     updatedSops.map(s => ({
-      id: s.id,               // This MUST be the Primary Key from your DB
+      id: s.id,             
       sop_number: s.sop_number,
-      title: s.title,         // Include these to satisfy "NOT NULL" constraints
+      title: s.title,       
       category: s.category,
       status: s.status,
       updated_at: new Date().toISOString()
     })), 
-    { onConflict: 'id' }      // This tells Supabase: "If the ID matches, UPDATE it."
+    { onConflict: 'id' }      
   );
 
     if (error) {

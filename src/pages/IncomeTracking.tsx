@@ -9,9 +9,7 @@ import {
 import { useToast } from '../lib/toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-// Re-use the DB-derived Ledger type; narrow `type` for local logic
 type Transaction = Omit<Ledger, 'type'> & { type: 'income' | 'expense' }
-
 type ViewType = 'monthly' | 'weekly' | 'daily'
 
 const CATEGORIES = ['Ads', 'Software', 'Infrastructure', 'Content', 'Contractor', 'Setup Fee', 'Subscription']
@@ -52,76 +50,71 @@ export default function IncomeTracking() {
     date: new Date().toISOString().split('T')[0]
   })
 
-useEffect(() => {
-  fetchTransactions()
-}, [])
-
-async function fetchTransactions() {
-  setLoading(true)
-  try {
-    // ✅ Use two generics or omit entirely
-    const { data, error } = await supabase
-      .from<Ledger, Ledger>('ledger') // <Row, Insert> generics
-      .select('*')
-      .order('date', { ascending: false })
-
-    if (error) throw error
-
-    // ✅ Safely cast and enforce type
-    if (data) {
-      setTransactions(
-        data.map(t => ({
-          ...t,
-          type: t.type as 'income' | 'expense', // ensure correct type
-        }))
-      )
-    } else {
-      setTransactions([])
-    }
-
-  } catch (error: any) {
-    toast(error.message || 'Failed to fetch transactions', 'error')
-  } finally {
-    setLoading(false)
-  }
-}
-
-async function handleAddTransaction(e: React.FormEvent) {
-  e.preventDefault()
-
-  try {
-    // ✅ Ensure type is 'income' | 'expense'
-    const { error } = await supabase
-      .from<Ledger, Ledger>('ledger') // optional: provide generics for type safety
-      .insert([{
-        amount: parseFloat(formData.amount),
-        type: formData.type,           // now strictly 'income' | 'expense'
-        category: formData.category,
-        description: formData.description,
-        date: formData.date
-      }])
-
-    if (error) throw error
-
-    toast('Transaction recorded successfully.', 'success')
-
-    // Reset modal form
-    setIsModalOpen(false)
-    setFormData({
-      amount: '',
-      type: 'income',
-      category: 'Subscription',
-      description: '',
-      date: new Date().toISOString().split('T')[0]
-    })
-
-    // Refresh transactions
+  useEffect(() => {
     fetchTransactions()
+  }, [])
 
-  } catch (error: any) {
-    toast(error.message || 'Failed to record transaction', 'error')
+  async function fetchTransactions() {
+    setLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from<Ledger, Ledger>('ledger') // Fix TypeScript overload
+        .select('*')
+        .order('date', { ascending: false })
+
+      if (error) throw error
+
+      if (data) {
+        setTransactions(
+          data.map(t => ({
+            ...t,
+            type: t.type as 'income' | 'expense',
+          }))
+        )
+      } else {
+        setTransactions([])
+      }
+
+    } catch (error: any) {
+      toast(error.message || 'Failed to fetch transactions', 'error')
+    } finally {
+      setLoading(false)
+    }
   }
-}
+
+  async function handleAddTransaction(e: React.FormEvent) {
+    e.preventDefault()
+
+    try {
+      const { error } = await supabase
+        .from<Ledger, Ledger>('ledger')
+        .insert([{
+          amount: parseFloat(formData.amount),
+          type: formData.type,
+          category: formData.category,
+          description: formData.description,
+          date: formData.date
+        }])
+
+      if (error) throw error
+
+      toast('Transaction recorded successfully.', 'success')
+
+      setIsModalOpen(false)
+      setFormData({
+        amount: '',
+        type: 'income',
+        category: 'Subscription',
+        description: '',
+        date: new Date().toISOString().split('T')[0]
+      })
+
+      fetchTransactions()
+
+    } catch (error: any) {
+      toast(error.message || 'Failed to record transaction', 'error')
+    }
+  }
 
   // ─── Calculations ───────────────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -138,12 +131,10 @@ async function handleAddTransaction(e: React.FormEvent) {
     }).filter(c => c.percent > 0).sort((a, b) => b.percent - a.percent)
   }, [transactions, stats.expenses])
 
-  // Dynamic Chart Data Generator
   const chartData = useMemo(() => {
     const buckets: { label: string; income: number; expense: number; matchKey: string | number }[] = []
     const now = new Date()
 
-    // 1. Initialize empty buckets based on view type
     if (view === 'daily') {
       for (let i = 6; i >= 0; i--) {
         const d = new Date(now)
@@ -169,7 +160,6 @@ async function handleAddTransaction(e: React.FormEvent) {
       }
     }
 
-    // 2. Aggregate transaction amounts into buckets
     transactions.forEach(t => {
       const tDate = new Date(t.date)
       let targetBucket = null
@@ -178,7 +168,6 @@ async function handleAddTransaction(e: React.FormEvent) {
         const dateStr = t.date.split('T')[0]
         targetBucket = buckets.find(b => b.matchKey === dateStr)
       } else if (view === 'weekly') {
-        // Calculate weeks ago
         const diffDays = Math.floor((now.getTime() - tDate.getTime()) / (1000 * 60 * 60 * 24))
         const weeksAgo = Math.floor(diffDays / 7)
         targetBucket = buckets.find(b => b.matchKey === weeksAgo)
@@ -193,12 +182,11 @@ async function handleAddTransaction(e: React.FormEvent) {
       }
     })
 
-    // 3. Calculate percentages for rendering relative heights
-    const maxVal = Math.max(...buckets.map(b => Math.max(b.income, b.expense)), 1) // prevent div by 0
+    const maxVal = Math.max(...buckets.map(b => Math.max(b.income, b.expense)), 1)
 
     return buckets.map(b => ({
       ...b,
-      incomeHeight: Math.max((b.income / maxVal) * 100, 2), // 2% min height if 0 to show empty state subtly
+      incomeHeight: Math.max((b.income / maxVal) * 100, 2),
       expenseHeight: Math.max((b.expense / maxVal) * 100, 2),
       hasData: b.income > 0 || b.expense > 0
     }))
@@ -206,7 +194,6 @@ async function handleAddTransaction(e: React.FormEvent) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 40, opacity: loading ? 0.7 : 1 }}>
-      
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
@@ -241,49 +228,22 @@ async function handleAddTransaction(e: React.FormEvent) {
         <StatCard title="Net Profit" amount={stats.net} type="net" />
       </div>
 
+      {/* Chart + Sidebar */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 24 }}>
-        
-        {/* Dynamic Visualization */}
+        {/* Chart */}
         <div className="card" style={{ height: 400, display: 'flex', flexDirection: 'column', padding: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
             <div className="section-label">Cashflow Visualization ({view})</div>
             <BarChart3 size={16} style={{ color: 'var(--teal)' }} />
           </div>
-          
           <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, paddingTop: 20 }}>
             {chartData.map((data, i) => (
               <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, height: '100%' }}>
                 <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', gap: 4 }}>
-                  {/* Income Bar */}
-                  <div 
-                    title={`Income: R${data.income.toLocaleString()}`}
-                    style={{ 
-                      flex: 1, 
-                      maxWidth: '30px',
-                      height: `${data.incomeHeight}%`, 
-                      background: data.hasData ? 'var(--teal)' : 'var(--bg3)', 
-                      borderRadius: '4px 4px 0 0', 
-                      opacity: data.income > 0 ? 0.9 : 0.3,
-                      transition: 'height 0.4s ease'
-                    }} 
-                  />
-                  {/* Expense Bar */}
-                  <div 
-                    title={`Expense: R${data.expense.toLocaleString()}`}
-                    style={{ 
-                      flex: 1, 
-                      maxWidth: '30px',
-                      height: `${data.expenseHeight}%`, 
-                      background: data.hasData ? '#FF4444' : 'var(--bg3)', 
-                      borderRadius: '4px 4px 0 0', 
-                      opacity: data.expense > 0 ? 0.7 : 0.3,
-                      transition: 'height 0.4s ease'
-                    }} 
-                  />
+                  <div title={`Income: R${data.income.toLocaleString()}`} style={{ flex: 1, maxWidth: '30px', height: `${data.incomeHeight}%`, background: data.hasData ? 'var(--teal)' : 'var(--bg3)', borderRadius: '4px 4px 0 0', opacity: data.income > 0 ? 0.9 : 0.3, transition: 'height 0.4s ease' }} />
+                  <div title={`Expense: R${data.expense.toLocaleString()}`} style={{ flex: 1, maxWidth: '30px', height: `${data.expenseHeight}%`, background: data.hasData ? '#FF4444' : 'var(--bg3)', borderRadius: '4px 4px 0 0', opacity: data.expense > 0 ? 0.7 : 0.3, transition: 'height 0.4s ease' }} />
                 </div>
-                <span style={{ fontSize: 10, fontFamily: 'DM Mono', color: 'var(--grey)', textTransform: 'uppercase' }}>
-                  {data.label}
-                </span>
+                <span style={{ fontSize: 10, fontFamily: 'DM Mono', color: 'var(--grey)', textTransform: 'uppercase' }}>{data.label}</span>
               </div>
             ))}
           </div>
@@ -292,11 +252,7 @@ async function handleAddTransaction(e: React.FormEvent) {
         {/* Sidebar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div className="card" style={{ padding: 20 }}>
-            <button 
-              className="btn-primary" 
-              onClick={() => setIsModalOpen(true)}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-            >
+            <button className="btn-primary" onClick={() => setIsModalOpen(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               <Plus size={16} /> Record Transaction
             </button>
           </div>
@@ -363,43 +319,35 @@ async function handleAddTransaction(e: React.FormEvent) {
             <form onSubmit={handleAddTransaction} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={inputGroupStyle}>
                 <label style={labelStyle}>Amount (ZAR)</label>
-                <input type="number" step="0.01" required value={formData.amount} 
-                  onChange={e => setFormData({...formData, amount: e.target.value})} style={inputStyle} />
+                <input type="number" step="0.01" required value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} style={inputStyle} />
               </div>
               
-  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-  <div style={inputGroupStyle}>
-    <label style={labelStyle}>Type</label>
-    <select
-      value={formData.type}
-      onChange={e =>
-        setFormData({
-          ...formData,
-          type: e.target.value as 'income' | 'expense' // ✅ enforce exact type
-        })
-      }
-      style={inputStyle}
-    >
-      <option value="income">Income</option>
-      <option value="expense">Expense</option>
-    </select>
-  </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={inputGroupStyle}>
+                  <label style={labelStyle}>Type</label>
+                  <select
+                    value={formData.type}
+                    onChange={e => setFormData({ ...formData, type: e.target.value as 'income' | 'expense' })}
+                    style={inputStyle}
+                  >
+                    <option value="income">Income</option>
+                    <option value="expense">Expense</option>
+                  </select>
+                </div>
 
-  <div style={inputGroupStyle}>
-    <label style={labelStyle}>Category</label>
-    <select
-      value={formData.category}
-      onChange={e => setFormData({ ...formData, category: e.target.value })}
-      style={inputStyle}
-    >
-      {CATEGORIES.map(c => (
-        <option key={c} value={c}>
-          {c}
-        </option>
-      ))}
-    </select>
-  </div>
-</div>
+                <div style={inputGroupStyle}>
+                  <label style={labelStyle}>Category</label>
+                  <select
+                    value={formData.category}
+                    onChange={e => setFormData({ ...formData, category: e.target.value })}
+                    style={inputStyle}
+                  >
+                    {CATEGORIES.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
               <div style={inputGroupStyle}>
                 <label style={labelStyle}>Description</label>

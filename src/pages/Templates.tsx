@@ -138,49 +138,67 @@ async function save() {
   }
 
   async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    if (!selected || isNew || !event.target.files || event.target.files.length === 0) return
+  if (!selected || isNew || !event.target.files || event.target.files.length === 0) return
 
-    setUploading(true)
-    const file = event.target.files[0]
-    const fileExtension = file.name.split('.').pop() || 'octect-stream'
-    const safeName = file.name.replace(/[^\x00-\x7F]/g, "").replace(/[^a-z0-9. -]/gi, "_").replace(/\s+/g, "_");
-    const fileName = `${Date.now()}-${safeName}`
-    const filePath = `template_files/${selected.id}/${fileName}`
+  setUploading(true)
+  const file = event.target.files[0]
+  
+  // Determine file extension and set proper MIME type for rendering
+  const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'octect-stream'
+  const isHtml = fileExtension === 'html' || file.type === 'text/html'
+  const contentType = isHtml ? 'text/html' : (file.type || `application/${fileExtension}`)
 
-    try {
-      const { error: storageError } = await supabase.storage
-        .from('template-files')
-        .upload(filePath, file, { cacheControl: '3600', upsert: false })
+  const safeName = file.name
+    .replace(/[^\x00-\x7F]/g, "")
+    .replace(/[^a-z0-9. -]/gi, "_")
+    .replace(/\s+/g, "_");
+  
+  const fileName = `${Date.now()}-${safeName}`
+  const filePath = `template_files/${selected.id}/${fileName}`
 
-      if (storageError) throw storageError
+  try {
+    // 1. Upload to Storage with explicit contentType
+    const { error: storageError } = await supabase.storage
+      .from('template-files')
+      .upload(filePath, file, { 
+        cacheControl: '3600', 
+        upsert: false,
+        contentType: contentType // Crucial for rendering HTML in-browser
+      })
 
-      const { data: publicUrlData } = supabase.storage
-        .from('template-files')
-        .getPublicUrl(filePath)
+    if (storageError) throw storageError
 
-const { data: fileDbData, error: fileDbError } = await supabase
-  .from('app_files')
-  .insert({
-    file_name: file.name,
-    file_path: publicUrlData.publicUrl,
-    file_type: file.type || `application/${fileExtension}`,
-    associated_sop_id: selected.id, // Mapping template ID to the existing SOP ID column
-    uploaded_by: user?.id,
-  })
-  .select()
-  .single()
+    // 2. Get the Public URL
+    const { data: publicUrlData } = supabase.storage
+      .from('template-files')
+      .getPublicUrl(filePath)
 
-      if (fileDbError) throw fileDbError
-      setAssociatedFiles(prev => [...prev, fileDbData])
-      toast('File uploaded successfully! ✓')
-    } catch (error: any) {
-      toast(`Upload failed: ${error.message}`, 'error')
-    } finally {
-      setUploading(false)
-      event.target.value = ''
-    }
+    // 3. Insert into Database
+    const { data: fileDbData, error: fileDbError } = await supabase
+      .from('app_files')
+      .insert({
+        file_name: file.name,
+        file_path: publicUrlData.publicUrl,
+        file_type: contentType, // Store the calculated content type
+        associated_sop_id: selected.id,
+        uploaded_by: user?.id,
+      })
+      .select()
+      .single()
+
+    if (fileDbError) throw fileDbError
+    
+    setAssociatedFiles(prev => [...prev, fileDbData])
+    toast('File uploaded successfully! ✓')
+  } catch (error: any) {
+    console.error('Upload Error:', error)
+    toast(`Upload failed: ${error.message}`, 'error')
+  } finally {
+    setUploading(false)
+    event.target.value = ''
   }
-
+}
+  
   async function handleFileDelete(fileToDelete: AppFile) {
     if (!confirm(`Are you sure you want to delete "${fileToDelete.file_name}"?`)) return
 

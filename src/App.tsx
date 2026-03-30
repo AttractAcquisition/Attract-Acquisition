@@ -69,20 +69,38 @@ function AppRoutes() {
   if (loading) return <LoadingScreen />;
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/portal" element={<Navigate to="/dashboard" replace />} />
+  <Routes>
+    {/* 1. Public Routes */}
+    <Route path="/login" element={<Login />} />
+    <Route path="/portal" element={<Navigate to="/dashboard" replace />} />
 
-      <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
-        <Route index element={<Navigate to={role === 'distribution' ? '/distribution' : role === 'delivery' ? '/delivery-dash' : '/dashboard'} replace />} />
-        {generatedRoutes}
-        {/* Manual override for nested routes */}
-        <Route path="sprints/:id" element={<Suspense fallback={<LoadingScreen />}><RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>SprintDetailHere</RoleWrapper></Suspense>} />
-      </Route>
+    {/* 2. STANDALONE FULL-SCREEN ROUTES (No Sidebar/Layout) */}
+    {/* This allows the template to be a clean, white-label preview */}
+    <Route 
+      path="/template-view" 
+      element={
+        <RequireAuth>
+          <Suspense fallback={<LoadingScreen />}>
+             {/* Note: Adjust 'TemplateView' if your filename is different */}
+             {React.createElement(React.lazy(pageModules['./pages/TemplateView.tsx'] as any))}
+          </Suspense>
+        </RequireAuth>
+      } 
+    />
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  );
+    {/* 3. Main Dashboard Routes (With Sidebar/Layout) */}
+    <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
+      <Route index element={<Navigate to={role === 'distribution' ? '/distribution' : role === 'delivery' ? '/delivery-dash' : '/dashboard'} replace />} />
+      
+      {/* Filter out the TemplateView from the sidebar layout so it doesn't try to render twice */}
+      {generatedRoutes.filter(route => route?.key !== 'template-view')}
+      
+      <Route path="sprints/:id" element={<Suspense fallback={<LoadingScreen />}><RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>SprintDetailHere</RoleWrapper></Suspense>} />
+    </Route>
+
+    <Route path="*" element={<Navigate to="/" replace />} />
+  </Routes>
+);
 }
 
 export default function App() {

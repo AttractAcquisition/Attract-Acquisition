@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
-import type { Ledger } from '../lib/supabase'
+import type { Database } from '../lib/supabase' 
+
 import { 
   DollarSign, 
   Filter, Plus, ArrowUpRight, 
@@ -9,8 +10,16 @@ import {
 import { useToast } from '../lib/toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Transaction = Omit<Ledger, 'type'> & { type: 'income' | 'expense' }
 type ViewType = 'monthly' | 'weekly' | 'daily'
+
+// Use these to map directly to your Database Schema
+type LedgerRow = Database['public']['Tables']['ledger']['Row']
+type LedgerInsert = Database['public']['Tables']['ledger']['Insert']
+
+// This ensures your local 'type' matches the DB Enum ('income' | 'expense')
+export type Transaction = Omit<LedgerRow, 'type'> & { 
+  type: Database["public"]["Enums"]["transaction_type"] 
+}
 
 const CATEGORIES = ['Ads', 'Software', 'Infrastructure', 'Content', 'Contractor', 'Setup Fee', 'Subscription']
 
@@ -54,17 +63,19 @@ export default function IncomeTracking() {
     fetchTransactions()
   }, [])
 
-  async function fetchTransactions() {
+async function fetchTransactions() {
     setLoading(true)
     try {
+      // Letting Supabase infer types from the client definition is cleaner
       const { data, error } = await supabase
-        .from<Ledger, Ledger>('ledger') // Fix TypeScript overload
+        .from('ledger')
         .select('*')
         .order('date', { ascending: false })
 
       if (error) throw error
 
       if (data) {
+        // We cast the incoming data to our local Transaction type
         setTransactions(
           data.map(t => ({
             ...t,
@@ -86,11 +97,14 @@ export default function IncomeTracking() {
     e.preventDefault()
 
     try {
+      // Extract the Enum type from your Database definition to ensure a perfect match
+      type TransactionType = Database["public"]["Enums"]["transaction_type"]
+
       const { error } = await supabase
-        .from<Ledger, Ledger>('ledger')
+        .from('ledger')
         .insert([{
           amount: parseFloat(formData.amount),
-          type: formData.type,
+          type: formData.type as TransactionType, // Cast to the specific Enum type
           category: formData.category,
           description: formData.description,
           date: formData.date
@@ -112,6 +126,7 @@ export default function IncomeTracking() {
       fetchTransactions()
 
     } catch (error: any) {
+      console.error('Insert error:', error) // Good for debugging specific schema violations
       toast(error.message || 'Failed to record transaction', 'error')
     }
   }

@@ -11,7 +11,7 @@ export interface RouteMetadata {
 }
 
 export const ROUTE_CONFIG: Record<string, Omit<RouteMetadata, 'path'>> = {
-  dashboard: { label: 'Live Pipeline', section: 'Overview', icon: Icons.LayoutDashboard, roles: ['admin', 'client'] },
+  dashboard: { label: 'Dashboard', section: 'Overview', icon: Icons.LayoutDashboard, roles: ['admin'] },
   distribution: { label: 'Ops Dashboard', section: 'Overview', icon: Icons.Activity, roles: ['distribution'] },
   'delivery-dash': { label: 'Ops Dashboard', section: 'Overview', icon: Icons.Target, roles: ['delivery'] },
   'distro-tracker': { label: 'Ops Tracker', section: 'Overview', icon: Icons.CalendarCheck, roles: ['distribution'] },

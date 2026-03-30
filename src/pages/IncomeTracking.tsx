@@ -52,20 +52,33 @@ export default function IncomeTracking() {
     date: new Date().toISOString().split('T')[0]
   })
 
-  useEffect(() => {
-    fetchTransactions()
-  }, [])
+useEffect(() => {
+  fetchTransactions()
+}, [])
 
-  async function fetchTransactions() {
+async function fetchTransactions() {
   setLoading(true)
   try {
+    // ✅ Use two generics or omit entirely
     const { data, error } = await supabase
-      .from<Ledger>('ledger')   // ✅ Fixes TS error
+      .from<Ledger, Ledger>('ledger') // <Row, Insert> generics
       .select('*')
       .order('date', { ascending: false })
 
     if (error) throw error
-    setTransactions((data as Transaction[]) || [])
+
+    // ✅ Safely cast and enforce type
+    if (data) {
+      setTransactions(
+        data.map(t => ({
+          ...t,
+          type: t.type as 'income' | 'expense', // ensure correct type
+        }))
+      )
+    } else {
+      setTransactions([])
+    }
+
   } catch (error: any) {
     toast(error.message || 'Failed to fetch transactions', 'error')
   } finally {
@@ -73,27 +86,42 @@ export default function IncomeTracking() {
   }
 }
 
-  async function handleAddTransaction(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      const { error } = await supabase.from('ledger').insert([{
+async function handleAddTransaction(e: React.FormEvent) {
+  e.preventDefault()
+
+  try {
+    // ✅ Ensure type is 'income' | 'expense'
+    const { error } = await supabase
+      .from<Ledger, Ledger>('ledger') // optional: provide generics for type safety
+      .insert([{
         amount: parseFloat(formData.amount),
-        type: formData.type,
+        type: formData.type,           // now strictly 'income' | 'expense'
         category: formData.category,
         description: formData.description,
         date: formData.date
       }])
 
-      if (error) throw error
-      
-      toast('Transaction recorded successfully.', 'success')
-      setIsModalOpen(false)
-      setFormData({ amount: '', type: 'income', category: 'Subscription', description: '', date: new Date().toISOString().split('T')[0] })
-      fetchTransactions()
-    } catch (error: any) {
-      toast(error.message || 'Failed to record transaction', 'error')
-    }
+    if (error) throw error
+
+    toast('Transaction recorded successfully.', 'success')
+
+    // Reset modal form
+    setIsModalOpen(false)
+    setFormData({
+      amount: '',
+      type: 'income',
+      category: 'Subscription',
+      description: '',
+      date: new Date().toISOString().split('T')[0]
+    })
+
+    // Refresh transactions
+    fetchTransactions()
+
+  } catch (error: any) {
+    toast(error.message || 'Failed to record transaction', 'error')
   }
+}
 
   // ─── Calculations ───────────────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -339,21 +367,39 @@ export default function IncomeTracking() {
                   onChange={e => setFormData({...formData, amount: e.target.value})} style={inputStyle} />
               </div>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div style={inputGroupStyle}>
-                  <label style={labelStyle}>Type</label>
-                  <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})} style={inputStyle}>
-                    <option value="income">Income</option>
-                    <option value="expense">Expense</option>
-                  </select>
-                </div>
-                <div style={inputGroupStyle}>
-                  <label style={labelStyle}>Category</label>
-                  <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} style={inputStyle}>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-              </div>
+  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+  <div style={inputGroupStyle}>
+    <label style={labelStyle}>Type</label>
+    <select
+      value={formData.type}
+      onChange={e =>
+        setFormData({
+          ...formData,
+          type: e.target.value as 'income' | 'expense' // ✅ enforce exact type
+        })
+      }
+      style={inputStyle}
+    >
+      <option value="income">Income</option>
+      <option value="expense">Expense</option>
+    </select>
+  </div>
+
+  <div style={inputGroupStyle}>
+    <label style={labelStyle}>Category</label>
+    <select
+      value={formData.category}
+      onChange={e => setFormData({ ...formData, category: e.target.value })}
+      style={inputStyle}
+    >
+      {CATEGORIES.map(c => (
+        <option key={c} value={c}>
+          {c}
+        </option>
+      ))}
+    </select>
+  </div>
+</div>
 
               <div style={inputGroupStyle}>
                 <label style={labelStyle}>Description</label>

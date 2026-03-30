@@ -10,7 +10,7 @@ import { useAuth } from '../lib/auth'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import type { DropResult, DroppableProvided, DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 
-const CATEGORIES = ['Outreach & Pipeline', 'Missed Jobs Report', 'Strategic Plan of Action', 'Proof Sprint', 'Proof Brand', 'Authority Brand', 'General']
+const CATEGORIES = ['Outreach & Pipeline', 'Missed Jobs Report', 'Strategic Plan of Action', 'Proof Sprint', 'Proof Brand', 'Authority Brand', 'General', 'Admin']
 const STATUS_COLORS: Record<string, string> = {
   draft: 'badge-new',
   active: 'badge-clients',

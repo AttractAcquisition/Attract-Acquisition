@@ -19,11 +19,6 @@ interface Template {
 }
 
 const CATEGORIES = [
-  { key: 'whatsapp',      label: 'WhatsApp' },
-  { key: 'call_script',  label: 'Call Scripts' },
-  { key: 'contract',     label: 'Contracts' },
-  { key: 'report',       label: 'Report Templates' },
-  { key: 'va_brief',     label: 'VA Briefs' },
   { key: 'outreach',     label: 'Outreach & Pipeline' },
   { key: 'mjr',     label: 'Missed Jobs Report' },
   { key: 'spoa',     label: 'Strategic Plan of Action' },
@@ -37,9 +32,9 @@ const CATEGORIES = [
 export default function Templates() {
   const { user } = useAuth()
   const [templates, setTemplates]   = useState<Template[]>([])
-  const [catFilter, setCatFilter]   = useState('whatsapp')
+  const [catFilter, setCatFilter]   = useState('outreach')
   const [selected, setSelected]     = useState<Template | null>(null)
-  const [editForm, setEditForm]     = useState({ title: '', category: 'whatsapp', content: '' })
+  const [editForm, setEditForm]     = useState({ title: '', category: 'outreach', content: '' })
   const [isNew, setIsNew]           = useState(false)
   const [saving, setSaving]         = useState(false)
   const { toast }                   = useToast()
@@ -76,7 +71,7 @@ async function loadFiles(templateId: string) {
     setSelected(t)
     setEditForm({ 
       title: t.title || '', 
-      category: t.category || 'whatsapp', 
+      category: t.category || 'outreach', 
       content: t.content || '' 
     })
     setIsNew(false)

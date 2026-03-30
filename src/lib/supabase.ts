@@ -4,59 +4,51 @@ import type { Database } from './database.types'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
+/**
+ * APP FILES INTERFACE
+ * Matches the provided schema for the 'app_files' table
+ */
 export interface AppFile {
   id: string;
-  created_at: string;
+  created_at: string | null;
   file_name: string;
   file_path: string;
-  file_type: string;
+  file_type: string | null;
   associated_sop_id: string;
-  uploaded_by?: string | null;
+  uploaded_by: string | null;
 }
 
 /**
  * EXTENDED DATABASE
- * 
- * Fixed version:
- * • Uses the correct merge pattern (`Database['public']['Tables'] & { ... }`) so we keep ALL tables from your generated `database.types.ts`.
- * • `app_files` is fully defined (custom table).
- * • `deliveries` + `distributions` are now explicitly defined with enough structure to eliminate every "never" error.
- * • No longer re-declaring `clients`, `prospects`, `tasks`, `sops` (the merge already includes them).
- * 
- * This resolves:
- * - Property 'id' does not exist on type 'never'
- * - Argument of type '{ status: string; completed_at: string | null; }' is not assignable to parameter of type 'never'
- * - Argument of type 'string | undefined' is not assignable to parameter of type '{}'
- * - No overload matches this call
- * - Property 'account_manager' does not exist on type 'never'
- * - Argument of type 'any' is not assignable to parameter of type 'never'
+ * Augments the generated types with the specific fields identified in your schema
+ * to resolve the 'never' type errors in Admin and Dashboard views.
  */
 type ExtendedDatabase = Database & {
   public: {
-    Tables: Database['public']['Tables'] & {
+    Tables: {
       app_files: {
         Row: AppFile;
         Insert: Omit<AppFile, 'id' | 'created_at'> & { id?: string; created_at?: string };
         Update: Partial<AppFile>;
-        Relationships: [{
-          foreignKeyName: "app_files_associated_sop_id_fkey"
-          columns: ["associated_sop_id"]
-          referencedRelation: "sops"
-          referencedColumns: ["id"]
-        }];
+        Relationships: [
+          {
+            foreignKeyName: "app_files_associated_sop_id_fkey"
+            columns: ["associated_sop_id"]
+            referencedRelation: "sops"
+            referencedColumns: ["id"]
+          }
+        ];
       };
-      deliveries: {
-        Row: Record<string, unknown> & { id: string };
-        Insert: Record<string, unknown>;
-        Update: Partial<Record<string, unknown>>;
-        Relationships: [];
+      // Ensuring these tables are recognized with their specific schema columns
+      clients: Database['public']['Tables']['clients'] & {
+        Row: Database['public']['Tables']['clients']['Row'] & {
+          account_manager: string | null;
+          distribution_manager: string | null;
+          delivery_manager: string | null;
+        }
       };
-      distributions: {
-        Row: Record<string, unknown> & { id?: string };
-        Insert: Record<string, unknown>;
-        Update: Partial<Record<string, unknown>>;
-        Relationships: [];
-      };
+      prospects: Database['public']['Tables']['prospects'];
+      sops: Database['public']['Tables']['sops'];
     };
   };
 };
@@ -65,12 +57,15 @@ export const supabase = createClient<ExtendedDatabase>(supabaseUrl, supabaseKey)
 
 /**
  * PROSPECT INTERFACE
+ * Custom frontend interface for outreach logic
  */
 type BaseProspect = Database['public']['Tables']['prospects']['Row'];
-type OverriddenFields =
-  | 'pipeline_stage' | 'is_archived' | 'mjr_link'
+
+type OverriddenFields = 
+  | 'pipeline_stage' | 'is_archived' | 'mjr_link' 
   | 'spoa_delivered_at' | 'mjr_delivered_at' | 'target_date'
   | 'suburb' | 'vertical' | 'icp_total_score';
+
 export interface Prospect extends Omit<BaseProspect, OverriddenFields> {
   target_date?: string | null;
   spoa_delivered_at?: string | null;
@@ -96,17 +91,22 @@ export interface Prospect extends Omit<BaseProspect, OverriddenFields> {
   msg_5_sent?: boolean | null;
 }
 
+/**
+ * SHARED TYPES
+ */
 export type Ledger = Database['public']['Tables']['ledger']['Row']
-export type Client = Database['public']['Tables']['clients']['Row']
+export type Client = ExtendedDatabase['public']['Tables']['clients']['Row']
 export type ProofSprint = Database['public']['Tables']['proof_sprints']['Row']
 export type Task = Database['public']['Tables']['tasks']['Row']
 export type MonthlyRevenue = Database['public']['Tables']['monthly_revenue']['Row']
 export type OutreachMessage = Database['public']['Tables']['outreach_messages']['Row']
+
 export type Sop = Database['public']['Tables']['sops']['Row'] & {
   files?: AppFile[];
 }
 
 export type IcpTier = '★★★' | '★★' | '★' | 'unscored'
+
 export type ProspectStatus =
   | 'new' | 'contacted' | 'mjr_sent' | 'mjr_opened'
   | 'call_booked' | 'call_completed' | 'sprint_active'

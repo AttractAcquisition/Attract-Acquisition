@@ -100,6 +100,7 @@ export type OutreachMessage = Database['public']['Tables']['outreach_messages'][
 
 export type Sop = Database['public']['Tables']['sops']['Row'] & {
   files?: AppFile[];
+} 
 
 export type IcpTier = '★★★' | '★★' | '★' | 'unscored'
 

@@ -4,7 +4,6 @@ import type { Database } from './database.types'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
-// Define exactly what a Row looks like in app_files
 export interface AppFile {
   id: string;
   created_at: string;
@@ -15,7 +14,11 @@ export interface AppFile {
   uploaded_by?: string | null;
 }
 
-// Create a helper type to add app_files to your existing Database type
+/**
+ * EXTENDED DATABASE
+ * We explicitly define tables that are throwing 'never' errors 
+ * to ensure the compiler recognizes them.
+ */
 type ExtendedDatabase = Database & {
   public: {
     Tables: {
@@ -23,20 +26,22 @@ type ExtendedDatabase = Database & {
         Row: AppFile;
         Insert: Omit<AppFile, 'id' | 'created_at'> & { id?: string; created_at?: string };
         Update: Partial<AppFile>;
-        Relationships: [
-          {
-            foreignKeyName: "app_files_associated_sop_id_fkey"
-            columns: ["associated_sop_id"]
-            referencedRelation: "sops"
-            referencedColumns: ["id"]
-          }
-        ];
+        Relationships: [{
+          foreignKeyName: "app_files_associated_sop_id_fkey"
+          columns: ["associated_sop_id"]
+          referencedRelation: "sops"
+          referencedColumns: ["id"]
+        }];
       };
+      // Explicitly identifying tables causing 'never' errors in views
+      clients: Database['public']['Tables']['clients'];
+      prospects: Database['public']['Tables']['prospects'];
+      tasks: Database['public']['Tables']['tasks'];
+      sops: Database['public']['Tables']['sops'];
     };
   };
 };
 
-// 1. FIXED: Pass ExtendedDatabase to the client
 export const supabase = createClient<ExtendedDatabase>(supabaseUrl, supabaseKey)
 
 /**
@@ -44,35 +49,20 @@ export const supabase = createClient<ExtendedDatabase>(supabaseUrl, supabaseKey)
  */
 type BaseProspect = Database['public']['Tables']['prospects']['Row'];
 
-// 1. Identify fields that cause conflicts or are missing from base types
 type OverriddenFields = 
-  | 'pipeline_stage' 
-  | 'is_archived' 
-  | 'mjr_link' 
-  | 'spoa_delivered_at' 
-  | 'mjr_delivered_at'
-  | 'target_date'
-  | 'suburb'
-  | 'vertical'
-  | 'icp_total_score';
+  | 'pipeline_stage' | 'is_archived' | 'mjr_link' 
+  | 'spoa_delivered_at' | 'mjr_delivered_at' | 'target_date'
+  | 'suburb' | 'vertical' | 'icp_total_score';
 
-// 2. Create the Clean Interface
 export interface Prospect extends Omit<BaseProspect, OverriddenFields> {
-  // New Tracking & Daily Logic Fields
   target_date?: string | null;
   spoa_delivered_at?: string | null;
   mjr_delivered_at?: string | null;
-  
-  // Pipeline & Status
   pipeline_stage?: string | null;
   is_archived?: boolean | null;
-  
-  // Data Fields used in Outreach/CRM
   suburb?: string | null;
   vertical?: string | null;
   icp_total_score?: number | null;
-
-  // Legacy & UI-only optional fields
   meta_ads_running?: boolean | null;
   ig_follower_count?: number | null;
   mjr_missed_revenue?: number | null;
@@ -82,8 +72,6 @@ export interface Prospect extends Omit<BaseProspect, OverriddenFields> {
   q_owner_op?: boolean | null;
   q_referral?: boolean | null;
   q_weak_digital?: boolean | null;
-  
-  // Sequence Tracking
   msg_1_sent?: boolean | null;
   msg_2_sent?: boolean | null;
   msg_3_sent?: boolean | null;
@@ -100,7 +88,7 @@ export type OutreachMessage = Database['public']['Tables']['outreach_messages'][
 
 export type Sop = Database['public']['Tables']['sops']['Row'] & {
   files?: AppFile[];
-} 
+}
 
 export type IcpTier = '★★★' | '★★' | '★' | 'unscored'
 

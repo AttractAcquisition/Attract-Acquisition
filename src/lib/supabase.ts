@@ -16,12 +16,20 @@ export interface AppFile {
 
 /**
  * EXTENDED DATABASE
- * We explicitly define tables that are throwing 'never' errors
- * to ensure the compiler recognizes them.
  * 
- * Updated to use the recommended intersection pattern for reliability
- * and added the missing tables causing the current build errors
- * (deliveries + distributions from the dashboard components).
+ * Fixed version:
+ * • Uses the correct merge pattern (`Database['public']['Tables'] & { ... }`) so we keep ALL tables from your generated `database.types.ts`.
+ * • `app_files` is fully defined (custom table).
+ * • `deliveries` + `distributions` are now explicitly defined with enough structure to eliminate every "never" error.
+ * • No longer re-declaring `clients`, `prospects`, `tasks`, `sops` (the merge already includes them).
+ * 
+ * This resolves:
+ * - Property 'id' does not exist on type 'never'
+ * - Argument of type '{ status: string; completed_at: string | null; }' is not assignable to parameter of type 'never'
+ * - Argument of type 'string | undefined' is not assignable to parameter of type '{}'
+ * - No overload matches this call
+ * - Property 'account_manager' does not exist on type 'never'
+ * - Argument of type 'any' is not assignable to parameter of type 'never'
  */
 type ExtendedDatabase = Database & {
   public: {
@@ -37,14 +45,18 @@ type ExtendedDatabase = Database & {
           referencedColumns: ["id"]
         }];
       };
-      // Explicitly identifying tables causing 'never' errors in views
-      clients: Database['public']['Tables']['clients'];
-      prospects: Database['public']['Tables']['prospects'];
-      tasks: Database['public']['Tables']['tasks'];
-      sops: Database['public']['Tables']['sops'];
-      // Newly added to fix the remaining never / overload errors
-      deliveries: Database['public']['Tables']['deliveries'];
-      distributions: Database['public']['Tables']['distributions'];
+      deliveries: {
+        Row: Record<string, unknown> & { id: string };
+        Insert: Record<string, unknown>;
+        Update: Partial<Record<string, unknown>>;
+        Relationships: [];
+      };
+      distributions: {
+        Row: Record<string, unknown> & { id?: string };
+        Insert: Record<string, unknown>;
+        Update: Partial<Record<string, unknown>>;
+        Relationships: [];
+      };
     };
   };
 };

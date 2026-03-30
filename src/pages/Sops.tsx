@@ -234,17 +234,19 @@ async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
   const fileName = `${Date.now()}-${safeName}`
   const filePath = `sop_files/${selected.id}/${fileName}`
 
-  try {
-    // 2. Upload to Storage with explicit contentType for HTML rendering
-    const { error: storageError } = await supabase.storage
-      .from('sop-files')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: contentType // Crucial fix for rendering
-      })
+ try {
+      // 2. Upload to Storage with explicit contentType AND inline disposition
+      const { error: storageError } = await supabase.storage
+        .from('sop-files')
+        .upload(filePath, file, {
+          cacheControl: '0',           // Set to 0 to bypass caching during testing
+          upsert: true,                // Set to true to overwrite old file metadata
+          contentType: contentType,    // Ensures the MIME type is text/html
+          // THIS IS THE FIX:
+          contentDisposition: 'inline' // Tells the browser to RENDER, not download
+        })
 
-    if (storageError) throw storageError
+      if (storageError) throw storageError
 
     // 3. Get the Public URL
     const { data: publicUrlData } = supabase.storage

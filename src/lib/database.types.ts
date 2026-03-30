@@ -375,11 +375,13 @@ export type Database = {
           amount: number
           category: string
           client_id: string | null
+          client_name: string | null
           created_at: string | null
           date: string
           description: string | null
           id: string
           is_recurring: boolean | null
+          status: string | null
           tags: string[] | null
           type: Database["public"]["Enums"]["transaction_type"]
         }
@@ -387,11 +389,13 @@ export type Database = {
           amount: number
           category: string
           client_id?: string | null
+          client_name?: string | null
           created_at?: string | null
           date?: string
           description?: string | null
           id?: string
           is_recurring?: boolean | null
+          status?: string | null
           tags?: string[] | null
           type: Database["public"]["Enums"]["transaction_type"]
         }
@@ -399,11 +403,13 @@ export type Database = {
           amount?: number
           category?: string
           client_id?: string | null
+          client_name?: string | null
           created_at?: string | null
           date?: string
           description?: string | null
           id?: string
           is_recurring?: boolean | null
+          status?: string | null
           tags?: string[] | null
           type?: Database["public"]["Enums"]["transaction_type"]
         }
@@ -885,6 +891,7 @@ export type Database = {
           category: string | null
           content: string | null
           created_at: string | null
+          description: string | null
           id: string
           last_reviewed_at: string | null
           reviewed_by: string | null
@@ -898,6 +905,7 @@ export type Database = {
           category?: string | null
           content?: string | null
           created_at?: string | null
+          description?: string | null
           id?: string
           last_reviewed_at?: string | null
           reviewed_by?: string | null
@@ -911,6 +919,7 @@ export type Database = {
           category?: string | null
           content?: string | null
           created_at?: string | null
+          description?: string | null
           id?: string
           last_reviewed_at?: string | null
           reviewed_by?: string | null
@@ -1010,6 +1019,7 @@ export type Database = {
           milestone_label: string | null
           month_key: string
           notes: string | null
+          priority: string | null
           status: string | null
           title: string
         }
@@ -1026,6 +1036,7 @@ export type Database = {
           milestone_label?: string | null
           month_key: string
           notes?: string | null
+          priority?: string | null
           status?: string | null
           title: string
         }
@@ -1042,6 +1053,7 @@ export type Database = {
           milestone_label?: string | null
           month_key?: string
           notes?: string | null
+          priority?: string | null
           status?: string | null
           title?: string
         }

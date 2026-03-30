@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { AppFile } from '../lib/supabase'
 import { formatDate } from '../lib/utils'
-import { Plus, Copy, Save, FileText, FileCode, File, X, Upload } from 'lucide-react'
+import { Plus, Copy, Save, FileText, FileCode, X, Upload } from 'lucide-react'
 import { useToast } from '../lib/toast'
 import { useAuth } from '../lib/auth'
 
@@ -61,11 +61,11 @@ export default function Templates() {
     setIsNew(false)
   }
 
-  async function loadFiles(templateId: string) {
+async function loadFiles(templateId: string) {
     const { data, error } = await supabase
       .from('app_files')
       .select('*')
-      .eq('associated_template_id', templateId)
+      .eq('associated_sop_id', templateId) // Pointing to your actual table column
 
     if (!error && data) {
       setAssociatedFiles(data)
@@ -148,17 +148,17 @@ export default function Templates() {
         .from('template-files')
         .getPublicUrl(filePath)
 
-      const { data: fileDbData, error: fileDbError } = await supabase
-        .from('app_files')
-        .insert({
-          file_name: file.name,
-          file_path: publicUrlData.publicUrl,
-          file_type: file.type || `application/${fileExtension}`,
-          associated_template_id: selected.id,
-          uploaded_by: user?.id,
-        })
-        .select()
-        .single()
+const { data: fileDbData, error: fileDbError } = await supabase
+  .from('app_files')
+  .insert({
+    file_name: file.name,
+    file_path: publicUrlData.publicUrl,
+    file_type: file.type || `application/${fileExtension}`,
+    associated_sop_id: selected.id, // Mapping template ID to the existing SOP ID column
+    uploaded_by: user?.id,
+  })
+  .select()
+  .single()
 
       if (fileDbError) throw fileDbError
       setAssociatedFiles(prev => [...prev, fileDbData])

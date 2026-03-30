@@ -14,35 +14,114 @@ export type Database = {
   }
   public: {
     Tables: {
-      ledger: {
+      app_files: {
         Row: {
+          associated_sop_id: string
+          created_at: string | null
+          file_name: string
+          file_path: string
+          file_type: string | null
           id: string
-          created_at: string
-          amount: number
-          category: string
-          type: string
-          description: string | null
-          date: string
+          uploaded_by: string | null
         }
         Insert: {
+          associated_sop_id: string
+          created_at?: string | null
+          file_name: string
+          file_path: string
+          file_type?: string | null
           id?: string
-          created_at?: string
-          amount: number
-          category: string
-          type: string
-          description?: string | null
-          date: string
+          uploaded_by?: string | null
         }
         Update: {
+          associated_sop_id?: string
+          created_at?: string | null
+          file_name?: string
+          file_path?: string
+          file_type?: string | null
           id?: string
-          created_at?: string
-          amount?: number
-          category?: string
-          type?: string
-          description?: string | null
-          date?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_files_associated_sop_id_fkey"
+            columns: ["associated_sop_id"]
+            isOneToOne: false
+            referencedRelation: "sops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_claims: {
+        Row: {
+          business_name: string
+          contact_info: string
+          contact_method: string | null
+          created_at: string | null
+          google_reviews: string | null
+          id: string
+          location: string
+          status: string | null
+        }
+        Insert: {
+          business_name: string
+          contact_info: string
+          contact_method?: string | null
+          created_at?: string | null
+          google_reviews?: string | null
+          id?: string
+          location: string
+          status?: string | null
+        }
+        Update: {
+          business_name?: string
+          contact_info?: string
+          contact_method?: string | null
+          created_at?: string | null
+          google_reviews?: string | null
+          id?: string
+          location?: string
+          status?: string | null
         }
         Relationships: []
+      }
+      client_deliverables: {
+        Row: {
+          client_id: string | null
+          id: string
+          is_completed: boolean | null
+          notes: string | null
+          position: number | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          id?: string
+          is_completed?: boolean | null
+          notes?: string | null
+          position?: number | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          id?: string
+          is_completed?: boolean | null
+          notes?: string | null
+          position?: number | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_deliverables_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clients: {
         Row: {
@@ -53,6 +132,8 @@ export type Database = {
           contract_end_date: string | null
           contract_start_date: string | null
           created_at: string | null
+          delivery_manager: string | null
+          distribution_manager: string | null
           email: string | null
           id: string
           last_results_meeting: string | null
@@ -80,6 +161,8 @@ export type Database = {
           contract_end_date?: string | null
           contract_start_date?: string | null
           created_at?: string | null
+          delivery_manager?: string | null
+          distribution_manager?: string | null
           email?: string | null
           id?: string
           last_results_meeting?: string | null
@@ -107,6 +190,8 @@ export type Database = {
           contract_end_date?: string | null
           contract_start_date?: string | null
           created_at?: string | null
+          delivery_manager?: string | null
+          distribution_manager?: string | null
           email?: string | null
           id?: string
           last_results_meeting?: string | null
@@ -136,20 +221,255 @@ export type Database = {
           },
         ]
       }
+      delivery_metrics: {
+        Row: {
+          appointments_booked: number | null
+          cash_collected: number | null
+          client_id: string | null
+          date_key: string | null
+          dms_started: number | null
+          id: string
+          manager_id: string | null
+          notes: string | null
+          profile_visits: number | null
+          qualified_followers: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          appointments_booked?: number | null
+          cash_collected?: number | null
+          client_id?: string | null
+          date_key?: string | null
+          dms_started?: number | null
+          id?: string
+          manager_id?: string | null
+          notes?: string | null
+          profile_visits?: number | null
+          qualified_followers?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          appointments_booked?: number | null
+          cash_collected?: number | null
+          client_id?: string | null
+          date_key?: string | null
+          dms_started?: number | null
+          id?: string
+          manager_id?: string | null
+          notes?: string | null
+          profile_visits?: number | null
+          qualified_followers?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_metrics_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_progress: {
+        Row: {
+          date_key: string
+          id: string
+          is_completed: boolean | null
+          manager_id: string | null
+          task_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          date_key: string
+          id?: string
+          is_completed?: boolean | null
+          manager_id?: string | null
+          task_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          date_key?: string
+          id?: string
+          is_completed?: boolean | null
+          manager_id?: string | null
+          task_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      distribution_progress: {
+        Row: {
+          date_key: string
+          id: string
+          is_completed: boolean | null
+          manager_id: string | null
+          task_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          date_key: string
+          id?: string
+          is_completed?: boolean | null
+          manager_id?: string | null
+          task_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          date_key?: string
+          id?: string
+          is_completed?: boolean | null
+          manager_id?: string | null
+          task_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      distro_metrics: {
+        Row: {
+          calls_booked: number | null
+          date_key: string | null
+          followups_sent: number | null
+          id: string
+          manager_id: string | null
+          mjrs_built: number | null
+          mjrs_sent: number | null
+          notes: string | null
+          outreach_sent: number | null
+          prospects_enriched: number | null
+          prospects_scraped: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          calls_booked?: number | null
+          date_key?: string | null
+          followups_sent?: number | null
+          id?: string
+          manager_id?: string | null
+          mjrs_built?: number | null
+          mjrs_sent?: number | null
+          notes?: string | null
+          outreach_sent?: number | null
+          prospects_enriched?: number | null
+          prospects_scraped?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          calls_booked?: number | null
+          date_key?: string | null
+          followups_sent?: number | null
+          id?: string
+          manager_id?: string | null
+          mjrs_built?: number | null
+          mjrs_sent?: number | null
+          notes?: string | null
+          outreach_sent?: number | null
+          prospects_enriched?: number | null
+          prospects_scraped?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ledger: {
+        Row: {
+          amount: number
+          category: string
+          client_id: string | null
+          created_at: string | null
+          date: string
+          description: string | null
+          id: string
+          is_recurring: boolean | null
+          tags: string[] | null
+          type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Insert: {
+          amount: number
+          category: string
+          client_id?: string | null
+          created_at?: string | null
+          date?: string
+          description?: string | null
+          id?: string
+          is_recurring?: boolean | null
+          tags?: string[] | null
+          type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Update: {
+          amount?: number
+          category?: string
+          client_id?: string | null
+          created_at?: string | null
+          date?: string
+          description?: string | null
+          id?: string
+          is_recurring?: boolean | null
+          tags?: string[] | null
+          type?: Database["public"]["Enums"]["transaction_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledger_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manager_reviews: {
+        Row: {
+          client_id: string
+          comment: string | null
+          created_at: string
+          id: string
+          manager_id: string
+          rating: number
+        }
+        Insert: {
+          client_id: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          manager_id: string
+          rating: number
+        }
+        Update: {
+          client_id?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          manager_id?: string
+          rating?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_reviews_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monthly_revenue: {
         Row: {
           active_client_count: number | null
           ad_infrastructure_costs: number | null
+          cash_reserves: number | null
           gross_mrr: number | null
           id: string
           month: string
+          net_profit: number | null
           notes: string | null
           other_costs: number | null
           personal_cash_balance: number | null
           principal_draw: number | null
+          profit_margin: number | null
           schedule_d_mrr_target: number | null
           setup_fees_collected: number | null
           tool_costs: number | null
+          total_expenses: number | null
           trust_balance_end: number | null
           trust_balance_start: number | null
           trust_deployment: number | null
@@ -158,16 +478,20 @@ export type Database = {
         Insert: {
           active_client_count?: number | null
           ad_infrastructure_costs?: number | null
+          cash_reserves?: number | null
           gross_mrr?: number | null
           id?: string
           month: string
+          net_profit?: number | null
           notes?: string | null
           other_costs?: number | null
           personal_cash_balance?: number | null
           principal_draw?: number | null
+          profit_margin?: number | null
           schedule_d_mrr_target?: number | null
           setup_fees_collected?: number | null
           tool_costs?: number | null
+          total_expenses?: number | null
           trust_balance_end?: number | null
           trust_balance_start?: number | null
           trust_deployment?: number | null
@@ -176,16 +500,20 @@ export type Database = {
         Update: {
           active_client_count?: number | null
           ad_infrastructure_costs?: number | null
+          cash_reserves?: number | null
           gross_mrr?: number | null
           id?: string
           month?: string
+          net_profit?: number | null
           notes?: string | null
           other_costs?: number | null
           personal_cash_balance?: number | null
           principal_draw?: number | null
+          profit_margin?: number | null
           schedule_d_mrr_target?: number | null
           setup_fees_collected?: number | null
           tool_costs?: number | null
+          total_expenses?: number | null
           trust_balance_end?: number | null
           trust_balance_start?: number | null
           trust_deployment?: number | null
@@ -254,6 +582,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      profiles: {
+        Row: {
+          client_id: string | null
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          phone: string | null
+          role: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          role?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          role?: string | null
+        }
+        Relationships: []
       }
       proof_sprints: {
         Row: {
@@ -367,23 +725,42 @@ export type Database = {
           icp_tier: string | null
           icp_total_score: number | null
           id: string
+          ig_follower_count: number | null
           instagram_followers: number | null
           instagram_handle: string | null
           instagram_last_post_date: string | null
+          is_archived: boolean | null
           last_scraped_at: string | null
+          meta_ads_running: boolean | null
           mjr_delivered_at: string | null
           mjr_estimated_monthly_missed_revenue: number | null
+          mjr_link: string | null
+          mjr_missed_revenue: number | null
           mjr_notes: string | null
+          msg_1_sent: boolean | null
+          msg_2_sent: boolean | null
+          msg_3_sent: boolean | null
+          msg_4_sent: boolean | null
+          msg_5_sent: boolean | null
+          outreach_attempted: boolean | null
           owner_name: string | null
           phone: string | null
+          pipeline_stage: string | null
           priority_cohort: string | null
+          q_high_ticket: boolean | null
+          q_owner_op: boolean | null
+          q_referral: boolean | null
+          q_visual: boolean | null
+          q_weak_digital: boolean | null
           score_digital_weakness: number | null
           score_growth_hunger: number | null
           score_owner_accessibility: number | null
           score_ticket_size: number | null
           score_visual_transformability: number | null
+          spoa_delivered_at: string | null
           status: string | null
           suburb: string | null
+          target_date: string | null
           updated_at: string | null
           vertical: string | null
           website: string | null
@@ -404,23 +781,42 @@ export type Database = {
           icp_tier?: string | null
           icp_total_score?: number | null
           id?: string
+          ig_follower_count?: number | null
           instagram_followers?: number | null
           instagram_handle?: string | null
           instagram_last_post_date?: string | null
+          is_archived?: boolean | null
           last_scraped_at?: string | null
+          meta_ads_running?: boolean | null
           mjr_delivered_at?: string | null
           mjr_estimated_monthly_missed_revenue?: number | null
+          mjr_link?: string | null
+          mjr_missed_revenue?: number | null
           mjr_notes?: string | null
+          msg_1_sent?: boolean | null
+          msg_2_sent?: boolean | null
+          msg_3_sent?: boolean | null
+          msg_4_sent?: boolean | null
+          msg_5_sent?: boolean | null
+          outreach_attempted?: boolean | null
           owner_name?: string | null
           phone?: string | null
+          pipeline_stage?: string | null
           priority_cohort?: string | null
+          q_high_ticket?: boolean | null
+          q_owner_op?: boolean | null
+          q_referral?: boolean | null
+          q_visual?: boolean | null
+          q_weak_digital?: boolean | null
           score_digital_weakness?: number | null
           score_growth_hunger?: number | null
           score_owner_accessibility?: number | null
           score_ticket_size?: number | null
           score_visual_transformability?: number | null
+          spoa_delivered_at?: string | null
           status?: string | null
           suburb?: string | null
+          target_date?: string | null
           updated_at?: string | null
           vertical?: string | null
           website?: string | null
@@ -441,23 +837,42 @@ export type Database = {
           icp_tier?: string | null
           icp_total_score?: number | null
           id?: string
+          ig_follower_count?: number | null
           instagram_followers?: number | null
           instagram_handle?: string | null
           instagram_last_post_date?: string | null
+          is_archived?: boolean | null
           last_scraped_at?: string | null
+          meta_ads_running?: boolean | null
           mjr_delivered_at?: string | null
           mjr_estimated_monthly_missed_revenue?: number | null
+          mjr_link?: string | null
+          mjr_missed_revenue?: number | null
           mjr_notes?: string | null
+          msg_1_sent?: boolean | null
+          msg_2_sent?: boolean | null
+          msg_3_sent?: boolean | null
+          msg_4_sent?: boolean | null
+          msg_5_sent?: boolean | null
+          outreach_attempted?: boolean | null
           owner_name?: string | null
           phone?: string | null
+          pipeline_stage?: string | null
           priority_cohort?: string | null
+          q_high_ticket?: boolean | null
+          q_owner_op?: boolean | null
+          q_referral?: boolean | null
+          q_visual?: boolean | null
+          q_weak_digital?: boolean | null
           score_digital_weakness?: number | null
           score_growth_hunger?: number | null
           score_owner_accessibility?: number | null
           score_ticket_size?: number | null
           score_visual_transformability?: number | null
+          spoa_delivered_at?: string | null
           status?: string | null
           suburb?: string | null
+          target_date?: string | null
           updated_at?: string | null
           vertical?: string | null
           website?: string | null
@@ -557,10 +972,35 @@ export type Database = {
           },
         ]
       }
+      studio_assets: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          id: string
+          name: string
+          url: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          url: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          url?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assigned_to: string | null
           category: string | null
+          client_id: string | null
           completed_at: string | null
           created_at: string | null
           description: string | null
@@ -576,6 +1016,7 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           category?: string | null
+          client_id?: string | null
           completed_at?: string | null
           created_at?: string | null
           description?: string | null
@@ -591,6 +1032,7 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           category?: string | null
+          client_id?: string | null
           completed_at?: string | null
           created_at?: string | null
           description?: string | null
@@ -643,13 +1085,44 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      ops_manager_status: {
+        Row: {
+          last_active: string | null
+          manager_id: string | null
+          name: string | null
+          role: string | null
+          tasks_completed: number | null
+          total_tasks_assigned: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       auth_role: { Args: never; Returns: string }
+      get_monthly_stats: {
+        Args: { month_date: string }
+        Returns: {
+          net_profit: number
+          total_expense: number
+          total_income: number
+        }[]
+      }
+      get_my_client_id: { Args: never; Returns: string }
+      get_my_role: { Args: never; Returns: string }
+      get_ops_manager_status: {
+        Args: never
+        Returns: {
+          last_active: string
+          manager_id: string
+          name: string
+          role: string
+          tasks_completed: number
+          total_tasks_assigned: number
+        }[]
+      }
     }
     Enums: {
-      [_ in never]: never
+      transaction_type: "income" | "expense"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -776,6 +1249,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      transaction_type: ["income", "expense"],
+    },
   },
 } as const

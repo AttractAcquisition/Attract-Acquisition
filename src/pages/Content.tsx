@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { 
   ExternalLink, Sparkles, Zap, Layout, Monitor, MessageSquare, 
-  Database, Workflow, Calendar, Instagram, BarChart, Settings, Plus, Trash2, Edit3
+  Database, Workflow, Calendar, Instagram, BarChart, Settings, Plus, Trash2, Edit3,
+  Library, Briefcase, Code, Github, Facebook, Bot, Cpu, BrainCircuit
 } from 'lucide-react';
 
 const INITIAL_PLATFORMS = [
@@ -84,6 +85,116 @@ const INITIAL_PLATFORMS = [
     status: 'Advertising',
     color: '#0081FB',
     icon: BarChart
+  },
+  {
+    id: 'ads-library',
+    name: 'Ads Library',
+    description: 'Competitor ad research and creative inspiration.',
+    url: 'https://www.facebook.com/ads/library/',
+    isInternal: false,
+    status: 'Research',
+    color: '#0081FB',
+    icon: Library
+  },
+  {
+    id: 'meta-business-suite',
+    name: 'Meta Business Suite',
+    description: 'Central hub for Meta business assets and pages.',
+    url: 'https://business.facebook.com/',
+    isInternal: false,
+    status: 'Management',
+    color: '#0081FB',
+    icon: Briefcase
+  },
+  {
+    id: 'apify',
+    name: 'Apify',
+    description: 'Web scraping and data extraction automation.',
+    url: 'https://console.apify.com/',
+    isInternal: false,
+    status: 'Scraping',
+    color: '#97E754',
+    icon: Code
+  },
+  {
+    id: 'github',
+    name: 'GitHub',
+    description: 'Source code management and version control.',
+    url: 'https://github.com/',
+    isInternal: false,
+    status: 'Development',
+    color: '#ffffff',
+    icon: Github
+  },
+  {
+    id: 'facebook',
+    name: 'Facebook',
+    description: 'Primary social network platform.',
+    url: 'https://facebook.com/',
+    isInternal: false,
+    status: 'Social',
+    color: '#1877F2',
+    icon: Facebook
+  },
+  {
+    id: 'chatgpt',
+    name: 'ChatGPT',
+    description: 'Conversational AI for content and strategy.',
+    url: 'https://chat.openai.com/',
+    isInternal: false,
+    status: 'AI',
+    color: '#10A37F',
+    icon: Bot
+  },
+  {
+    id: 'openai-platform',
+    name: 'OpenAI Platform',
+    description: 'API access and model management for OpenAI.',
+    url: 'https://platform.openai.com/',
+    isInternal: false,
+    status: 'API',
+    color: '#ffffff',
+    icon: Cpu
+  },
+  {
+    id: 'grok',
+    name: 'Grok',
+    description: 'Real-time AI research and data analysis.',
+    url: 'https://grok.x.ai/',
+    isInternal: false,
+    status: 'AI',
+    color: '#ffffff',
+    icon: BrainCircuit
+  },
+  {
+    id: 'gemini',
+    name: 'Gemini',
+    description: 'Google AI for advanced reasoning and multimodal tasks.',
+    url: 'https://gemini.google.com/',
+    isInternal: false,
+    status: 'AI',
+    color: '#8E24AA',
+    icon: Sparkles
+  },
+  {
+    id: 'claude-ai',
+    name: 'Claude AI',
+    description: 'Anthropic AI for detailed analysis and writing.',
+    url: 'https://claude.ai/',
+    isInternal: false,
+    status: 'AI',
+    color: '#D97757',
+    icon: Bot
+  },
+  {
+    id: 'claude-platform',
+    name: 'Claude Platform',
+    description: 'API access and developer tools for Anthropic models.',
+    url: 'https://console.anthropic.com/',
+    isInternal: false,
+    status: 'API',
+    color: '#D97757',
+    icon: Cpu
   }
 ];
 

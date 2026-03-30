@@ -158,13 +158,15 @@ async function save() {
 
   try {
     // 1. Upload to Storage with explicit contentType
-    const { error: storageError } = await supabase.storage
-      .from('template-files')
-      .upload(filePath, file, { 
-        cacheControl: '3600', 
-        upsert: false,
-        contentType: contentType // Crucial for rendering HTML in-browser
-      })
+ const { error: storageError } = await supabase.storage
+  .from('template-files') // or 'sop-files'
+  .upload(filePath, file, { 
+    cacheControl: '0', 
+    upsert: true,
+    contentType: 'text/html',
+    // THIS IS THE KEY:
+    contentDisposition: 'inline' 
+  })
 
     if (storageError) throw storageError
 

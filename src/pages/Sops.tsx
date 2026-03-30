@@ -487,43 +487,68 @@ try {
             </div>
 
             {/* ASSOCIATED FILES MOVED TO TOP */}
-            {associatedFiles.length > 0 && (
-              <div style={{ marginBottom: 20, paddingBottom: 15, borderBottom: '1px solid var(--border2)' }}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {associatedFiles.map(file => (
-                    <div key={file.id} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg2)', padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border2)', minWidth: '180px', maxWidth: '280px' }}>
-                      {file.file_type === 'application/pdf' ? (
-                        <FileText size={14} style={{ marginRight: 8, color: 'var(--red)' }} />
-                      ) : file.file_type === 'text/html' ? (
-                        <FileCode size={14} style={{ marginRight: 8, color: 'var(--teal)' }} />
-                      ) : (
-                        <File size={14} style={{ marginRight: 8, color: 'var(--blue)' }} />
-                      )}
-                      <a
-                        href={file.file_path}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ flex: 1, color: 'var(--teal)', textDecoration: 'none', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                        title={`Open ${file.file_name}`}
-                      >
-                        {file.file_name}
-                      </a>
-                      {canEdit && (
-                        <button
-                          className="btn-ghost"
-                          onClick={() => handleFileDelete(file)}
-                          style={{ marginLeft: 8, color: 'var(--red)', padding: '2px' }}
-                          title="Delete File"
-                        >
-                          <X size={12} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
+{associatedFiles.length > 0 && (
+  <div style={{ marginBottom: 20, paddingBottom: 15, borderBottom: '1px solid var(--border2)' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      {associatedFiles.map(file => {
+        const isHtml = file.file_type === 'text/html' || file.file_name.toLowerCase().endsWith('.html');
+        
+        return (
+          <div key={file.id} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg2)', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border2)', minWidth: '200px', maxWidth: '320px' }}>
+            {file.file_type === 'application/pdf' ? (
+              <FileText size={14} style={{ marginRight: 10, color: 'var(--red)', flexShrink: 0 }} />
+            ) : isHtml ? (
+              <FileCode size={14} style={{ marginRight: 10, color: 'var(--teal)', flexShrink: 0 }} />
+            ) : (
+              <File size={14} style={{ marginRight: 10, color: 'var(--blue)', flexShrink: 0 }} />
             )}
 
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <span 
+                style={{ fontSize: 12, color: 'var(--white)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }} 
+                title={file.file_name}
+              >
+                {file.file_name}
+              </span>
+              
+              <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
+                {isHtml ? (
+                  <button
+                    onClick={() => handleViewTemplate(file)}
+                    style={{ background: 'none', border: 'none', padding: 0, color: 'var(--teal)', fontSize: 10, cursor: 'pointer', fontFamily: 'DM Mono', textAlign: 'left', textDecoration: 'underline' }}
+                  >
+                    View Rendered
+                  </button>
+                ) : (
+                  <a
+                    href={file.file_path}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: 'var(--grey)', fontSize: 10, fontFamily: 'DM Mono', textDecoration: 'underline' }}
+                  >
+                    Open File
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {canEdit && (
+              <button
+                className="btn-ghost"
+                onClick={() => handleFileDelete(file)}
+                style={{ marginLeft: 8, color: 'var(--red)', padding: '4px', borderRadius: '4px' }}
+                title="Delete File"
+              >
+                <Trash2 size={12} />
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
+            
             {canEdit && selected && editing && (
               <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, padding: '10px', background: 'var(--bg3)', borderRadius: 6, border: '1px solid var(--border2)' }}>
                 <label htmlFor="file-upload" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '7px 14px', fontSize: 11 }}>

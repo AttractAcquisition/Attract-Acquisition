@@ -45,7 +45,6 @@ function AppRoutes() {
 
       const routeKey = fileToRouteKey[lowerName] || lowerName;
       
-      // EXCLUDE TemplateView from the standard dashboard layout generation
       if (routeKey === 'template-view') return null;
 
       const Component = React.lazy(pageModules[path] as any);
@@ -80,7 +79,6 @@ function AppRoutes() {
         element={
           <RequireAuth>
             <Suspense fallback={<LoadingScreen />}>
-              {/* Manually creating the element for the standalone view */}
               {React.createElement(React.lazy(pageModules['./pages/TemplateView.tsx'] as any))}
             </Suspense>
           </RequireAuth>
@@ -90,21 +88,14 @@ function AppRoutes() {
       {/* --- DASHBOARD ROUTES (WITH SIDEBAR) --- */}
       <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={
-          <div style={{ padding: 40, fontFamily: 'DM Mono', color: 'var(--teal)', background: 'var(--bg)', height: '100%' }}>
-            <h2 style={{ fontFamily: 'Playfair Display', fontSize: 28 }}>SYSTEM READY: {role?.toUpperCase()}</h2>
-            <p style={{ color: 'var(--grey)', fontSize: 12, marginBottom: 24 }}>Select your terminal to break the redirect loop:</p>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <a href="#/distribution" style={{ border: '1px solid var(--teal)', padding: '12px 20px', color: 'var(--teal)', textDecoration: 'none', borderRadius: 4, fontSize: 11 }}>
-                JOIN DISTRIBUTION
-              </a>
-              <a href="#/delivery-dash" style={{ border: '1px solid var(--teal)', padding: '12px 20px', color: 'var(--teal)', textDecoration: 'none', borderRadius: 4, fontSize: 11 }}>
-                JOIN DELIVERY
-              </a>
-              <a href="#/dashboard" style={{ border: '1px solid var(--grey)', padding: '12px 20px', color: 'var(--grey)', textDecoration: 'none', borderRadius: 4, fontSize: 11 }}>
-                JOIN MAIN DASH
-              </a>
-            </div>
-          </div>
+          <Navigate 
+            to={
+              role === 'distribution' ? 'distribution' : 
+              role === 'delivery' ? 'delivery-dash' : 
+              'dashboard'
+            } 
+            replace 
+          />
         } />
         {generatedRoutes}
         <Route path="sprints/:id" element={<Suspense fallback={<LoadingScreen />}><RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>SprintDetailHere</RoleWrapper></Suspense>} />

@@ -87,22 +87,25 @@ function AppRoutes() {
         } 
       />
 
-      {/* --- DASHBOARD ROUTES (WITH SIDEBAR) --- */}
-      <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
-        <Route index element={
-  <Navigate 
-    to={role === 'distribution' ? 'distribution' : role === 'delivery' ? 'delivery-dash' : 'dashboard'} 
-    replace 
-  />
-} />
-        {generatedRoutes}
-        <Route path="sprints/:id" element={<Suspense fallback={<LoadingScreen />}><RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>SprintDetailHere</RoleWrapper></Suspense>} />
-      </Route>
-
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  );
-}
+     {/* --- DASHBOARD ROUTES (WITH SIDEBAR) --- */}
+<Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
+  <Route index element={
+    <div style={{ padding: 40, fontFamily: 'DM Mono', color: 'var(--teal)' }}>
+      <h2>SYSTEM READY: {role?.toUpperCase()}</h2>
+      <p style={{ color: 'var(--grey)', fontSize: 12 }}>The engine is ready. Select your terminal:</p>
+      <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+        <a href="#/distribution" style={{ border: '1px solid var(--teal)', padding: '10px 20px', color: 'var(--teal)', textDecoration: 'none' }}>
+          JOIN DISTRIBUTION
+        </a>
+        <a href="#/dashboard" style={{ border: '1px solid var(--grey)', padding: '10px 20px', color: 'var(--grey)', textDecoration: 'none' }}>
+          JOIN MAIN DASH
+        </a>
+      </div>
+    </div>
+  } />
+  {generatedRoutes}
+  <Route path="sprints/:id" element={<Suspense fallback={<LoadingScreen />}><RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>SprintDetailHere</RoleWrapper></Suspense>} />
+</Route>
 
 export default function App() {
   return (

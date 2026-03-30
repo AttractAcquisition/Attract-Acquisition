@@ -99,7 +99,6 @@ export default function Sops() {
       return combined
     })
 
-    // Stripping 'files' before upsert as it's a joined relation, not a column
     const sopsForDb = updatedSops.map(({ files, ...rest }) => ({
         ...rest,
         updated_at: new Date().toISOString()
@@ -222,14 +221,12 @@ export default function Sops() {
     setUploading(true)
     const file = event.target.files[0]
     
-    // 1. Extract the extension safely
     const fileExtension = file.name.split('.').pop() || 'octect-stream'
 
-    // 2. Sanitize the name to prevent the "Invalid Key" error
     const safeName = file.name
-      .replace(/[^\x00-\x7F]/g, "") // Remove non-ASCII
-      .replace(/[^a-z0-9. -]/gi, "_") // Replace symbols with underscores
-      .replace(/\s+/g, "_"); // Replace spaces with underscores
+      .replace(/[^\x00-\x7F]/g, "")
+      .replace(/[^a-z0-9. -]/gi, "_")
+      .replace(/\s+/g, "_");
 
     const fileName = `${Date.now()}-${safeName}`
     const filePath = `sop_files/${selected.id}/${fileName}`
@@ -255,7 +252,6 @@ export default function Sops() {
         .insert({
           file_name: file.name,
           file_path: publicUrlData.publicUrl,
-          // Now fileExtension is defined and safe to use
           file_type: file.type || `application/${fileExtension}`,
           associated_sop_id: selected.id,
           uploaded_by: user?.id,
@@ -285,13 +281,12 @@ export default function Sops() {
     if (!confirm(`Are you sure you want to delete "${fileToDelete.file_name}"?`)) return
 
     try {
-      // Updated split to match the correct bucket name in the URL
       const pathSegments = fileToDelete.file_path.split('/sop-files/') 
       if (pathSegments.length < 2) throw new Error('Invalid file path for deletion.')
       const pathInBucket = pathSegments[1]
 
       const { error: storageError } = await supabase.storage
-        .from('sop-files') // Updated bucket name
+        .from('sop-files')
         .remove([pathInBucket])
 
       if (storageError) throw storageError
@@ -426,13 +421,11 @@ export default function Sops() {
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 16 }}>
                   {!editing ? (
                     <>
-                      {/* NEW HTML Upload Button */}
                       <label className="btn-ghost" style={{ cursor: uploading ? 'wait' : 'pointer', padding: '7px', color: 'var(--teal)' }} title="Upload HTML File">
                         <FileCode size={14} />
                         <input type="file" accept="text/html" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploading} />
                       </label>
 
-                      {/* NEW PDF Upload Button */}
                       <label className="btn-ghost" style={{ cursor: uploading ? 'wait' : 'pointer', padding: '7px', color: 'var(--red)' }} title="Upload PDF File">
                         <FileText size={14} />
                         <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploading} />
@@ -465,6 +458,44 @@ export default function Sops() {
                 </div>
               )}
             </div>
+
+            {/* ASSOCIATED FILES MOVED TO TOP */}
+            {associatedFiles.length > 0 && (
+              <div style={{ marginBottom: 20, paddingBottom: 15, borderBottom: '1px solid var(--border2)' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {associatedFiles.map(file => (
+                    <div key={file.id} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg2)', padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border2)', minWidth: '180px', maxWidth: '280px' }}>
+                      {file.file_type === 'application/pdf' ? (
+                        <FileText size={14} style={{ marginRight: 8, color: 'var(--red)' }} />
+                      ) : file.file_type === 'text/html' ? (
+                        <FileCode size={14} style={{ marginRight: 8, color: 'var(--teal)' }} />
+                      ) : (
+                        <File size={14} style={{ marginRight: 8, color: 'var(--blue)' }} />
+                      )}
+                      <a
+                        href={file.file_path}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ flex: 1, color: 'var(--teal)', textDecoration: 'none', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        title={`Open ${file.file_name}`}
+                      >
+                        {file.file_name}
+                      </a>
+                      {canEdit && (
+                        <button
+                          className="btn-ghost"
+                          onClick={() => handleFileDelete(file)}
+                          style={{ marginLeft: 8, color: 'var(--red)', padding: '2px' }}
+                          title="Delete File"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {canEdit && selected && editing && (
               <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, padding: '10px', background: 'var(--bg3)', borderRadius: 6, border: '1px solid var(--border2)' }}>
@@ -518,48 +549,6 @@ export default function Sops() {
                 ) : (
                   <div className="empty-state" style={{ paddingTop: 40 }}>
                     <h3>No content yet</h3>
-                  </div>
-                )}
-
-{associatedFiles.length > 0 && (
-                  <div style={{ marginTop: 30, paddingTop: 20, borderTop: '1px solid var(--border2)' }}>
-                    <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 15, color: 'var(--white)' }}>Associated Files</h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {associatedFiles.map(file => (
-                        <div key={file.id} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg2)', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border2)' }}>
-                          
-                          {/* UPDATED ICON LOGIC */}
-                          {file.file_type === 'application/pdf' ? (
-                            <FileText size={16} style={{ marginRight: 8, color: 'var(--red)' }} />
-                          ) : file.file_type === 'text/html' ? (
-                            <FileCode size={16} style={{ marginRight: 8, color: 'var(--teal)' }} />
-                          ) : (
-                            <File size={16} style={{ marginRight: 8, color: 'var(--blue)' }} />
-                          )}
-                          {/* END UPDATED ICON LOGIC */}
-
-                          <a
-                            href={file.file_path}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ flex: 1, color: 'var(--teal)', textDecoration: 'none', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                            title={`Open ${file.file_name}`}
-                          >
-                            {file.file_name}
-                          </a>
-                          {canEdit && (
-                            <button
-                              className="btn-ghost"
-                              onClick={() => handleFileDelete(file)}
-                              style={{ marginLeft: 10, color: 'var(--red)', padding: '4px', lineHeight: 1 }}
-                              title="Delete File"
-                            >
-                              <X size={14} />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 )}
               </div>

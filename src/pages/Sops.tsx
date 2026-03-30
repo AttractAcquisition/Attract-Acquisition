@@ -222,11 +222,14 @@ export default function Sops() {
     setUploading(true)
     const file = event.target.files[0]
     
-    // 1. SANITIZE THE FILE NAME: Remove special characters like —, |, etc.
+    // 1. Extract the extension safely
+    const fileExtension = file.name.split('.').pop() || 'octect-stream'
+
+    // 2. Sanitize the name to prevent the "Invalid Key" error
     const safeName = file.name
-      .replace(/[^\x00-\x7F]/g, "") // Remove non-ASCII (like the em-dash)
-      .replace(/[^a-z0-9. -]/gi, "_") // Replace symbols like | with underscores
-      .replace(/\s+/g, "_"); // Optional: Replace spaces with underscores for cleaner URLs
+      .replace(/[^\x00-\x7F]/g, "") // Remove non-ASCII
+      .replace(/[^a-z0-9. -]/gi, "_") // Replace symbols with underscores
+      .replace(/\s+/g, "_"); // Replace spaces with underscores
 
     const fileName = `${Date.now()}-${safeName}`
     const filePath = `sop_files/${selected.id}/${fileName}`
@@ -242,16 +245,17 @@ export default function Sops() {
       if (storageError) throw storageError
 
       const { data: publicUrlData } = supabase.storage
-        .from('sop-files') // Updated bucket name
+        .from('sop-files')
         .getPublicUrl(filePath)
 
-      if (!publicUrlData || !publicUrlData.publicUrl) throw new Error("Could not get public URL for file.")
+      if (!publicUrlData || !publicUrlData.publicUrl) throw new Error("Could not get public URL")
 
       const { data: fileDbData, error: fileDbError } = await supabase
         .from('app_files')
         .insert({
           file_name: file.name,
           file_path: publicUrlData.publicUrl,
+          // Now fileExtension is defined and safe to use
           file_type: file.type || `application/${fileExtension}`,
           associated_sop_id: selected.id,
           uploaded_by: user?.id,
@@ -260,8 +264,7 @@ export default function Sops() {
         .single()
 
       if (fileDbError) throw fileDbError
-      if (!fileDbData) throw new Error("No data returned after file DB insert.")
-
+      
       const newFile: AppFile = fileDbData
       setAssociatedFiles(prev => [...prev, newFile])
       setSelected(prev => prev ? { ...prev, files: [...(prev.files || []), newFile] } : null)

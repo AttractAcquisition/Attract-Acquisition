@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Sop, AppFile } from '../lib/supabase'
 import { formatDate } from '../lib/utils'
-import { Edit2, ChevronRight, Save, X, Plus, Trash2, GripVertical, Upload, FileText, File } from 'lucide-react'
+import { Edit2, ChevronRight, Save, X, Plus, Trash2, GripVertical, Upload, FileText, File, FileCode } from 'lucide-react'
 import { useToast } from '../lib/toast'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -227,7 +227,7 @@ export default function Sops() {
 
     try {
       const { error: storageError } = await supabase.storage
-        .from('app_documents')
+        .from('sop-files') // Updated bucket name
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false,
@@ -236,7 +236,7 @@ export default function Sops() {
       if (storageError) throw storageError
 
       const { data: publicUrlData } = supabase.storage
-        .from('app_documents')
+        .from('sop-files') // Updated bucket name
         .getPublicUrl(filePath)
 
       if (!publicUrlData || !publicUrlData.publicUrl) throw new Error("Could not get public URL for file.")
@@ -276,12 +276,13 @@ export default function Sops() {
     if (!confirm(`Are you sure you want to delete "${fileToDelete.file_name}"?`)) return
 
     try {
-      const pathSegments = fileToDelete.file_path.split('/app_documents/')
+      // Updated split to match the correct bucket name in the URL
+      const pathSegments = fileToDelete.file_path.split('/sop-files/') 
       if (pathSegments.length < 2) throw new Error('Invalid file path for deletion.')
       const pathInBucket = pathSegments[1]
 
       const { error: storageError } = await supabase.storage
-        .from('app_documents')
+        .from('sop-files') // Updated bucket name
         .remove([pathInBucket])
 
       if (storageError) throw storageError
@@ -416,9 +417,22 @@ export default function Sops() {
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 16 }}>
                   {!editing ? (
                     <>
+                      {/* NEW HTML Upload Button */}
+                      <label className="btn-ghost" style={{ cursor: uploading ? 'wait' : 'pointer', padding: '7px', color: 'var(--teal)' }} title="Upload HTML File">
+                        <FileCode size={14} />
+                        <input type="file" accept="text/html" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploading} />
+                      </label>
+
+                      {/* NEW PDF Upload Button */}
+                      <label className="btn-ghost" style={{ cursor: uploading ? 'wait' : 'pointer', padding: '7px', color: 'var(--red)' }} title="Upload PDF File">
+                        <FileText size={14} />
+                        <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploading} />
+                      </label>
+
                       <button className="btn-ghost" onClick={deleteSop} style={{ color: 'var(--red)', padding: '7px' }} title="Delete SOP">
                         <Trash2 size={14} />
                       </button>
+                      
                       {selected.status === 'draft' && (
                         <button className="btn-primary" onClick={() => setStatus('active')} style={{ fontSize: 11, padding: '7px 14px' }}>Publish →</button>
                       )}
@@ -498,13 +512,23 @@ export default function Sops() {
                   </div>
                 )}
 
-                {associatedFiles.length > 0 && (
+{associatedFiles.length > 0 && (
                   <div style={{ marginTop: 30, paddingTop: 20, borderTop: '1px solid var(--border2)' }}>
                     <h4 style={{ fontSize: 16, fontWeight: 600, marginBottom: 15, color: 'var(--white)' }}>Associated Files</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {associatedFiles.map(file => (
                         <div key={file.id} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg2)', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border2)' }}>
-                          {file.file_type === 'application/pdf' ? <FileText size={16} style={{ marginRight: 8, color: 'var(--red)' }} /> : <File size={16} style={{ marginRight: 8, color: 'var(--blue)' }} />}
+                          
+                          {/* UPDATED ICON LOGIC */}
+                          {file.file_type === 'application/pdf' ? (
+                            <FileText size={16} style={{ marginRight: 8, color: 'var(--red)' }} />
+                          ) : file.file_type === 'text/html' ? (
+                            <FileCode size={16} style={{ marginRight: 8, color: 'var(--teal)' }} />
+                          ) : (
+                            <File size={16} style={{ marginRight: 8, color: 'var(--blue)' }} />
+                          )}
+                          {/* END UPDATED ICON LOGIC */}
+
                           <a
                             href={file.file_path}
                             target="_blank"

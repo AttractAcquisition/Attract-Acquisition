@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import type { AppFile } from '../lib/supabase'
 import { formatDate } from '../lib/utils'
-import { Plus, Copy, Save } from 'lucide-react'
+import { Plus, Copy, Save, FileText, FileCode, File, X, Upload } from 'lucide-react'
 import { useToast } from '../lib/toast'
+import { useAuth } from '../lib/auth'
 
 // Updated interface to match Supabase's nullable return types
 interface Template { 
@@ -17,7 +19,7 @@ interface Template {
 }
 
 const CATEGORIES = [
-  { key: 'whatsapp',     label: 'WhatsApp' },
+  { key: 'whatsapp',      label: 'WhatsApp' },
   { key: 'call_script',  label: 'Call Scripts' },
   { key: 'contract',     label: 'Contracts' },
   { key: 'report',       label: 'Report Templates' },
@@ -33,6 +35,7 @@ const CATEGORIES = [
 ]
 
 export default function Templates() {
+  const { user } = useAuth()
   const [templates, setTemplates]   = useState<Template[]>([])
   const [catFilter, setCatFilter]   = useState('whatsapp')
   const [selected, setSelected]     = useState<Template | null>(null)
@@ -40,6 +43,9 @@ export default function Templates() {
   const [isNew, setIsNew]           = useState(false)
   const [saving, setSaving]         = useState(false)
   const { toast }                   = useToast()
+
+  const [associatedFiles, setAssociatedFiles] = useState<AppFile[]>([])
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => { load() }, [catFilter])
 
@@ -55,6 +61,17 @@ export default function Templates() {
     setIsNew(false)
   }
 
+  async function loadFiles(templateId: string) {
+    const { data, error } = await supabase
+      .from('app_files')
+      .select('*')
+      .eq('associated_template_id', templateId)
+
+    if (!error && data) {
+      setAssociatedFiles(data)
+    }
+  }
+
   function selectTemplate(t: Template) {
     setSelected(t)
     setEditForm({ 
@@ -63,12 +80,14 @@ export default function Templates() {
       content: t.content || '' 
     })
     setIsNew(false)
+    loadFiles(t.id)
   }
 
   function newTemplate() {
     setSelected(null)
     setEditForm({ title: '', category: catFilter, content: '' })
     setIsNew(true)
+    setAssociatedFiles([])
   }
 
   async function save() {
@@ -108,6 +127,68 @@ export default function Templates() {
     toast('Template saved ✓')
   }
 
+  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    if (!selected || isNew || !event.target.files || event.target.files.length === 0) return
+
+    setUploading(true)
+    const file = event.target.files[0]
+    const fileExtension = file.name.split('.').pop() || 'octect-stream'
+    const safeName = file.name.replace(/[^\x00-\x7F]/g, "").replace(/[^a-z0-9. -]/gi, "_").replace(/\s+/g, "_");
+    const fileName = `${Date.now()}-${safeName}`
+    const filePath = `template_files/${selected.id}/${fileName}`
+
+    try {
+      const { error: storageError } = await supabase.storage
+        .from('template-files')
+        .upload(filePath, file, { cacheControl: '3600', upsert: false })
+
+      if (storageError) throw storageError
+
+      const { data: publicUrlData } = supabase.storage
+        .from('template-files')
+        .getPublicUrl(filePath)
+
+      const { data: fileDbData, error: fileDbError } = await supabase
+        .from('app_files')
+        .insert({
+          file_name: file.name,
+          file_path: publicUrlData.publicUrl,
+          file_type: file.type || `application/${fileExtension}`,
+          associated_template_id: selected.id,
+          uploaded_by: user?.id,
+        })
+        .select()
+        .single()
+
+      if (fileDbError) throw fileDbError
+      setAssociatedFiles(prev => [...prev, fileDbData])
+      toast('File uploaded successfully! ✓')
+    } catch (error: any) {
+      toast(`Upload failed: ${error.message}`, 'error')
+    } finally {
+      setUploading(false)
+      event.target.value = ''
+    }
+  }
+
+  async function handleFileDelete(fileToDelete: AppFile) {
+    if (!confirm(`Are you sure you want to delete "${fileToDelete.file_name}"?`)) return
+
+    try {
+      const pathSegments = fileToDelete.file_path.split('/template-files/') 
+      if (pathSegments.length < 2) throw new Error('Invalid file path.')
+      const pathInBucket = pathSegments[1]
+
+      await supabase.storage.from('template-files').remove([pathInBucket])
+      await supabase.from('app_files').delete().eq('id', fileToDelete.id)
+
+      setAssociatedFiles(prev => prev.filter(f => f.id !== fileToDelete.id))
+      toast('File deleted successfully!')
+    } catch (error: any) {
+      toast(`Deletion failed: ${error.message}`, 'error')
+    }
+  }
+
   function copyToClipboard() {
     if (!editForm.content) return
     navigator.clipboard.writeText(editForm.content)
@@ -116,14 +197,11 @@ export default function Templates() {
 
   const charCount = editForm.content?.length || 0
   const charColor = charCount > 1024 ? 'var(--red)' : charCount > 900 ? 'var(--amber)' : 'var(--grey)'
-
   const vars = [...new Set(editForm.content?.match(/\{[^}]+\}/g) || [])]
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20, height: 'calc(100vh - 120px)' }}>
-      {/* Left panel */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {/* Category tabs */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {CATEGORIES.map(c => (
             <button key={c.key} onClick={() => setCatFilter(c.key)}
@@ -140,7 +218,6 @@ export default function Templates() {
           <Plus size={12} /> New Template
         </button>
 
-        {/* Template list */}
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
           {templates.map(t => (
             <div key={t.id} onClick={() => selectTemplate(t)}
@@ -158,7 +235,6 @@ export default function Templates() {
         </div>
       </div>
 
-      {/* Right editor */}
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {(selected || isNew) ? (
           <>
@@ -174,6 +250,32 @@ export default function Templates() {
                 </select>
               </div>
             </div>
+
+            {/* ASSOCIATED FILES BAR */}
+            {associatedFiles.length > 0 && (
+              <div style={{ paddingBottom: 10, borderBottom: '1px solid var(--border2)' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {associatedFiles.map(file => (
+                    <div key={file.id} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg2)', padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border2)', minWidth: '160px' }}>
+                      {file.file_type === 'application/pdf' ? <FileText size={14} style={{ color: 'var(--red)', marginRight: 8 }} /> : <FileCode size={14} style={{ color: 'var(--teal)', marginRight: 8 }} />}
+                      <a href={file.file_path} target="_blank" rel="noopener noreferrer" style={{ flex: 1, color: 'var(--teal)', textDecoration: 'none', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.file_name}</a>
+                      <button onClick={() => handleFileDelete(file)} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', padding: 2 }}><X size={12} /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* UPLOAD BUTTONS */}
+            {!isNew && selected && (
+              <div style={{ display: 'flex', gap: 8, padding: '10px', background: 'var(--bg3)', borderRadius: 6, border: '1px solid var(--border2)', alignItems: 'center' }}>
+                <label className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '6px 12px', fontSize: 11 }}>
+                  <Upload size={11} /> {uploading ? 'Uploading...' : 'Upload File'}
+                  <input type="file" onChange={handleFileUpload} disabled={uploading} style={{ display: 'none' }} accept="application/pdf, text/html" />
+                </label>
+                <span style={{ fontSize: 11, color: 'var(--grey)' }}>Attach PDF or HTML resources to this template</span>
+              </div>
+            )}
 
             {vars.length > 0 && (
               <div>

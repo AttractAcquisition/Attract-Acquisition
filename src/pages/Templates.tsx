@@ -156,17 +156,17 @@ async function save() {
   const fileName = `${Date.now()}-${safeName}`
   const filePath = `template_files/${selected.id}/${fileName}`
 
-  try {
-    // 1. Upload to Storage with explicit contentType
- const { error: storageError } = await supabase.storage
-  .from('template-files') // or 'sop-files'
-  .upload(filePath, file, { 
-    cacheControl: '0', 
-    upsert: true,
-    contentType: 'text/html',
-    // THIS IS THE KEY:
-    contentDisposition: 'inline' 
-  })
+try {
+    // 1. Upload to Storage with explicit contentType AND inline disposition
+    const { error: storageError } = await supabase.storage
+      .from('template-files')
+      .upload(filePath, file, { 
+        cacheControl: '0', 
+        upsert: true,
+        contentType: contentType, // Ensure this variable (text/html) is used
+        // Use spread with 'as any' to bypass strict FileOptions type check
+        ...({ contentDisposition: 'inline' } as any) 
+      })
 
     if (storageError) throw storageError
 

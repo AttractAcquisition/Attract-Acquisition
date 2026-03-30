@@ -215,66 +215,82 @@ export default function Sops() {
     }
   }
 
-  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    if (!selected || !canEdit || !event.target.files || event.target.files.length === 0) return
+async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
+  if (!selected || !canEdit || !event.target.files || event.target.files.length === 0) return
 
-    setUploading(true)
-    const file = event.target.files[0]
+  setUploading(true)
+  const file = event.target.files[0]
+  
+  // 1. Determine file extension and set proper MIME type for rendering
+  const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'octect-stream'
+  const isHtml = fileExtension === 'html' || file.type === 'text/html'
+  const contentType = isHtml ? 'text/html' : (file.type || `application/${fileExtension}`)
+
+  const safeName = file.name
+    .replace(/[^\x00-\x7F]/g, "")
+    .replace(/[^a-z0-9. -]/gi, "_")
+    .replace(/\s+/g, "_");
+
+  const fileName = `${Date.now()}-${safeName}`
+  const filePath = `sop_files/${selected.id}/${fileName}`
+
+  try {
+    // 2. Upload to Storage with explicit contentType for HTML rendering
+    const { error: storageError } = await supabase.storage
+      .from('sop-files')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: contentType // Crucial fix for rendering
+      })
+
+    if (storageError) throw storageError
+
+    // 3. Get the Public URL
+    const { data: publicUrlData } = supabase.storage
+      .from('sop-files')
+      .getPublicUrl(filePath)
+
+    if (!publicUrlData || !publicUrlData.publicUrl) throw new Error("Could not get public URL")
+
+    // 4. Insert into Database
+    const { data: fileDbData, error: fileDbError } = await supabase
+      .from('app_files')
+      .insert({
+        file_name: file.name,
+        file_path: publicUrlData.publicUrl,
+        file_type: contentType, // Store the rendering-friendly type
+        associated_sop_id: selected.id,
+        uploaded_by: user?.id,
+      })
+      .select()
+      .single()
+
+    if (fileDbError) throw fileDbError
     
-    const fileExtension = file.name.split('.').pop() || 'octect-stream'
+    // 5. Update local state
+    const newFile: AppFile = fileDbData
+    setAssociatedFiles(prev => [...prev, newFile])
+    
+    setSelected(prev => prev ? { 
+      ...prev, 
+      files: [...(prev.files || []), newFile] 
+    } : null)
+    
+    setSops(prev => prev.map(s => 
+      s.id === selected.id ? { ...s, files: [...(s.files || []), newFile] } : s
+    ))
 
-    const safeName = file.name
-      .replace(/[^\x00-\x7F]/g, "")
-      .replace(/[^a-z0-9. -]/gi, "_")
-      .replace(/\s+/g, "_");
+    toast('File uploaded successfully! ✓')
 
-    const fileName = `${Date.now()}-${safeName}`
-    const filePath = `sop_files/${selected.id}/${fileName}`
-
-    try {
-      const { error: storageError } = await supabase.storage
-        .from('sop-files')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-        })
-
-      if (storageError) throw storageError
-
-      const { data: publicUrlData } = supabase.storage
-        .from('sop-files')
-        .getPublicUrl(filePath)
-
-      if (!publicUrlData || !publicUrlData.publicUrl) throw new Error("Could not get public URL")
-
-      const { data: fileDbData, error: fileDbError } = await supabase
-        .from('app_files')
-        .insert({
-          file_name: file.name,
-          file_path: publicUrlData.publicUrl,
-          file_type: file.type || `application/${fileExtension}`,
-          associated_sop_id: selected.id,
-          uploaded_by: user?.id,
-        })
-        .select()
-        .single()
-
-      if (fileDbError) throw fileDbError
-      
-      const newFile: AppFile = fileDbData
-      setAssociatedFiles(prev => [...prev, newFile])
-      setSelected(prev => prev ? { ...prev, files: [...(prev.files || []), newFile] } : null)
-      setSops(prev => prev.map(s => s.id === selected.id ? { ...s, files: [...(s.files || []), newFile] } : s))
-      toast('File uploaded successfully! ✓')
-
-    } catch (error: any) {
-      console.error('File upload error:', error)
-      toast(`File upload failed: ${error.message}`, 'error')
-    } finally {
-      setUploading(false)
-      event.target.value = ''
-    }
+  } catch (error: any) {
+    console.error('File upload error:', error)
+    toast(`File upload failed: ${error.message}`, 'error')
+  } finally {
+    setUploading(false)
+    if (event.target) event.target.value = ''
   }
+}
 
   async function handleFileDelete(fileToDelete: AppFile) {
     if (!canEdit) return

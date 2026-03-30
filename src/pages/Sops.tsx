@@ -221,13 +221,19 @@ export default function Sops() {
 
     setUploading(true)
     const file = event.target.files[0]
-    const fileExtension = file.name.split('.').pop()
-    const fileName = `${Date.now()}-${file.name}`
+    
+    // 1. SANITIZE THE FILE NAME: Remove special characters like —, |, etc.
+    const safeName = file.name
+      .replace(/[^\x00-\x7F]/g, "") // Remove non-ASCII (like the em-dash)
+      .replace(/[^a-z0-9. -]/gi, "_") // Replace symbols like | with underscores
+      .replace(/\s+/g, "_"); // Optional: Replace spaces with underscores for cleaner URLs
+
+    const fileName = `${Date.now()}-${safeName}`
     const filePath = `sop_files/${selected.id}/${fileName}`
 
     try {
       const { error: storageError } = await supabase.storage
-        .from('sop-files') // Updated bucket name
+        .from('sop-files')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false,

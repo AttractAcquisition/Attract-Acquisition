@@ -22,6 +22,9 @@ export type DeliveryMetric = Database['public']['Tables']['delivery_metrics']['R
 export type DeliveryProgress = Database['public']['Tables']['delivery_progress']['Row']
 export type DistributionProgress = Database['public']['Tables']['distribution_progress']['Row']
 export type DistroMetric = Database['public']['Tables']['distro_metrics']['Row']
+export type Sop = Database['public']['Tables']['sops']['Row']
+export type Ledger = Database['public']['Tables']['ledger']['Row']
+export type Task = Database['public']['Tables']['tasks']['Row']
 
 // Insert types (VERY useful for forms / mutations)
 export type InsertClient = Database['public']['Tables']['clients']['Insert']

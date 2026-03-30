@@ -25,13 +25,22 @@ export const ROUTE_CONFIG: Record<string, Omit<RouteMetadata, 'path'>> = {
   studio: { label: 'MJR Studio', section: 'Delivery Tools', icon: Icons.FileText, roles: ['distribution', 'admin', 'delivery'] },
   html: { label: 'PDF Tool', section: 'Delivery Tools', icon: Icons.Printer, roles: ['admin', 'distribution'] },
   spoa: { label: 'SPOA Studio', section: 'Delivery Tools', icon: Icons.Target, roles: ['admin', 'distribution'] },
-  // ADDED: Content Hub Entry
   content: { label: 'Content Hub', section: 'Delivery Tools', icon: Icons.Video, roles: ['admin', 'distribution', 'delivery'] },
   sprints: { label: 'Proof Sprint', section: 'Delivery Engine', icon: Icons.Zap, roles: ['admin', 'delivery'] },
   proof: { label: 'Proof Brand', section: 'Delivery Engine', icon: Icons.BookOpen, roles: ['admin', 'delivery'], file: 'ProofBrand' },
   authority: { label: 'Authority Brand', section: 'Delivery Engine', icon: Icons.Shield, roles: ['admin', 'delivery'], file: 'AuthorityBrand' },
   sops: { label: 'SOP Library', section: 'Build', icon: Icons.BookOpen, roles: ['admin', 'distribution', 'delivery'] },
   templates: { label: 'Templates', section: 'Build', icon: Icons.FileCode, roles: ['admin', 'distribution', 'delivery'] },
+  
+  // ADDED: Template View Utility (Hidden from sidebar by using an empty section if needed)
+  'template-view': { 
+    label: 'Template Viewer', 
+    section: 'System', 
+    icon: Icons.Eye, 
+    roles: ['admin', 'distribution', 'delivery'], 
+    file: 'TemplateView' 
+  },
+
   income: { label: 'Capital Flow', section: 'Finance', icon: Icons.Activity, roles: ['admin'], file: 'IncomeTracking' },
   finance: { label: 'MRR Dashboard', section: 'Finance', icon: Icons.BarChart3, roles: ['admin'] },
   admin: { label: 'Command Center', section: 'System', icon: Icons.Shield, roles: ['admin'], file: 'AdminControl' },

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import type { Sop, AppFile } from '../lib/supabase' // AppFile is now correctly exported
+import type { Sop, AppFile } from '../lib/supabase'
 import { formatDate } from '../lib/utils'
 import { Edit2, ChevronRight, Save, X, Plus, Trash2, GripVertical, Upload, FileText, File } from 'lucide-react'
 import { useToast } from '../lib/toast'
@@ -47,75 +47,75 @@ export default function Sops() {
       q = q.in('category', ['Outreach & Pipeline', 'Missed Jobs Report', 'Strategic Plan of Action', 'General'])
     }
 
-    if (role!== 'admin') {
+    if (role !== 'admin') {
       q = q.eq('status', 'active')
     }
 
-    const { data: sopsData } = await q; // Keep it simple, we'll cast later
+    const { data: sopsData } = await q
 
     const normalizedSops: Sop[] = (sopsData || []).map(s => ({
-    ...s,
+      ...s,
       content: s.content || '',
       version: s.version || '1.0',
       category: s.category || 'General',
       status: s.status || 'draft',
       title: s.title || 'Untitled SOP',
-      files: [], // Initialize files array
+      files: [], 
     }))
 
     const { data: filesData, error: filesError } = await supabase
-    .from('app_files')
-    .select('*'); // Keep it simple
+      .from('app_files')
+      .select('*')
 
     if (filesError) {
-      console.error('Error fetching files:', filesError);
-      toast('Failed to load associated files', 'error');
+      console.error('Error fetching files:', filesError)
+      toast('Failed to load associated files', 'error')
     }
 
     const sopsWithFiles = normalizedSops.map(sop => ({
-    ...sop,
+      ...sop,
       files: (filesData || []).filter(file => file.associated_sop_id === sop.id)
-    }));
+    }))
 
     setSops(sopsWithFiles)
   }
 
   const handleDragEnd = async (result: DropResult) => {
-    if (!result.destination ||!canEdit) return;
+    if (!result.destination || !canEdit) return
 
-    const items = Array.from(filtered);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
+    const items = Array.from(filtered)
+    const [reorderedItem] = items.splice(result.source.index, 1)
+    items.splice(result.destination.index, 0, reorderedItem)
 
     const updatedSops = items.map((sop, index) => ({
-    ...sop,
+      ...sop,
       sop_number: index + 1
-    }));
+    }))
 
     setSops(prev => {
-      const others = prev.filter(p =>!updatedSops.some(f => f.id === p.id));
-      const combined = [...others,...updatedSops];
-      combined.sort((a, b) => (a.sop_number || 0) - (b.sop_number || 0));
-      return combined;
-    });
+      const others = prev.filter(p => !updatedSops.some(f => f.id === p.id))
+      const combined = [...others, ...updatedSops]
+      combined.sort((a, b) => (a.sop_number || 0) - (b.sop_number || 0))
+      return combined
+    })
 
-    // FIX: Remove 'files' property before sending to upsert
-    const sopsForDb = updatedSops.map(({ files,...rest }) => ({
-       ...rest,
+    // Stripping 'files' before upsert as it's a joined relation, not a column
+    const sopsForDb = updatedSops.map(({ files, ...rest }) => ({
+        ...rest,
         updated_at: new Date().toISOString()
-    }));
+    }))
 
     const { error } = await supabase
-    .from('sops')
-    .upsert(sopsForDb, { onConflict: 'id' });
+      .from('sops')
+      .upsert(sopsForDb, { onConflict: 'id' })
 
     if (error) {
-      toast('Failed to update order', 'error');
-      load();
+      toast('Failed to update order', 'error')
+      load()
     } else {
-      toast('Order updated');
+      toast('Order updated')
     }
-  };
+  }
 
   function selectSop(s: Sop) {
     setSelected(s)
@@ -123,12 +123,12 @@ export default function Sops() {
     setEditTitle(s.title || '')
     setEditCategory(s.category || 'General')
     setEditing(false)
-    setAssociatedFiles(s.files || []);
+    setAssociatedFiles(s.files || [])
   }
 
   async function createNewSop() {
     if (!canEdit) return
-    const nextNum = sops.length > 0? Math.max(...sops.map(s => s.sop_number || 0)) + 1 : 1
+    const nextNum = sops.length > 0 ? Math.max(...sops.map(s => s.sop_number || 0)) + 1 : 1
 
     const newSopData = {
       title: 'New Strategic SOP',
@@ -140,13 +140,13 @@ export default function Sops() {
       last_reviewed_at: new Date().toISOString().split('T')[0]
     }
 
-    const { data, error } = await supabase.from('sops').insert(newSopData).select().single();
-    if (error ||!data) { // FIX: Handle null data case
+    const { data, error } = await supabase.from('sops').insert(newSopData).select().single()
+    if (error || !data) {
       toast('Failed to create SOP', 'error')
       return
     }
 
-    const createdSop: Sop = {...data, files: [] };
+    const createdSop: Sop = { ...data, files: [] }
     setSops(prev => [...prev, createdSop])
     selectSop(createdSop)
     setEditing(true)
@@ -154,11 +154,11 @@ export default function Sops() {
   }
 
   async function deleteSop() {
-    if (!selected ||!canEdit) return
+    if (!selected || !canEdit) return
     if (!confirm(`Are you sure you want to delete SOP #${selected.sop_number}? This will also delete all associated files.`)) return
 
     for (const file of associatedFiles) {
-      await handleFileDelete(file);
+      await handleFileDelete(file)
     }
 
     const { error } = await supabase.from('sops').delete().eq('id', selected.id)
@@ -167,10 +167,10 @@ export default function Sops() {
       return
     }
 
-    setSops(prev => prev.filter(s => s.id!== selected.id))
+    setSops(prev => prev.filter(s => s.id !== selected.id))
     setSelected(null)
     setEditing(false)
-    setAssociatedFiles([]);
+    setAssociatedFiles([])
     toast('SOP Deleted')
   }
 
@@ -187,18 +187,18 @@ export default function Sops() {
     }
 
     const { data, error } = await supabase.from('sops')
-    .update(updates)
-    .eq('id', selected.id)
-    .select().single();
+      .update(updates)
+      .eq('id', selected.id)
+      .select().single()
 
-    if (error ||!data) {
-      toast('Save failed', 'error');
-      setSaving(false);
+    if (error || !data) {
+      toast('Save failed', 'error')
+      setSaving(false)
       return
     }
 
-    const updatedSop: Sop = {...data, files: associatedFiles };
-    setSops(prev => prev.map(s => s.id === updatedSop.id? updatedSop : s))
+    const updatedSop: Sop = { ...data, files: associatedFiles }
+    setSops(prev => prev.map(s => s.id === updatedSop.id ? updatedSop : s))
     setSelected(updatedSop)
     setEditing(false)
     setSaving(false)
@@ -207,112 +207,109 @@ export default function Sops() {
 
   async function setStatus(status: string) {
     if (!selected) return
-    const { data } = await supabase.from('sops').update({ status }).eq('id', selected.id).select().single();
+    const { data } = await supabase.from('sops').update({ status }).eq('id', selected.id).select().single()
     if (data) {
-      const updatedSop: Sop = {...data, files: associatedFiles };
-      setSops(prev => prev.map(s => s.id === updatedSop.id? updatedSop : s))
+      const updatedSop: Sop = { ...data, files: associatedFiles }
+      setSops(prev => prev.map(s => s.id === updatedSop.id ? updatedSop : s))
       setSelected(updatedSop)
       toast(`Status set to ${status}`)
     }
   }
 
   async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    if (!selected ||!canEdit ||!event.target.files || event.target.files.length === 0) return;
+    if (!selected || !canEdit || !event.target.files || event.target.files.length === 0) return
 
-    setUploading(true);
-    const file = event.target.files[0];
-    const fileExtension = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${file.name}`;
-    const filePath = `sop_files/${selected.id}/${fileName}`;
+    setUploading(true)
+    const file = event.target.files[0]
+    const fileExtension = file.name.split('.').pop()
+    const fileName = `${Date.now()}-${file.name}`
+    const filePath = `sop_files/${selected.id}/${fileName}`
 
     try {
-      // FIX: Removed 'storageData' as it's not used
       const { error: storageError } = await supabase.storage
-     .from('app_documents')
-     .upload(filePath, file, {
+        .from('app_documents')
+        .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false,
-        });
+        })
 
-      if (storageError) throw storageError;
+      if (storageError) throw storageError
 
       const { data: publicUrlData } = supabase.storage
-     .from('app_documents')
-     .getPublicUrl(filePath);
+        .from('app_documents')
+        .getPublicUrl(filePath)
 
-      if (!publicUrlData ||!publicUrlData.publicUrl) throw new Error("Could not get public URL for file.");
+      if (!publicUrlData || !publicUrlData.publicUrl) throw new Error("Could not get public URL for file.")
 
       const { data: fileDbData, error: fileDbError } = await supabase
-     .from('app_files')
-     .insert({
+        .from('app_files')
+        .insert({
           file_name: file.name,
           file_path: publicUrlData.publicUrl,
           file_type: file.type || `application/${fileExtension}`,
           associated_sop_id: selected.id,
           uploaded_by: user?.id,
         })
-     .select()
-     .single();
+        .select()
+        .single()
 
-      if (fileDbError) throw fileDbError;
-      if (!fileDbData) throw new Error("No data returned after file DB insert.");
+      if (fileDbError) throw fileDbError
+      if (!fileDbData) throw new Error("No data returned after file DB insert.")
 
-      const newFile: AppFile = fileDbData;
-      setAssociatedFiles(prev => [...prev, newFile]);
-      // FIX: Handle null case for setSelected
-      setSelected(prev => prev? {...prev, files: [...(prev.files || []), newFile] } : null);
-      setSops(prev => prev.map(s => s.id === selected.id? {...s, files: [...(s.files || []), newFile] } : s));
-      toast('File uploaded successfully! ✓');
+      const newFile: AppFile = fileDbData
+      setAssociatedFiles(prev => [...prev, newFile])
+      setSelected(prev => prev ? { ...prev, files: [...(prev.files || []), newFile] } : null)
+      setSops(prev => prev.map(s => s.id === selected.id ? { ...s, files: [...(s.files || []), newFile] } : s))
+      toast('File uploaded successfully! ✓')
 
     } catch (error: any) {
-      console.error('File upload error:', error);
-      toast(`File upload failed: ${error.message}`, 'error');
+      console.error('File upload error:', error)
+      toast(`File upload failed: ${error.message}`, 'error')
     } finally {
-      setUploading(false);
-      event.target.value = '';
+      setUploading(false)
+      event.target.value = ''
     }
   }
 
   async function handleFileDelete(fileToDelete: AppFile) {
-    if (!canEdit) return;
-    if (!confirm(`Are you sure you want to delete "${fileToDelete.file_name}"?`)) return;
+    if (!canEdit) return
+    if (!confirm(`Are you sure you want to delete "${fileToDelete.file_name}"?`)) return
 
     try {
-      const pathSegments = fileToDelete.file_path.split('/app_documents/');
-      if (pathSegments.length < 2) throw new Error('Invalid file path for deletion.');
-      const pathInBucket = pathSegments[1];
+      const pathSegments = fileToDelete.file_path.split('/app_documents/')
+      if (pathSegments.length < 2) throw new Error('Invalid file path for deletion.')
+      const pathInBucket = pathSegments[1]
 
       const { error: storageError } = await supabase.storage
-     .from('app_documents')
-     .remove([pathInBucket]);
+        .from('app_documents')
+        .remove([pathInBucket])
 
-      if (storageError) throw storageError;
+      if (storageError) throw storageError
 
       const { error: fileDbError } = await supabase
-     .from('app_files')
-     .delete()
-     .eq('id', fileToDelete.id);
+        .from('app_files')
+        .delete()
+        .eq('id', fileToDelete.id)
 
-      if (fileDbError) throw fileDbError;
+      if (fileDbError) throw fileDbError
 
-      setAssociatedFiles(prev => prev.filter(f => f.id!== fileToDelete.id));
-      setSelected(prev => prev? {...prev, files: (prev.files || []).filter(f => f.id!== fileToDelete.id) } : null);
-      setSops(prev => prev.map(s => s.id === selected?.id? {...s, files: (s.files || []).filter(f => f.id!== fileToDelete.id) } : s));
-      toast('File deleted successfully!');
+      setAssociatedFiles(prev => prev.filter(f => f.id !== fileToDelete.id))
+      setSelected(prev => prev ? { ...prev, files: (prev.files || []).filter(f => f.id !== fileToDelete.id) } : null)
+      setSops(prev => prev.map(s => s.id === selected?.id ? { ...s, files: (s.files || []).filter(f => f.id !== fileToDelete.id) } : s))
+      toast('File deleted successfully!')
 
     } catch (error: any) {
-      console.error('File deletion error:', error);
-      toast(`File deletion failed: ${error.message}`, 'error');
+      console.error('File deletion error:', error)
+      toast(`File deletion failed: ${error.message}`, 'error')
     }
   }
 
-  const filtered = sops.filter(s =>!filter || s.category === filter)
+  const filtered = sops.filter(s => !filter || s.category === filter)
   const activeCount = sops.filter(s => s.status === 'active').length
   const draftCount = sops.filter(s => s.status === 'draft').length
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20, height: 'calc(100vh - 120px)' }}>
-      {/*... Rest of the JSX is unchanged... */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 4 }}>
           <div style={{ display: 'flex', gap: 16 }}>
@@ -352,14 +349,14 @@ export default function Sops() {
                           {...provided.draggableProps}
                           onClick={() => selectSop(s)}
                           style={{
-                          ...provided.draggableProps.style,
+                            ...provided.draggableProps.style,
                             padding: '10px 12px',
                             borderRadius: 4,
                             cursor: 'pointer',
-                            border: `1px solid ${selected?.id === s.id? 'var(--teal)' : 'var(--border2)'}`,
-                            background: snapshot.isDragging? 'var(--bg3)' : (selected?.id === s.id? 'var(--teal-faint)' : 'var(--bg2)'),
+                            border: `1px solid ${selected?.id === s.id ? 'var(--teal)' : 'var(--border2)'}`,
+                            background: snapshot.isDragging ? 'var(--bg3)' : (selected?.id === s.id ? 'var(--teal-faint)' : 'var(--bg2)'),
                             transition: 'all 0.15s',
-                            opacity: snapshot.isDragging? 0.8 : 1
+                            opacity: snapshot.isDragging ? 0.8 : 1
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -372,7 +369,7 @@ export default function Sops() {
                             <span style={{ fontSize: 13, fontWeight: 500, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title}</span>
                             <ChevronRight size={12} color="var(--grey2)" />
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: canEdit? 54 : 32 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: canEdit ? 54 : 32 }}>
                             <span style={{ fontFamily: 'DM Mono', fontSize: 9, color: 'var(--grey2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.category}</span>
                             <span className={`badge ${STATUS_COLORS[s.status!]}`}>{s.status}</span>
                           </div>
@@ -389,7 +386,7 @@ export default function Sops() {
       </div>
 
       <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {selected? (
+        {selected ? (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexShrink: 0 }}>
               <div style={{ flex: 1 }}>
@@ -398,7 +395,7 @@ export default function Sops() {
                   <span className={`badge ${STATUS_COLORS[selected.status!]}`}>{selected.status}</span>
                 </div>
 
-                {editing? (
+                {editing ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
                     <input className="input" value={editTitle} onChange={e => setEditTitle(e.target.value)} style={{ fontSize: 20, fontWeight: 700, fontFamily: 'Playfair Display' }} placeholder="SOP Title" />
                     <select className="input" value={editCategory} onChange={e => setEditCategory(e.target.value)} style={{ width: 'fit-content', fontSize: 11 }}>
@@ -409,7 +406,7 @@ export default function Sops() {
                   <>
                     <div style={{ fontFamily: 'Playfair Display', fontSize: 22, fontWeight: 700 }}>{selected.title}</div>
                     <div style={{ fontFamily: 'DM Mono', fontSize: 11, color: 'var(--grey)', marginTop: 4 }}>
-                      {selected.category} · v{selected.version || '1.0'} · last reviewed {selected.last_reviewed_at? formatDate(selected.last_reviewed_at) : 'never'}
+                      {selected.category} · v{selected.version || '1.0'} · last reviewed {selected.last_reviewed_at ? formatDate(selected.last_reviewed_at) : 'never'}
                     </div>
                   </>
                 )}
@@ -417,7 +414,7 @@ export default function Sops() {
 
               {canEdit && (
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 16 }}>
-                  {!editing? (
+                  {!editing ? (
                     <>
                       <button className="btn-ghost" onClick={deleteSop} style={{ color: 'var(--red)', padding: '7px' }} title="Delete SOP">
                         <Trash2 size={14} />
@@ -435,7 +432,7 @@ export default function Sops() {
                   ) : (
                     <>
                       <button className="btn-primary" onClick={saveContent} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
-                        <Save size={11} /> {saving? 'Saving...' : 'Save'}
+                        <Save size={11} /> {saving ? 'Saving...' : 'Save'}
                       </button>
                       <button className="btn-ghost" onClick={() => { setEditing(false); setContent(selected.content || '') }} style={{ fontSize: 11 }}>
                         <X size={11} />
@@ -449,7 +446,7 @@ export default function Sops() {
             {canEdit && selected && editing && (
               <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, padding: '10px', background: 'var(--bg3)', borderRadius: 6, border: '1px solid var(--border2)' }}>
                 <label htmlFor="file-upload" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '7px 14px', fontSize: 11 }}>
-                  <Upload size={11} /> {uploading? 'Uploading...' : 'Upload File'}
+                  <Upload size={11} /> {uploading ? 'Uploading...' : 'Upload File'}
                 </label>
                 <input
                   id="file-upload"
@@ -463,13 +460,13 @@ export default function Sops() {
               </div>
             )}
 
-            {editing && canEdit? (
+            {editing && canEdit ? (
               <textarea value={content} onChange={e => setContent(e.target.value)}
                 style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--white)', fontFamily: 'Barlow', fontSize: 14, lineHeight: 1.8, padding: '16px', resize: 'none', outline: 'none' }}
                 placeholder="Write SOP content here..." />
             ) : (
               <div style={{ flex: 1, overflowY: 'auto', paddingRight: 8 }}>
-                {selected.content? (
+                {selected.content ? (
                   <div className="markdown-body" style={{ fontSize: 14, lineHeight: 1.9, color: 'var(--grey)' }}>
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
@@ -481,7 +478,7 @@ export default function Sops() {
                         ul: ({node,...props}) => <ul style={{ marginLeft: 24, marginBottom: 12, listStyleType: 'disc' }} {...props} />,
                         ol: ({node,...props}) => <ol style={{ marginLeft: 24, marginBottom: 12, listStyleType: 'decimal' }} {...props} />,
                         li: ({node,...props}) => <li style={{ marginBottom: 6 }} {...props} />,
-                        code: ({node, inline, children,...props}: any) => inline? (
+                        code: ({node, inline, children,...props}: any) => inline ? (
                           <code style={{ background: 'var(--bg)', padding: '2px 6px', borderRadius: 3, fontFamily: 'DM Mono', fontSize: 12, color: 'var(--teal)' }} {...props}>{children}</code>
                         ) : (
                           <pre style={{ background: 'var(--bg)', padding: 12, borderRadius: 4, overflow: 'auto', marginBottom: 12, fontFamily: 'DM Mono', fontSize: 12, whiteSpace: 'pre-wrap' }} {...props}>{children}</pre>
@@ -507,7 +504,7 @@ export default function Sops() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {associatedFiles.map(file => (
                         <div key={file.id} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg2)', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border2)' }}>
-                          {file.file_type === 'application/pdf'? <FileText size={16} style={{ marginRight: 8, color: 'var(--red)' }} /> : <File size={16} style={{ marginRight: 8, color: 'var(--blue)' }} />}
+                          {file.file_type === 'application/pdf' ? <FileText size={16} style={{ marginRight: 8, color: 'var(--red)' }} /> : <File size={16} style={{ marginRight: 8, color: 'var(--blue)' }} />}
                           <a
                             href={file.file_path}
                             target="_blank"

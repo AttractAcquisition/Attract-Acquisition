@@ -1,3 +1,4 @@
+// src/pages/sops.tsx
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Sop, AppFile } from '../lib/supabase'
@@ -10,113 +11,96 @@ import { useAuth } from '../lib/auth'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import type { DropResult, DroppableProvided, DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 
-const CATEGORIES = ['Outreach & Pipeline', 'Missed Jobs Report', 'Strategic Plan of Action', 'Proof Sprint', 'Proof Brand', 'Authority Brand', 'General', 'Admin']
-const STATUS_COLORS: Record<string, string> = {
+// --- Types ---
+type SopStatus = 'draft' | 'active' | 'archived'
+
+const CATEGORIES = [
+  'Outreach & Pipeline',
+  'Missed Jobs Report',
+  'Strategic Plan of Action',
+  'Proof Sprint',
+  'Proof Brand',
+  'Authority Brand',
+  'General',
+  'Admin'
+] as const
+
+const STATUS_COLORS: Record<SopStatus, string> = {
   draft: 'badge-new',
   active: 'badge-clients',
   archived: 'badge-lost',
 }
 
+// --- Component ---
 export default function Sops() {
   const { role, user } = useAuth()
+  const { toast } = useToast()
   const [sops, setSops] = useState<Sop[]>([])
   const [selected, setSelected] = useState<Sop | null>(null)
   const [editing, setEditing] = useState(false)
   const [content, setContent] = useState('')
   const [editTitle, setEditTitle] = useState('')
-  const [editCategory, setEditCategory] = useState('')
+  const [editCategory, setEditCategory] = useState<CATEGORIES[number]>('General')
   const [saving, setSaving] = useState(false)
   const [filter, setFilter] = useState('')
-  const { toast } = useToast()
-
   const [associatedFiles, setAssociatedFiles] = useState<AppFile[]>([])
   const [uploading, setUploading] = useState(false)
 
   const canEdit = role === 'admin'
 
+  // --- Load SOPs on mount or role change ---
   useEffect(() => {
-    load()
+    loadSops()
   }, [role])
 
-  async function load() {
-    let q = supabase.from('sops').select('*').order('sop_number', { ascending: true })
-
-    if (role === 'delivery') {
-      q = q.in('category', ['Proof Sprint', 'Proof Brand', 'Authority Brand', 'General'])
-    } else if (role === 'distribution') {
-      q = q.in('category', ['Outreach & Pipeline', 'Missed Jobs Report', 'Strategic Plan of Action', 'General'])
-    }
-
-    if (role !== 'admin') {
-      q = q.eq('status', 'active')
-    }
-
-    const { data: sopsData } = await q
-
-    const normalizedSops: Sop[] = (sopsData || []).map(s => ({
-      ...s,
-      content: s.content || '',
-      version: s.version || '1.0',
-      category: s.category || 'General',
-      status: s.status || 'draft',
-      title: s.title || 'Untitled SOP',
-      files: [], 
-    }))
-
-    const { data: filesData, error: filesError } = await supabase
-      .from('app_files')
-      .select('*')
-
-    if (filesError) {
-      console.error('Error fetching files:', filesError)
-      toast('Failed to load associated files', 'error')
-    }
-
-    const sopsWithFiles = normalizedSops.map(sop => ({
-      ...sop,
-      files: (filesData || []).filter(file => file.associated_sop_id === sop.id)
-    }))
-
-    setSops(sopsWithFiles)
+  // --- Helper: Update SOP in state consistently ---
+  function updateSopInState(updatedSop: Sop) {
+    setSops(prev => prev.map(s => s.id === updatedSop.id ? updatedSop : s))
+    setSelected(updatedSop)
+    setAssociatedFiles(updatedSop.files || [])
   }
 
-  const handleDragEnd = async (result: DropResult) => {
-    if (!result.destination || !canEdit) return
+  // --- Load SOPs ---
+  async function loadSops() {
+    try {
+      let query = supabase.from('sops').select('*').order('sop_number', { ascending: true })
 
-    const items = Array.from(filtered)
-    const [reorderedItem] = items.splice(result.source.index, 1)
-    items.splice(result.destination.index, 0, reorderedItem)
+      if (role === 'delivery') {
+        query = query.in('category', ['Proof Sprint', 'Proof Brand', 'Authority Brand', 'General'])
+      } else if (role === 'distribution') {
+        query = query.in('category', ['Outreach & Pipeline', 'Missed Jobs Report', 'Strategic Plan of Action', 'General'])
+      }
 
-    const updatedSops = items.map((sop, index) => ({
-      ...sop,
-      sop_number: index + 1
-    }))
+      if (role !== 'admin') query = query.eq('status', 'active')
 
-    setSops(prev => {
-      const others = prev.filter(p => !updatedSops.some(f => f.id === p.id))
-      const combined = [...others, ...updatedSops]
-      combined.sort((a, b) => (a.sop_number || 0) - (b.sop_number || 0))
-      return combined
-    })
+      const { data: sopsData } = await query
 
-    // Stripping 'files' before upsert as it's a joined relation, not a column
-    const sopsForDb = updatedSops.map(({ files, ...rest }) => ({
-        ...rest,
-        updated_at: new Date().toISOString()
-    }))
+      const normalizedSops: Sop[] = (sopsData || []).map(s => ({
+        ...s,
+        content: s.content || '',
+        version: s.version || '1.0',
+        category: s.category || 'General',
+        status: s.status || 'draft',
+        title: s.title || 'Untitled SOP',
+        files: [],
+      }))
 
-    const { error } = await supabase
-      .from('sops')
-      .upsert(sopsForDb, { onConflict: 'id' })
+      const { data: filesData, error: filesError } = await supabase.from('app_files').select('*')
+      if (filesError) throw filesError
 
-    if (error) {
-      toast('Failed to update order', 'error')
-      load()
-    } else {
-      toast('Order updated')
+      const sopsWithFiles = normalizedSops.map(sop => ({
+        ...sop,
+        files: (filesData || []).filter(file => file.associated_sop_id === sop.id)
+      }))
+
+      setSops(sopsWithFiles)
+    } catch (err) {
+      console.error('Error loading SOPs:', err)
+      toast('Failed to load SOPs', 'error')
     }
   }
 
+  // --- Select SOP ---
   function selectSop(s: Sop) {
     setSelected(s)
     setContent(s.content || '')
@@ -126,6 +110,7 @@ export default function Sops() {
     setAssociatedFiles(s.files || [])
   }
 
+  // --- Create new SOP ---
   async function createNewSop() {
     if (!canEdit) return
     const nextNum = sops.length > 0 ? Math.max(...sops.map(s => s.sop_number || 0)) + 1 : 1
@@ -140,85 +125,85 @@ export default function Sops() {
       last_reviewed_at: new Date().toISOString().split('T')[0]
     }
 
-    const { data, error } = await supabase.from('sops').insert(newSopData).select().single()
-    if (error || !data) {
+    try {
+      const { data, error } = await supabase.from('sops').insert(newSopData).select().single()
+      if (error || !data) throw error
+      const createdSop: Sop = { ...data, files: [] }
+      setSops(prev => [...prev, createdSop])
+      selectSop(createdSop)
+      setEditing(true)
+      toast('New Draft Created')
+    } catch (err) {
+      console.error('Create SOP error:', err)
       toast('Failed to create SOP', 'error')
-      return
     }
-
-    const createdSop: Sop = { ...data, files: [] }
-    setSops(prev => [...prev, createdSop])
-    selectSop(createdSop)
-    setEditing(true)
-    toast('New Draft Created')
   }
 
+  // --- Delete SOP ---
   async function deleteSop() {
     if (!selected || !canEdit) return
     if (!confirm(`Are you sure you want to delete SOP #${selected.sop_number}? This will also delete all associated files.`)) return
 
-    for (const file of associatedFiles) {
-      await handleFileDelete(file)
-    }
-
-    const { error } = await supabase.from('sops').delete().eq('id', selected.id)
-    if (error) {
+    try {
+      for (const file of associatedFiles) {
+        await handleFileDelete(file, false)
+      }
+      const { error } = await supabase.from('sops').delete().eq('id', selected.id)
+      if (error) throw error
+      setSops(prev => prev.filter(s => s.id !== selected.id))
+      setSelected(null)
+      setEditing(false)
+      setAssociatedFiles([])
+      toast('SOP Deleted')
+    } catch (err) {
+      console.error('Delete SOP error:', err)
       toast('Delete failed', 'error')
-      return
     }
-
-    setSops(prev => prev.filter(s => s.id !== selected.id))
-    setSelected(null)
-    setEditing(false)
-    setAssociatedFiles([])
-    toast('SOP Deleted')
   }
 
+  // --- Save SOP content ---
   async function saveContent() {
     if (!selected) return
     setSaving(true)
 
-    const updates = {
-      content,
-      title: editTitle,
-      category: editCategory,
-      updated_at: new Date().toISOString(),
-      last_reviewed_at: new Date().toISOString().split('T')[0]
-    }
+    try {
+      const updates = {
+        content,
+        title: editTitle,
+        category: editCategory,
+        updated_at: new Date().toISOString(),
+        last_reviewed_at: new Date().toISOString().split('T')[0]
+      }
 
-    const { data, error } = await supabase.from('sops')
-      .update(updates)
-      .eq('id', selected.id)
-      .select().single()
-
-    if (error || !data) {
+      const { data, error } = await supabase.from('sops').update(updates).eq('id', selected.id).select().single()
+      if (error || !data) throw error
+      updateSopInState({ ...data, files: associatedFiles })
+      setEditing(false)
+      toast('SOP updated ✓')
+    } catch (err) {
+      console.error('Save content error:', err)
       toast('Save failed', 'error')
+    } finally {
       setSaving(false)
-      return
     }
-
-    const updatedSop: Sop = { ...data, files: associatedFiles }
-    setSops(prev => prev.map(s => s.id === updatedSop.id ? updatedSop : s))
-    setSelected(updatedSop)
-    setEditing(false)
-    setSaving(false)
-    toast('SOP updated ✓')
   }
 
-  async function setStatus(status: string) {
+  // --- Set status ---
+  async function setStatus(status: SopStatus) {
     if (!selected) return
-    const { data } = await supabase.from('sops').update({ status }).eq('id', selected.id).select().single()
-    if (data) {
-      const updatedSop: Sop = { ...data, files: associatedFiles }
-      setSops(prev => prev.map(s => s.id === updatedSop.id ? updatedSop : s))
-      setSelected(updatedSop)
+    try {
+      const { data } = await supabase.from('sops').update({ status }).eq('id', selected.id).select().single()
+      if (data) updateSopInState({ ...data, files: associatedFiles })
       toast(`Status set to ${status}`)
+    } catch (err) {
+      console.error('Set status error:', err)
+      toast('Failed to update status', 'error')
     }
   }
 
+  // --- Handle file upload ---
   async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
     if (!selected || !canEdit || !event.target.files || event.target.files.length === 0) return
-
     setUploading(true)
     const file = event.target.files[0]
     const fileExtension = file.name.split('.').pop()
@@ -226,90 +211,87 @@ export default function Sops() {
     const filePath = `sop_files/${selected.id}/${fileName}`
 
     try {
-      const { error: storageError } = await supabase.storage
-        .from('app_documents')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-        })
-
+      const { error: storageError } = await supabase.storage.from('app_documents').upload(filePath, file, { cacheControl: '3600', upsert: false })
       if (storageError) throw storageError
 
-      const { data: publicUrlData } = supabase.storage
-        .from('app_documents')
-        .getPublicUrl(filePath)
-
+      const { data: publicUrlData } = supabase.storage.from('app_documents').getPublicUrl(filePath)
       if (!publicUrlData || !publicUrlData.publicUrl) throw new Error("Could not get public URL for file.")
 
-      const { data: fileDbData, error: fileDbError } = await supabase
-        .from('app_files')
-        .insert({
-          file_name: file.name,
-          file_path: publicUrlData.publicUrl,
-          file_type: file.type || `application/${fileExtension}`,
-          associated_sop_id: selected.id,
-          uploaded_by: user?.id,
-        })
-        .select()
-        .single()
+      const { data: fileDbData, error: fileDbError } = await supabase.from('app_files').insert({
+        file_name: file.name,
+        file_path: publicUrlData.publicUrl,
+        file_type: file.type || `application/${fileExtension}`,
+        associated_sop_id: selected.id,
+        uploaded_by: user?.id,
+      }).select().single()
+      if (fileDbError || !fileDbData) throw fileDbError
 
-      if (fileDbError) throw fileDbError
-      if (!fileDbData) throw new Error("No data returned after file DB insert.")
-
-      const newFile: AppFile = fileDbData
-      setAssociatedFiles(prev => [...prev, newFile])
-      setSelected(prev => prev ? { ...prev, files: [...(prev.files || []), newFile] } : null)
-      setSops(prev => prev.map(s => s.id === selected.id ? { ...s, files: [...(s.files || []), newFile] } : s))
+      updateSopInState({ ...selected, files: [...associatedFiles, fileDbData] })
       toast('File uploaded successfully! ✓')
-
-    } catch (error: any) {
-      console.error('File upload error:', error)
-      toast(`File upload failed: ${error.message}`, 'error')
+    } catch (err: any) {
+      console.error('File upload error:', err)
+      toast(`File upload failed: ${err.message}`, 'error')
     } finally {
       setUploading(false)
       event.target.value = ''
     }
   }
 
-  async function handleFileDelete(fileToDelete: AppFile) {
+  // --- Handle file delete ---
+  async function handleFileDelete(fileToDelete: AppFile, confirmDelete = true) {
     if (!canEdit) return
-    if (!confirm(`Are you sure you want to delete "${fileToDelete.file_name}"?`)) return
+    if (confirmDelete && !confirm(`Are you sure you want to delete "${fileToDelete.file_name}"?`)) return
 
     try {
       const pathSegments = fileToDelete.file_path.split('/app_documents/')
       if (pathSegments.length < 2) throw new Error('Invalid file path for deletion.')
       const pathInBucket = pathSegments[1]
 
-      const { error: storageError } = await supabase.storage
-        .from('app_documents')
-        .remove([pathInBucket])
-
+      const { error: storageError } = await supabase.storage.from('app_documents').remove([pathInBucket])
       if (storageError) throw storageError
 
-      const { error: fileDbError } = await supabase
-        .from('app_files')
-        .delete()
-        .eq('id', fileToDelete.id)
-
+      const { error: fileDbError } = await supabase.from('app_files').delete().eq('id', fileToDelete.id)
       if (fileDbError) throw fileDbError
 
-      setAssociatedFiles(prev => prev.filter(f => f.id !== fileToDelete.id))
-      setSelected(prev => prev ? { ...prev, files: (prev.files || []).filter(f => f.id !== fileToDelete.id) } : null)
-      setSops(prev => prev.map(s => s.id === selected?.id ? { ...s, files: (s.files || []).filter(f => f.id !== fileToDelete.id) } : s))
+      updateSopInState({ ...selected!, files: associatedFiles.filter(f => f.id !== fileToDelete.id) })
       toast('File deleted successfully!')
-
-    } catch (error: any) {
-      console.error('File deletion error:', error)
-      toast(`File deletion failed: ${error.message}`, 'error')
+    } catch (err: any) {
+      console.error('File deletion error:', err)
+      toast(`File deletion failed: ${err.message}`, 'error')
     }
   }
 
+  // --- Handle drag & drop ---
   const filtered = sops.filter(s => !filter || s.category === filter)
+  const handleDragEnd = async (result: DropResult) => {
+    if (!result.destination || !canEdit) return
+    const items = Array.from(filtered)
+    const [reordered] = items.splice(result.source.index, 1)
+    items.splice(result.destination.index, 0, reordered)
+    const updatedSops = items.map((sop, index) => ({ ...sop, sop_number: index + 1 }))
+    setSops(prev => {
+      const others = prev.filter(p => !updatedSops.some(f => f.id === p.id))
+      return [...others, ...updatedSops].sort((a, b) => (a.sop_number || 0) - (b.sop_number || 0))
+    })
+    try {
+      const sopsForDb = updatedSops.map(({ files, ...rest }) => ({ ...rest, updated_at: new Date().toISOString() }))
+      const { error } = await supabase.from('sops').upsert(sopsForDb, { onConflict: 'id' })
+      if (error) throw error
+      toast('Order updated')
+    } catch (err) {
+      console.error(err)
+      toast('Failed to update order', 'error')
+      loadSops()
+    }
+  }
+
   const activeCount = sops.filter(s => s.status === 'active').length
   const draftCount = sops.filter(s => s.status === 'draft').length
 
+  // --- Render ---
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20, height: 'calc(100vh - 120px)' }}>
+      {/* --- Sidebar --- */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 4 }}>
           <div style={{ display: 'flex', gap: 16 }}>
@@ -330,7 +312,6 @@ export default function Sops() {
             </button>
           )}
         </div>
-
         <select className="input" value={filter} onChange={e => setFilter(e.target.value)}>
           <option value="">All Categories</option>
           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -360,11 +341,7 @@ export default function Sops() {
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                            {canEdit && (
-                              <div {...provided.dragHandleProps} style={{ cursor: 'grab', color: 'var(--grey2)' }}>
-                                <GripVertical size={14} />
-                              </div>
-                            )}
+                            {canEdit && <div {...provided.dragHandleProps} style={{ cursor: 'grab', color: 'var(--grey2)' }}><GripVertical size={14} /></div>}
                             <span style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey2)', minWidth: 24 }}>#{String(s.sop_number).padStart(2,'0')}</span>
                             <span style={{ fontSize: 13, fontWeight: 500, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title}</span>
                             <ChevronRight size={12} color="var(--grey2)" />

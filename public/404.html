@@ -1,15 +1,114 @@
 <!DOCTYPE html>
-<html lang="en-ZA">
+<html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Attract Acq - OS</title>
-    <meta name="description" content="We build the Attraction Engine™: Brand infrastructure for trades, fabricators, and service businesses in South Africa.">
-    </head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 | AA OS</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --bg2: #141414;
+            --teal: #00ffd2;
+            --border: #222222;
+            --grey: #888888;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: white;
+            font-family: 'DM Mono', monospace;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            border: 1px solid var(--border);
+            padding: 60px;
+            background: var(--bg2);
+            border-radius: 12px;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .code {
+            font-size: 80px;
+            font-weight: 700;
+            color: var(--teal);
+            margin: 0;
+            font-family: 'Playfair Display', serif;
+            opacity: 0.8;
+        }
+
+        h1 {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.3em;
+            margin: 20px 0;
+            color: var(--grey);
+        }
+
+        p {
+            font-size: 12px;
+            color: var(--grey);
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            display: inline-block;
+            background: transparent;
+            border: 1px solid var(--teal);
+            color: var(--teal);
+            padding: 12px 24px;
+            text-decoration: none;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            background: rgba(0, 255, 210, 0.1);
+            transform: translateY(-1px);
+        }
+
+        /* Decorative "Terminal" bits */
+        .decoration {
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            font-size: 10px;
+            color: var(--border);
+        }
+    </style>
+
+    <script type="text/javascript">
+        // SPA Redirect Logic: 
+        // If someone hits app.attractacq.com/sops, this script 
+        // redirects them to app.attractacq.com/#/sops automatically.
+        var pathSegments = window.location.pathname.split('/');
+        if (pathSegments.length > 1 && pathSegments[1] !== '') {
+            window.location.replace(
+                window.location.protocol + '//' + window.location.hostname + (window.location.port ? ':' + window.location.port : '') + '/#/' + pathSegments.slice(1).join('/') + window.location.search + window.location.hash
+            );
+        }
+    </script>
+</head>
 <body>
-    <div id="root"></div>
-
-    <script type="module" src="/src/main.tsx"></script>
-
-    </body>
+    <div class="container">
+        <div class="decoration">SYSTEM_AUTH_ERROR // 404</div>
+        <div class="code">404</div>
+        <h1>Route Not Found</h1>
+        <p>The requested operation could not be completed. The resource may have moved or the link is malformed.</p>
+        <a href="/" class="btn">Return to Command Center</a>
+    </div>
+</body>
 </html>

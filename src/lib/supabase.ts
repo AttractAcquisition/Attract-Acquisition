@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from './database.types'
+import type { Database as DatabaseSchema } from './database.types'
+
+// 1. ADD THIS LINE: This makes the Database type visible to your entire app
+export type Database = DatabaseSchema
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
@@ -13,7 +16,6 @@ export const supabase = createClient<Database>(
  * TYPES (clean + derived from schema)
  */
 
-// Example: strongly typed rows
 export type Client = Database['public']['Tables']['clients']['Row']
 export type Prospect = Database['public']['Tables']['prospects']['Row']
 export type AppFile = Database['public']['Tables']['app_files']['Row']
@@ -25,11 +27,14 @@ export type DistroMetric = Database['public']['Tables']['distro_metrics']['Row']
 export type Ledger = Database['public']['Tables']['ledger']['Row']
 export type Task = Database['public']['Tables']['tasks']['Row']
 
+// 2. ADD THIS: Since you'll likely need it for the Ledger form later
+export type LedgerInsert = Database['public']['Tables']['ledger']['Insert']
+
 export type Sop = Database['public']['Tables']['sops']['Row'] & {
   files: any[]
 }
 
-// Insert types (VERY useful for forms / mutations)
+// Insert types
 export type InsertClient = Database['public']['Tables']['clients']['Insert']
 export type InsertProspect = Database['public']['Tables']['prospects']['Insert']
 export type InsertDeliverable = Database['public']['Tables']['client_deliverables']['Insert']

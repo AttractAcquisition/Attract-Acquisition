@@ -57,21 +57,21 @@ export default function IncomeTracking() {
   }, [])
 
   async function fetchTransactions() {
-    setLoading(true)
-    try {
-      const { data, error } = await supabase
-        .from('ledger') 
-        .select('*')
-        .order('date', { ascending: false })
+  setLoading(true)
+  try {
+    const { data, error } = await supabase
+      .from<Ledger>('ledger')   // ✅ Fixes TS error
+      .select('*')
+      .order('date', { ascending: false })
 
-      if (error) throw error
-      setTransactions((data as Transaction[]) || [])
-    } catch (error: any) {
-      toast(error.message || 'Failed to fetch transactions', 'error')
-    } finally {
-      setLoading(false)
-    }
+    if (error) throw error
+    setTransactions((data as Transaction[]) || [])
+  } catch (error: any) {
+    toast(error.message || 'Failed to fetch transactions', 'error')
+  } finally {
+    setLoading(false)
   }
+}
 
   async function handleAddTransaction(e: React.FormEvent) {
     e.preventDefault()

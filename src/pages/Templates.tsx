@@ -90,23 +90,32 @@ async function loadFiles(templateId: string) {
     setAssociatedFiles([])
   }
 
-  async function save() {
+async function save() {
     if (!editForm.title || !editForm.content) { 
       toast('Title and content required', 'error')
       return 
     }
     setSaving(true)
     
+    // Calculate variables to match your _text column in Supabase
+    const extractedVars = [...new Set(editForm.content?.match(/\{[^}]+\}/g) || [])]
+
     const payload = { 
-      ...editForm, 
-      char_count: editForm.content.length, 
+      title: editForm.title,
+      category: editForm.category,
+      content: editForm.content,
+      char_count: editForm.content.length,
+      variables: extractedVars, // Fixed: Added variables array
+      last_edited_by: user?.id || 'anonymous', // Fixed: Added editor ID
       updated_at: new Date().toISOString() 
     }
 
     if (isNew) {
-      const { data, error } = await supabase.from('templates').insert(payload).select().single()
-      if (error || !data) { 
-        toast('Failed to save', 'error')
+      // Use array syntax for insert to be more robust
+      const { data, error } = await supabase.from('templates').insert([payload]).select().single()
+      if (error) { 
+        console.error('Supabase Save Error:', error)
+        toast(`Failed to save: ${error.message}`, 'error')
         setSaving(false)
         return 
       }
@@ -115,8 +124,9 @@ async function loadFiles(templateId: string) {
       setIsNew(false)
     } else if (selected) {
       const { data, error } = await supabase.from('templates').update(payload).eq('id', selected.id).select().single()
-      if (error || !data) { 
-        toast('Failed to save', 'error')
+      if (error) { 
+        console.error('Supabase Update Error:', error)
+        toast(`Failed to update: ${error.message}`, 'error')
         setSaving(false)
         return 
       }

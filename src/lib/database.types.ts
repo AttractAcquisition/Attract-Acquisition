@@ -892,6 +892,7 @@ export type Database = {
           content: string | null
           created_at: string | null
           description: string | null
+          files: Json | null
           id: string
           last_reviewed_at: string | null
           reviewed_by: string | null
@@ -906,6 +907,7 @@ export type Database = {
           content?: string | null
           created_at?: string | null
           description?: string | null
+          files?: Json | null
           id?: string
           last_reviewed_at?: string | null
           reviewed_by?: string | null
@@ -920,6 +922,7 @@ export type Database = {
           content?: string | null
           created_at?: string | null
           description?: string | null
+          files?: Json | null
           id?: string
           last_reviewed_at?: string | null
           reviewed_by?: string | null

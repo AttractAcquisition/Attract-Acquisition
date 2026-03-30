@@ -24,7 +24,7 @@ export default function Layout() {
     if (isClient) return [{
       section: 'Overview',
       items: [
-        { label: 'Dashboard', path: '/dashboard', icon: ROUTE_CONFIG.dashboard.icon },
+        { label: 'Live Pipeline', path: '/dashboard', icon: ROUTE_CONFIG.dashboard.icon },
         { label: 'Execution Tracker', path: '/tracker', icon: ROUTE_CONFIG.tracker.icon }
       ]
     }];

@@ -23,6 +23,38 @@ type OverriddenFields =
   | 'vertical'
   | 'icp_total_score';
 
+// Define exactly what a Row looks like in app_files
+export interface AppFile {
+  id: string;
+  created_at: string;
+  file_name: string;
+  file_path: string;
+  file_type: string;
+  associated_sop_id: string;
+  uploaded_by?: string | null;
+}
+
+// Create a helper type to add app_files to your existing Database type
+type ExtendedDatabase = Database & {
+  public: {
+    Tables: {
+      app_files: {
+        Row: AppFile;
+        Insert: Omit<AppFile, 'id' | 'created_at'> & { id?: string; created_at?: string };
+        Update: Partial<AppFile>;
+        Relationships: [
+          {
+            foreignKeyName: "app_files_associated_sop_id_fkey"
+            columns: ["associated_sop_id"]
+            referencedRelation: "sops"
+            referencedColumns: ["id"]
+          }
+        ];
+      };
+    };
+  };
+};
+
 // 2. Create the Clean Interface
 export interface Prospect extends Omit<BaseProspect, OverriddenFields> {
   // New Tracking & Daily Logic Fields

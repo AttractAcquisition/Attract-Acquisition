@@ -16,12 +16,16 @@ export interface AppFile {
 
 /**
  * EXTENDED DATABASE
- * We explicitly define tables that are throwing 'never' errors 
+ * We explicitly define tables that are throwing 'never' errors
  * to ensure the compiler recognizes them.
+ * 
+ * Updated to use the recommended intersection pattern for reliability
+ * and added the missing tables causing the current build errors
+ * (deliveries + distributions from the dashboard components).
  */
 type ExtendedDatabase = Database & {
   public: {
-    Tables: {
+    Tables: Database['public']['Tables'] & {
       app_files: {
         Row: AppFile;
         Insert: Omit<AppFile, 'id' | 'created_at'> & { id?: string; created_at?: string };
@@ -38,6 +42,9 @@ type ExtendedDatabase = Database & {
       prospects: Database['public']['Tables']['prospects'];
       tasks: Database['public']['Tables']['tasks'];
       sops: Database['public']['Tables']['sops'];
+      // Newly added to fix the remaining never / overload errors
+      deliveries: Database['public']['Tables']['deliveries'];
+      distributions: Database['public']['Tables']['distributions'];
     };
   };
 };
@@ -48,12 +55,10 @@ export const supabase = createClient<ExtendedDatabase>(supabaseUrl, supabaseKey)
  * PROSPECT INTERFACE
  */
 type BaseProspect = Database['public']['Tables']['prospects']['Row'];
-
-type OverriddenFields = 
-  | 'pipeline_stage' | 'is_archived' | 'mjr_link' 
+type OverriddenFields =
+  | 'pipeline_stage' | 'is_archived' | 'mjr_link'
   | 'spoa_delivered_at' | 'mjr_delivered_at' | 'target_date'
   | 'suburb' | 'vertical' | 'icp_total_score';
-
 export interface Prospect extends Omit<BaseProspect, OverriddenFields> {
   target_date?: string | null;
   spoa_delivered_at?: string | null;
@@ -85,13 +90,11 @@ export type ProofSprint = Database['public']['Tables']['proof_sprints']['Row']
 export type Task = Database['public']['Tables']['tasks']['Row']
 export type MonthlyRevenue = Database['public']['Tables']['monthly_revenue']['Row']
 export type OutreachMessage = Database['public']['Tables']['outreach_messages']['Row']
-
 export type Sop = Database['public']['Tables']['sops']['Row'] & {
   files?: AppFile[];
 }
 
 export type IcpTier = '★★★' | '★★' | '★' | 'unscored'
-
 export type ProspectStatus =
   | 'new' | 'contacted' | 'mjr_sent' | 'mjr_opened'
   | 'call_booked' | 'call_completed' | 'sprint_active'

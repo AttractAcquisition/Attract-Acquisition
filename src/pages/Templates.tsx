@@ -290,20 +290,63 @@ try {
               </div>
             </div>
 
-            {/* ASSOCIATED FILES BAR */}
-            {associatedFiles.length > 0 && (
-              <div style={{ paddingBottom: 10, borderBottom: '1px solid var(--border2)' }}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {associatedFiles.map(file => (
-                    <div key={file.id} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg2)', padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border2)', minWidth: '160px' }}>
-                      {file.file_type === 'application/pdf' ? <FileText size={14} style={{ color: 'var(--red)', marginRight: 8 }} /> : <FileCode size={14} style={{ color: 'var(--teal)', marginRight: 8 }} />}
-                      <a href={file.file_path} target="_blank" rel="noopener noreferrer" style={{ flex: 1, color: 'var(--teal)', textDecoration: 'none', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.file_name}</a>
-                      <button onClick={() => handleFileDelete(file)} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', padding: 2 }}><X size={12} /></button>
-                    </div>
-                  ))}
-                </div>
-              </div>
+{/* ASSOCIATED FILES BAR */}
+{associatedFiles.length > 0 && (
+  <div style={{ paddingBottom: 15, borderBottom: '1px solid var(--border2)', marginBottom: 20 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      {associatedFiles.map(file => {
+        const isHtml = file.file_type === 'text/html' || file.file_name.toLowerCase().endsWith('.html');
+        
+        return (
+          <div key={file.id} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg2)', padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border2)', minWidth: '200px', maxWidth: '300px' }}>
+            {file.file_type === 'application/pdf' ? (
+              <FileText size={14} style={{ color: 'var(--red)', marginRight: 10, flexShrink: 0 }} />
+            ) : (
+              <FileCode size={14} style={{ color: 'var(--teal)', marginRight: 10, flexShrink: 0 }} />
             )}
+            
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <span 
+                style={{ fontSize: 11, color: 'var(--white)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }} 
+                title={file.file_name}
+              >
+                {file.file_name}
+              </span>
+              
+              <div style={{ display: 'flex', gap: 8, marginTop: 1 }}>
+                {isHtml ? (
+                  <button
+                    onClick={() => handleViewTemplate(file)}
+                    style={{ background: 'none', border: 'none', padding: 0, color: 'var(--teal)', fontSize: 10, cursor: 'pointer', fontFamily: 'DM Mono', textAlign: 'left', textDecoration: 'underline' }}
+                  >
+                    View Rendered
+                  </button>
+                ) : (
+                  <a
+                    href={file.file_path}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: 'var(--grey)', fontSize: 10, fontFamily: 'DM Mono', textDecoration: 'underline' }}
+                  >
+                    Open File
+                  </a>
+                )}
+              </div>
+            </div>
+
+            <button 
+              onClick={() => handleFileDelete(file)} 
+              style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', padding: 4, marginLeft: 4, display: 'flex', alignItems: 'center', opacity: 0.7 }}
+              title="Delete File"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
 
             {/* UPLOAD BUTTONS */}
             {!isNew && selected && (

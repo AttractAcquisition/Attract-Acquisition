@@ -12,9 +12,8 @@ import { useToast } from '../lib/toast'
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ViewType = 'monthly' | 'weekly' | 'daily'
 
-// Use these to map directly to your Database Schema
+// Using LedgerRow for internal mapping
 type LedgerRow = Database['public']['Tables']['ledger']['Row']
-type LedgerInsert = Database['public']['Tables']['ledger']['Insert']
 
 // This ensures your local 'type' matches the DB Enum ('income' | 'expense')
 export type Transaction = Omit<LedgerRow, 'type'> & { 

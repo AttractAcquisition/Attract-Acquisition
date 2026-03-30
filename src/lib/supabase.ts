@@ -4,25 +4,6 @@ import type { Database } from './database.types'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseKey)
-
-/**
- * PROSPECT INTERFACE
- */
-type BaseProspect = Database['public']['Tables']['prospects']['Row'];
-
-// 1. Identify fields that cause conflicts or are missing from base types
-type OverriddenFields = 
-  | 'pipeline_stage' 
-  | 'is_archived' 
-  | 'mjr_link' 
-  | 'spoa_delivered_at' 
-  | 'mjr_delivered_at'
-  | 'target_date'
-  | 'suburb'
-  | 'vertical'
-  | 'icp_total_score';
-
 // Define exactly what a Row looks like in app_files
 export interface AppFile {
   id: string;
@@ -54,6 +35,26 @@ type ExtendedDatabase = Database & {
     };
   };
 };
+
+// 1. FIXED: Pass ExtendedDatabase to the client
+export const supabase = createClient<ExtendedDatabase>(supabaseUrl, supabaseKey)
+
+/**
+ * PROSPECT INTERFACE
+ */
+type BaseProspect = Database['public']['Tables']['prospects']['Row'];
+
+// 1. Identify fields that cause conflicts or are missing from base types
+type OverriddenFields = 
+  | 'pipeline_stage' 
+  | 'is_archived' 
+  | 'mjr_link' 
+  | 'spoa_delivered_at' 
+  | 'mjr_delivered_at'
+  | 'target_date'
+  | 'suburb'
+  | 'vertical'
+  | 'icp_total_score';
 
 // 2. Create the Clean Interface
 export interface Prospect extends Omit<BaseProspect, OverriddenFields> {
@@ -95,8 +96,10 @@ export type Client = Database['public']['Tables']['clients']['Row']
 export type ProofSprint = Database['public']['Tables']['proof_sprints']['Row']
 export type Task = Database['public']['Tables']['tasks']['Row']
 export type MonthlyRevenue = Database['public']['Tables']['monthly_revenue']['Row']
-export type Sop = Database['public']['Tables']['sops']['Row']
 export type OutreachMessage = Database['public']['Tables']['outreach_messages']['Row']
+
+export type Sop = Database['public']['Tables']['sops']['Row'] & {
+  files?: AppFile[];
 
 export type IcpTier = '★★★' | '★★' | '★' | 'unscored'
 

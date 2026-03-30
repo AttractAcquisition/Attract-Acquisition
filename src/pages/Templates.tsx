@@ -22,6 +22,14 @@ const CATEGORIES = [
   { key: 'contract',     label: 'Contracts' },
   { key: 'report',       label: 'Report Templates' },
   { key: 'va_brief',     label: 'VA Briefs' },
+  { key: 'outreach',     label: 'Outreach & Pipeline' },
+  { key: 'mjr',     label: 'Missed Jobs Report' },
+  { key: 'spoa',     label: 'Strategic Plan of Action' },
+  { key: 'sprint',     label: 'Proof Sprint' },
+  { key: 'brand',     label: 'Proof Brand' },
+  { key: 'authority',     label: 'Authority Brand' },
+  { key: 'general',     label: 'General' },
+  { key: 'admin',     label: 'Admin' },
 ]
 
 export default function Templates() {

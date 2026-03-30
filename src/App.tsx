@@ -89,7 +89,12 @@ function AppRoutes() {
 
       {/* --- DASHBOARD ROUTES (WITH SIDEBAR) --- */}
       <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
-        <Route index element={<Navigate to={role === 'distribution' ? '/distribution' : role === 'delivery' ? '/delivery-dash' : '/dashboard'} replace />} />
+        <Route index element={
+  <Navigate 
+    to={role === 'distribution' ? 'distribution' : role === 'delivery' ? 'delivery-dash' : 'dashboard'} 
+    replace 
+  />
+} />
         {generatedRoutes}
         <Route path="sprints/:id" element={<Suspense fallback={<LoadingScreen />}><RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>SprintDetailHere</RoleWrapper></Suspense>} />
       </Route>

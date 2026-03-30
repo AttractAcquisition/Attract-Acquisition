@@ -331,6 +331,15 @@ try {
   const activeCount = sops.filter(s => s.status === 'active').length
   const draftCount = sops.filter(s => s.status === 'draft').length
 
+  const handleViewTemplate = (file: any) => {
+  // We build a local URL that points to our new page
+  // We pass the Supabase URL and the File Name as encoded parameters
+  const previewUrl = `/template-view?url=${encodeURIComponent(file.file_path)}&name=${encodeURIComponent(file.file_name)}`;
+  
+  // This opens our "Template Viewer" in a brand new tab
+  window.open(previewUrl, '_blank');
+};
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20, height: 'calc(100vh - 120px)' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

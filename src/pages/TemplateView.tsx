@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Copy, Download, ArrowLeft, Check, ExternalLink } from 'lucide-react';
+import { Copy, Download, ArrowLeft, Check } from 'lucide-react';
 
 export default function TemplateView() {
   const [searchParams] = useSearchParams();

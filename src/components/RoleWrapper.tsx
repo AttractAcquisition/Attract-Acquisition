@@ -1,6 +1,6 @@
 import { useAuth } from '../lib/auth'
 import type { ReactNode } from 'react'
-import { AlertCircle, ShieldAlert, Home } from 'lucide-react'
+import { ShieldAlert, Home } from 'lucide-react'
 
 interface RoleWrapperProps {
   allowedRoles: string[]
@@ -11,11 +11,12 @@ export default function RoleWrapper({ allowedRoles, children }: RoleWrapperProps
   const { role, loading } = useAuth()
 
   // 1. LOADING STATE
+  // While we fetch the session from Supabase
   if (loading) {
     return (
       <div style={{
         minHeight: '60vh', display: 'flex', alignItems: 'center',
-        justify-content: 'center',
+        justifyContent: 'center',
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
           <div style={{
@@ -50,27 +51,29 @@ export default function RoleWrapper({ allowedRoles, children }: RoleWrapperProps
       }}>
         <div style={{ 
           background: 'rgba(255, 170, 0, 0.05)', 
-          padding: 30, 
+          padding: '40px 30px', 
           borderRadius: 16, 
           border: '1px solid rgba(255, 170, 0, 0.2)',
-          maxWidth: 400
+          maxWidth: 440,
+          width: '100%'
         }}>
-          <ShieldAlert size={40} color="var(--amber)" style={{ marginBottom: 16 }} />
+          <ShieldAlert size={44} color="var(--amber)" style={{ marginBottom: 20 }} />
           
           <h2 style={{ 
             fontFamily: 'Playfair Display', 
-            fontSize: 24, 
-            margin: '0 0 10px 0', 
-            color: 'white' 
+            fontSize: 26, 
+            margin: '0 0 12px 0', 
+            color: 'white',
+            fontWeight: 700 
           }}>
             Access Restricted
           </h2>
           
           <p style={{ 
-            fontSize: 13, 
+            fontSize: 14, 
             color: 'var(--grey)', 
             lineHeight: 1.6, 
-            margin: '0 0 20px 0' 
+            margin: '0 0 24px 0' 
           }}>
             Your current role <span style={{ color: 'var(--teal)', fontWeight: 600 }}>"{role || 'Guest'}"</span> does not have the required permissions to view this sector.
           </p>
@@ -78,30 +81,33 @@ export default function RoleWrapper({ allowedRoles, children }: RoleWrapperProps
           <div style={{ 
             fontFamily: 'DM Mono', 
             fontSize: 9, 
-            background: 'var(--bg)', 
-            padding: '8px 12px', 
-            borderRadius: 4, 
+            background: 'rgba(0,0,0,0.3)', 
+            padding: '10px 14px', 
+            borderRadius: 6, 
             color: 'var(--grey2)',
             textTransform: 'uppercase',
-            letterSpacing: '0.1em'
+            letterSpacing: '0.12em',
+            border: '1px solid var(--border2)'
           }}>
-            Required Roles: {allowedRoles.length > 0 ? allowedRoles.join(', ') : 'ADMIN_ONLY'}
+            Required Roles: {allowedRoles.length > 0 ? allowedRoles.join(', ') : 'SYSTEM_ADMIN'}
           </div>
         </div>
 
         <a href="/#/dashboard" style={{ 
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
+          gap: 10,
           fontSize: 11, 
           color: 'var(--teal)', 
           textDecoration: 'none', 
           border: '1px solid var(--teal)', 
-          padding: '10px 20px', 
-          borderRadius: 4,
+          padding: '12px 24px', 
+          borderRadius: 6,
           fontFamily: 'DM Mono',
           textTransform: 'uppercase',
-          transition: 'all 0.2s'
+          letterSpacing: '0.05em',
+          transition: 'all 0.2s',
+          background: 'transparent'
         }}>
           <Home size={14} /> Return to Command Center
         </a>

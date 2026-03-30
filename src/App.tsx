@@ -41,19 +41,20 @@ function AppRoutes() {
       const fileName = path.split('/').pop()?.replace('.tsx', '') || '';
       const lowerName = fileName.toLowerCase();
 
-      // Handle special cases or index pages
       if (['Login', 'Portal', 'Layout'].includes(fileName)) return null;
 
-      // Resolve the correct route key (uses file→key map for mismatched filenames)
       const routeKey = fileToRouteKey[lowerName] || lowerName;
+      
+      // EXCLUDE TemplateView from the standard dashboard layout generation
+      if (routeKey === 'template-view') return null;
+
       const Component = React.lazy(pageModules[path] as any);
       const config = ROUTE_CONFIG[routeKey];
-      const routePath = routeKey;
 
       return (
         <Route 
-          key={routePath} 
-          path={routePath} 
+          key={routeKey} 
+          path={routeKey} 
           element={
             <Suspense fallback={<LoadingScreen />}>
               <RoleWrapper allowedRoles={config?.roles || []}>
@@ -69,38 +70,33 @@ function AppRoutes() {
   if (loading) return <LoadingScreen />;
 
   return (
-  <Routes>
-    {/* 1. Public Routes */}
-    <Route path="/login" element={<Login />} />
-    <Route path="/portal" element={<Navigate to="/dashboard" replace />} />
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/portal" element={<Navigate to="/dashboard" replace />} />
 
-    {/* 2. STANDALONE FULL-SCREEN ROUTES (No Sidebar/Layout) */}
-    {/* This allows the template to be a clean, white-label preview */}
-    <Route 
-      path="/template-view" 
-      element={
-        <RequireAuth>
-          <Suspense fallback={<LoadingScreen />}>
-             {/* Note: Adjust 'TemplateView' if your filename is different */}
-             {React.createElement(React.lazy(pageModules['./pages/TemplateView.tsx'] as any))}
-          </Suspense>
-        </RequireAuth>
-      } 
-    />
+      {/* --- STANDALONE FULL-SCREEN ROUTE --- */}
+      <Route 
+        path="/template-view" 
+        element={
+          <RequireAuth>
+            <Suspense fallback={<LoadingScreen />}>
+              {/* Manually creating the element for the standalone view */}
+              {React.createElement(React.lazy(pageModules['./pages/TemplateView.tsx'] as any))}
+            </Suspense>
+          </RequireAuth>
+        } 
+      />
 
-    {/* 3. Main Dashboard Routes (With Sidebar/Layout) */}
-    <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
-      <Route index element={<Navigate to={role === 'distribution' ? '/distribution' : role === 'delivery' ? '/delivery-dash' : '/dashboard'} replace />} />
-      
-      {/* Filter out the TemplateView from the sidebar layout so it doesn't try to render twice */}
-      {generatedRoutes.filter(route => route?.key !== 'template-view')}
-      
-      <Route path="sprints/:id" element={<Suspense fallback={<LoadingScreen />}><RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>SprintDetailHere</RoleWrapper></Suspense>} />
-    </Route>
+      {/* --- DASHBOARD ROUTES (WITH SIDEBAR) --- */}
+      <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
+        <Route index element={<Navigate to={role === 'distribution' ? '/distribution' : role === 'delivery' ? '/delivery-dash' : '/dashboard'} replace />} />
+        {generatedRoutes}
+        <Route path="sprints/:id" element={<Suspense fallback={<LoadingScreen />}><RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>SprintDetailHere</RoleWrapper></Suspense>} />
+      </Route>
 
-    <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes>
-);
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
 
 export default function App() {

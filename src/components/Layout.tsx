@@ -20,7 +20,7 @@ export default function Layout() {
   const location = useLocation()
   const isClient = role === 'client'
 
-  const navGroups = useMemo(() => {
+ const navGroups = useMemo(() => {
     if (isClient) return [{
       section: 'Overview',
       items: [
@@ -32,7 +32,8 @@ export default function Layout() {
     const groups: Record<string, any[]> = {};
     
     Object.entries(ROUTE_CONFIG).forEach(([path, config]) => {
-      if (!config.roles || config.roles.includes(role || '')) {
+      // FIX: Check roles AND ensure we aren't adding the utility viewer to the sidebar
+      if (path !== 'template-view' && (!config.roles || config.roles.includes(role || ''))) {
         if (!groups[config.section]) groups[config.section] = [];
         groups[config.section].push({ ...config, path: `/${path}` });
       }
@@ -40,7 +41,7 @@ export default function Layout() {
 
     return Object.entries(groups).map(([section, items]) => ({ section, items }));
   }, [role, isClient]);
-
+  
   const currentTitle = useMemo(() => {
     const path = location.pathname.split('/')[1];
     if (isClient) {

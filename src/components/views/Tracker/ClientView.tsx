@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../../../lib/supabase'
+import type { PortalTask, PortalDocument, PortalMessage } from '../../../lib/supabase'
 import { useAuth } from '../../../lib/auth'
 import { useToast } from '../../../lib/toast'
 import {
@@ -9,35 +10,13 @@ import {
 
 type Tab = 'tasks' | 'documents' | 'messages'
 
-interface PortalTask {
-  id: string
-  title: string
-  description: string | null
-  status: 'pending' | 'in_progress' | 'completed'
-  due_date: string | null
-  created_at: string
-}
-
-interface PortalDocument {
-  id: string
-  file_name: string
-  file_path: string
-  uploaded_by: string | null
-  created_at: string
-}
-
-interface PortalMessage {
-  id: string
-  content: string
-  sender_id: string
-  sender_role: string | null
-  created_at: string
-}
-
 export default function ClientView() {
   const { metadata_id, user } = useAuth()
   const { toast } = useToast()
   const [tab, setTab] = useState<Tab>('tasks')
+
+  // The account manager UUID — required for inserts that need manager_id
+  const [managerId, setManagerId] = useState<string | null>(null)
 
   // Tasks
   const [tasks, setTasks] = useState<PortalTask[]>([])
@@ -55,18 +34,30 @@ export default function ClientView() {
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  // Resolve the account_manager UUID for this client (needed for NOT NULL manager_id inserts)
+  useEffect(() => {
+    if (!metadata_id) return
+    supabase
+      .from('clients')
+      .select('account_manager')
+      .eq('id', metadata_id)
+      .single()
+      .then(({ data }) => {
+        if (data?.account_manager) setManagerId(data.account_manager)
+      })
+  }, [metadata_id])
+
   // Fetch tasks
   useEffect(() => {
     if (!metadata_id) { setTasksLoading(false); return }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(supabase as any)
+    supabase
       .from('portal_tasks')
       .select('*')
       .eq('client_id', metadata_id)
       .order('created_at', { ascending: false })
-      .then(({ data, error }: any) => {
+      .then(({ data, error }) => {
         if (error) toast(error.message, 'error')
-        setTasks((data as PortalTask[]) || [])
+        setTasks(data || [])
         setTasksLoading(false)
       })
   }, [metadata_id])
@@ -74,15 +65,14 @@ export default function ClientView() {
   // Fetch documents
   useEffect(() => {
     if (!metadata_id) { setDocsLoading(false); return }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(supabase as any)
+    supabase
       .from('portal_documents')
       .select('*')
       .eq('client_id', metadata_id)
       .order('created_at', { ascending: false })
-      .then(({ data, error }: any) => {
+      .then(({ data, error }) => {
         if (error) toast(error.message, 'error')
-        setDocuments((data as PortalDocument[]) || [])
+        setDocuments(data || [])
         setDocsLoading(false)
       })
   }, [metadata_id])
@@ -91,15 +81,14 @@ export default function ClientView() {
   useEffect(() => {
     if (!metadata_id) { setMsgLoading(false); return }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(supabase as any)
+    supabase
       .from('portal_messages')
       .select('*')
       .eq('client_id', metadata_id)
       .order('created_at', { ascending: true })
-      .then(({ data, error }: any) => {
+      .then(({ data, error }) => {
         if (error) toast(error.message, 'error')
-        setMessages((data as PortalMessage[]) || [])
+        setMessages(data || [])
         setMsgLoading(false)
       })
 
@@ -115,19 +104,18 @@ export default function ClientView() {
     return () => { supabase.removeChannel(channel) }
   }, [metadata_id])
 
-  // Auto-scroll messages
+  // Auto-scroll on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   async function toggleTaskStatus(task: PortalTask) {
-    const nextStatus: PortalTask['status'] = task.status === 'completed' ? 'pending' : 'completed'
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    const nextStatus = task.status === 'completed' ? 'pending' : 'completed'
+    const { error } = await supabase
       .from('portal_tasks')
       .update({ status: nextStatus })
       .eq('id', task.id)
-      .eq('client_id', metadata_id)
+      .eq('client_id', metadata_id!)
     if (error) { toast(error.message, 'error'); return }
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: nextStatus } : t))
     toast(`Task marked ${nextStatus}`, 'success')
@@ -144,16 +132,21 @@ export default function ClientView() {
       .upload(filePath, file, { upsert: true })
     if (storageError) { toast(storageError.message, 'error'); setUploading(false); return }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error: dbError } = await (supabase as any)
+    const { data, error: dbError } = await supabase
       .from('portal_documents')
-      .insert({ client_id: metadata_id, file_name: file.name, file_path: filePath, uploaded_by: user.id })
+      .insert({
+        client_id:   metadata_id,
+        manager_id:  managerId ?? user.id,
+        file_name:   file.name,
+        file_path:   filePath,
+        uploaded_by: user.id,
+      })
       .select()
       .single()
     if (dbError) { toast(dbError.message, 'error'); setUploading(false); return }
 
     toast(`${file.name} uploaded`, 'success')
-    setDocuments(prev => [data as PortalDocument, ...prev])
+    setDocuments(prev => [data, ...prev])
     setUploading(false)
     e.target.value = ''
   }
@@ -170,25 +163,30 @@ export default function ClientView() {
   async function sendMessage() {
     if (!newMessage.trim() || !metadata_id || !user) return
     setSending(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('portal_messages')
-      .insert({ client_id: metadata_id, content: newMessage.trim(), sender_id: user.id, sender_role: 'client' })
+      .insert({
+        client_id:    metadata_id,
+        manager_id:   managerId ?? user.id,
+        message_text: newMessage.trim(),
+        sender_id:    user.id,
+      })
     if (error) toast(error.message, 'error')
     else setNewMessage('')
     setSending(false)
   }
 
-  const tabBtn = (active: boolean) => ({
+  // ── Shared styles ──
+  const tabBtn = (active: boolean): React.CSSProperties => ({
     padding: '8px 20px', borderRadius: 6, border: 'none', cursor: 'pointer',
-    fontFamily: 'DM Mono', fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: '0.08em',
+    fontFamily: 'DM Mono', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em',
     background: active ? 'var(--teal)' : 'var(--bg3)',
     color: active ? 'var(--bg)' : 'var(--grey)',
   })
 
-  const statusChip = (status: string) => ({
-    fontFamily: 'DM Mono', fontSize: 9, textTransform: 'uppercase' as const,
-    padding: '3px 10px', borderRadius: 4,
+  const statusChip = (status: string | null): React.CSSProperties => ({
+    fontFamily: 'DM Mono', fontSize: 9, textTransform: 'uppercase',
+    padding: '3px 10px', borderRadius: 4, whiteSpace: 'nowrap',
     background: status === 'completed' ? 'rgba(0,229,195,0.12)' : status === 'in_progress' ? 'rgba(255,200,0,0.12)' : 'var(--bg3)',
     color: status === 'completed' ? 'var(--teal)' : status === 'in_progress' ? 'var(--amber)' : 'var(--grey)',
   })
@@ -265,7 +263,7 @@ export default function ClientView() {
                     </div>
                   )}
                 </div>
-                <div style={statusChip(task.status)}>{task.status.replace('_', ' ')}</div>
+                <div style={statusChip(task.status)}>{(task.status ?? 'pending').replace('_', ' ')}</div>
               </div>
             ))}
           </div>
@@ -355,7 +353,7 @@ export default function ClientView() {
                     background: isOwn ? 'var(--teal)' : 'var(--bg3)',
                     color: isOwn ? 'var(--bg)' : 'var(--white)',
                   }}>
-                    <div style={{ fontSize: 13, lineHeight: 1.5 }}>{msg.content}</div>
+                    <div style={{ fontSize: 13, lineHeight: 1.5 }}>{msg.message_text}</div>
                     <div style={{
                       fontFamily: 'DM Mono', fontSize: 9, marginTop: 4, textAlign: 'right',
                       color: isOwn ? 'rgba(0,0,0,0.45)' : 'var(--grey)',

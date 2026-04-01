@@ -26,6 +26,9 @@ export type DistributionProgress = Database['public']['Tables']['distribution_pr
 export type DistroMetric = Database['public']['Tables']['distro_metrics']['Row']
 export type Ledger = Database['public']['Tables']['ledger']['Row']
 export type Task = Database['public']['Tables']['tasks']['Row']
+export type PortalTask     = Database['public']['Tables']['portal_tasks']['Row']
+export type PortalDocument = Database['public']['Tables']['portal_documents']['Row']
+export type PortalMessage  = Database['public']['Tables']['portal_messages']['Row']
 
 // 2. ADD THIS: Since you'll likely need it for the Ledger form later
 export type LedgerInsert = Database['public']['Tables']['ledger']['Insert']

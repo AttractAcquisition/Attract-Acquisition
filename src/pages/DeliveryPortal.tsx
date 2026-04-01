@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import type { PortalTask, PortalDocument, PortalMessage } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../lib/toast'
 import {
@@ -15,32 +16,8 @@ interface ClientRow {
   owner_name: string | null
 }
 
-interface PortalTask {
-  id: string
-  title: string
-  description: string | null
-  status: string
-  due_date: string | null
-  created_at: string
-}
-
-interface PortalDocument {
-  id: string
-  file_name: string
-  file_path: string
-  created_at: string
-}
-
-interface PortalMessage {
-  id: string
-  content: string
-  sender_id: string
-  sender_role: string | null
-  created_at: string
-}
-
 export default function DeliveryPortal() {
-  const { user } = useAuth()
+  const { user, metadata_id } = useAuth()
   const { toast } = useToast()
 
   const [clients, setClients] = useState<ClientRow[]>([])
@@ -48,7 +25,7 @@ export default function DeliveryPortal() {
   const [selected, setSelected] = useState<ClientRow | null>(null)
   const [tab, setTab] = useState<Tab>('tasks')
 
-  // Tasks state
+  // Tasks
   const [tasks, setTasks] = useState<PortalTask[]>([])
   const [tasksLoading, setTasksLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
@@ -57,34 +34,34 @@ export default function DeliveryPortal() {
   const [taskDue, setTaskDue] = useState('')
   const [addingTask, setAddingTask] = useState(false)
 
-  // Documents state
+  // Documents
   const [documents, setDocuments] = useState<PortalDocument[]>([])
   const [docsLoading, setDocsLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
 
-  // Messages state
+  // Messages
   const [messages, setMessages] = useState<PortalMessage[]>([])
   const [msgLoading, setMsgLoading] = useState(false)
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
 
-  // Load managed clients (delivery_manager = current user)
+  // ── Load managed clients ──
+  // Mirrors the exact logic from Clients.tsx: .eq('account_manager', metadata_id)
   useEffect(() => {
-    if (!user?.id) { setClientsLoading(false); return }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(supabase as any)
+    if (!metadata_id) { setClientsLoading(false); return }
+    supabase
       .from('clients')
       .select('id, business_name, owner_name')
-      .eq('delivery_manager', user.id)
-      .order('business_name')
-      .then(({ data, error }: any) => {
+      .eq('account_manager', metadata_id)
+      .order('business_name', { ascending: true })
+      .then(({ data, error }) => {
         if (error) toast(error.message, 'error')
         setClients((data as ClientRow[]) || [])
         setClientsLoading(false)
       })
-  }, [user?.id])
+  }, [metadata_id])
 
-  // When client changes, reload all portal data
+  // ── Reload portal data when a client is selected ──
   useEffect(() => {
     if (!selected) return
     loadTasks()
@@ -92,7 +69,7 @@ export default function DeliveryPortal() {
     loadMessages()
   }, [selected?.id])
 
-  // Realtime messages for selected client
+  // ── Realtime: new messages for selected client ──
   useEffect(() => {
     if (!selected) return
     const channel = supabase
@@ -109,42 +86,39 @@ export default function DeliveryPortal() {
   async function loadTasks() {
     if (!selected) return
     setTasksLoading(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('portal_tasks')
       .select('*')
       .eq('client_id', selected.id)
       .order('created_at', { ascending: false })
     if (error) toast(error.message, 'error')
-    setTasks((data as PortalTask[]) || [])
+    setTasks(data || [])
     setTasksLoading(false)
   }
 
   async function loadDocuments() {
     if (!selected) return
     setDocsLoading(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('portal_documents')
       .select('*')
       .eq('client_id', selected.id)
       .order('created_at', { ascending: false })
     if (error) toast(error.message, 'error')
-    setDocuments((data as PortalDocument[]) || [])
+    setDocuments(data || [])
     setDocsLoading(false)
   }
 
   async function loadMessages() {
     if (!selected) return
     setMsgLoading(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('portal_messages')
       .select('*')
       .eq('client_id', selected.id)
       .order('created_at', { ascending: true })
     if (error) toast(error.message, 'error')
-    setMessages((data as PortalMessage[]) || [])
+    setMessages(data || [])
     setMsgLoading(false)
   }
 
@@ -157,23 +131,22 @@ export default function DeliveryPortal() {
   }
 
   async function addTask() {
-    if (!taskTitle.trim() || !selected || !user) return
+    if (!taskTitle.trim() || !selected || !user || !metadata_id) return
     setAddingTask(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('portal_tasks')
       .insert({
-        client_id: selected.id,
-        manager_id: user.id,
-        title: taskTitle.trim(),
+        client_id:   selected.id,
+        manager_id:  metadata_id,
+        title:       taskTitle.trim(),
         description: taskDesc.trim() || null,
-        due_date: taskDue || null,
-        status: 'pending',
+        due_date:    taskDue || null,
+        status:      'pending',
       })
       .select()
       .single()
     if (error) { toast(error.message, 'error'); setAddingTask(false); return }
-    setTasks(prev => [data as PortalTask, ...prev])
+    setTasks(prev => [data, ...prev])
     setTaskTitle(''); setTaskDesc(''); setTaskDue('')
     setShowForm(false)
     toast('Task assigned', 'success')
@@ -182,7 +155,7 @@ export default function DeliveryPortal() {
 
   async function uploadFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !selected || !user) return
+    if (!file || !selected || !user || !metadata_id) return
     setUploading(true)
     const filePath = `${selected.id}/${file.name}`
 
@@ -191,14 +164,13 @@ export default function DeliveryPortal() {
       .upload(filePath, file, { upsert: true })
     if (storageError) { toast(storageError.message, 'error'); setUploading(false); return }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error: dbError } = await (supabase as any)
+    const { data, error: dbError } = await supabase
       .from('portal_documents')
       .insert({
-        client_id: selected.id,
-        manager_id: user.id,
-        file_name: file.name,
-        file_path: filePath,
+        client_id:   selected.id,
+        manager_id:  metadata_id,
+        file_name:   file.name,
+        file_path:   filePath,
         uploaded_by: user.id,
       })
       .select()
@@ -206,23 +178,21 @@ export default function DeliveryPortal() {
     if (dbError) { toast(dbError.message, 'error'); setUploading(false); return }
 
     toast(`${file.name} uploaded`, 'success')
-    setDocuments(prev => [data as PortalDocument, ...prev])
+    setDocuments(prev => [data, ...prev])
     setUploading(false)
     e.target.value = ''
   }
 
   async function sendReply() {
-    if (!reply.trim() || !selected || !user) return
+    if (!reply.trim() || !selected || !user || !metadata_id) return
     setSending(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('portal_messages')
       .insert({
-        client_id: selected.id,
-        manager_id: user.id,
-        content: reply.trim(),
-        sender_id: user.id,
-        sender_role: 'manager',
+        client_id:    selected.id,
+        manager_id:   metadata_id,
+        message_text: reply.trim(),
+        sender_id:    user.id,
       })
     if (error) toast(error.message, 'error')
     else setReply('')
@@ -230,9 +200,9 @@ export default function DeliveryPortal() {
   }
 
   // ── Shared styles ──
-  const tabBtn = (active: boolean) => ({
+  const tabBtn = (active: boolean): React.CSSProperties => ({
     padding: '7px 18px', borderRadius: 6, border: 'none', cursor: 'pointer',
-    fontFamily: 'DM Mono', fontSize: 10, textTransform: 'uppercase' as const, letterSpacing: '0.08em',
+    fontFamily: 'DM Mono', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em',
     background: active ? 'var(--teal)' : 'var(--bg3)',
     color: active ? 'var(--bg)' : 'var(--grey)',
   })
@@ -244,7 +214,7 @@ export default function DeliveryPortal() {
     marginBottom: 10, boxSizing: 'border-box', outline: 'none',
   }
 
-  const statusChip = (status: string): React.CSSProperties => ({
+  const statusChip = (status: string | null): React.CSSProperties => ({
     fontFamily: 'DM Mono', fontSize: 9, textTransform: 'uppercase',
     padding: '3px 10px', borderRadius: 4, whiteSpace: 'nowrap',
     background: status === 'completed' ? 'rgba(0,229,195,0.12)' : status === 'in_progress' ? 'rgba(255,200,0,0.12)' : 'var(--bg3)',
@@ -270,12 +240,14 @@ export default function DeliveryPortal() {
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
           {clientsLoading ? (
-            <div style={{ padding: '16px 20px', fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)' }}>Loading...</div>
+            <div style={{ padding: '16px 20px', fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)' }}>
+              Loading...
+            </div>
           ) : clients.length === 0 ? (
             <div style={{ padding: '24px 20px' }}>
               <Users size={20} color="var(--grey2)" style={{ marginBottom: 8 }} />
               <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', lineHeight: 1.5 }}>
-                No clients assigned to you yet.
+                No clients assigned as account manager yet.
               </div>
             </div>
           ) : clients.map(client => (
@@ -451,7 +423,7 @@ export default function DeliveryPortal() {
                             </div>
                           )}
                         </div>
-                        <div style={statusChip(task.status)}>{task.status.replace('_', ' ')}</div>
+                        <div style={statusChip(task.status)}>{(task.status ?? 'pending').replace('_', ' ')}</div>
                       </div>
                     ))}
                   </div>
@@ -520,10 +492,10 @@ export default function DeliveryPortal() {
                   ) : messages.length === 0 ? (
                     <div style={{ textAlign: 'center', paddingTop: 60 }}>
                       <MessageSquare size={32} color="var(--grey2)" style={{ marginBottom: 10 }} />
-                      <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)' }}>No messages from this client yet.</div>
+                      <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)' }}>No messages yet. Start the thread.</div>
                     </div>
                   ) : messages.map(msg => {
-                    const isOwn = msg.sender_role === 'manager'
+                    const isOwn = msg.sender_id === user?.id
                     return (
                       <div key={msg.id} style={{ display: 'flex', flexDirection: isOwn ? 'row-reverse' : 'row', gap: 10 }}>
                         <div style={{
@@ -534,7 +506,7 @@ export default function DeliveryPortal() {
                           <div style={{ fontFamily: 'DM Mono', fontSize: 8, color: isOwn ? 'var(--teal)' : 'var(--grey)', textTransform: 'uppercase', marginBottom: 4 }}>
                             {isOwn ? 'You' : 'Client'}
                           </div>
-                          <div style={{ fontSize: 13, color: 'var(--white)', lineHeight: 1.5 }}>{msg.content}</div>
+                          <div style={{ fontSize: 13, color: 'var(--white)', lineHeight: 1.5 }}>{msg.message_text}</div>
                           <div style={{ fontFamily: 'DM Mono', fontSize: 8, color: 'var(--grey)', marginTop: 4 }}>
                             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>

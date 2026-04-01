@@ -15,41 +15,42 @@ export default function DeliveryDashboard() {
 
   useEffect(() => {
     if (user?.id) loadDashboardData()
+    else setLoading(false)
   }, [user?.id])
 
   async function loadDashboardData() {
-    // 1. Fetch clients assigned to this manager (using ! to tell TS user.id is present)
-    const { data: clientData } = await supabase
-      .from('clients')
-      .select('id, business_name')
-      .eq('account_manager', user!.id)
+    try {
+      const { data: clientData } = await supabase
+        .from('clients')
+        .select('id, business_name')
+        .eq('account_manager', user!.id)
 
-    if (clientData) {
-      setClients(clientData)
-      
-      // 2. Cast the table name to any to bypass the missing type error
-      const { data: existingMetrics } = await supabase
-        .from('delivery_metrics' as any)
-        .select('*')
-        .eq('manager_id', user!.id)
-        .eq('date_key', today)
+      if (clientData) {
+        setClients(clientData)
 
-      const metricsMap: Record<string, any> = {}
-      clientData.forEach(c => {
-        // cast to any to bypass the SelectQueryError inference issue
-        const existing = (existingMetrics as any[])?.find(m => m.client_id === c.id)
-        metricsMap[c.id] = existing || {
-          profile_visits: 0,
-          qualified_followers: 0,
-          dms_started: 0,
-          appointments_booked: 0,
-          cash_collected: 0,
-          notes: ''
-        }
-      })
-      setMetrics(metricsMap)
+        const { data: existingMetrics } = await supabase
+          .from('delivery_metrics' as any)
+          .select('*')
+          .eq('manager_id', user!.id)
+          .eq('date_key', today)
+
+        const metricsMap: Record<string, any> = {}
+        clientData.forEach(c => {
+          const existing = (existingMetrics as any[])?.find(m => m.client_id === c.id)
+          metricsMap[c.id] = existing || {
+            profile_visits: 0,
+            qualified_followers: 0,
+            dms_started: 0,
+            appointments_booked: 0,
+            cash_collected: 0,
+            notes: ''
+          }
+        })
+        setMetrics(metricsMap)
+      }
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const updateMetric = (clientId: string, field: string, value: any) => {

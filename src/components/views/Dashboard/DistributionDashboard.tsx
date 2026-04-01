@@ -29,29 +29,26 @@ export default function DistributionDashboard() {
   }, [user?.id])
 
   async function loadTodaysMetrics() {
-    // FIX: Cast the query result to any to bypass the "Invalid RelationName" error
+    if (!user?.id) return
     const { data } = await (supabase.from('distro_metrics' as any))
       .select('*')
-      .eq('manager_id', user?.id)
+      .eq('manager_id', user.id)
       .eq('date_key', today)
-      .single()
+      .maybeSingle()
 
-    // FIX: Only update if data exists, and cast data as any
     if (data) {
-      setMetrics(prev => ({
-        ...prev,
-        ...(data as any)
-      }))
+      setMetrics(prev => ({ ...prev, ...(data as any) }))
     }
   }
 
   async function loadHistory() {
+    if (!user?.id) return
     const { data } = await (supabase.from('distro_metrics' as any))
       .select('date_key, outreach_sent, calls_booked')
-      .eq('manager_id', user?.id)
+      .eq('manager_id', user.id)
       .order('date_key', { ascending: false })
       .limit(7)
-    
+
     if (data) setHistory([...(data as any[])].reverse())
   }
 

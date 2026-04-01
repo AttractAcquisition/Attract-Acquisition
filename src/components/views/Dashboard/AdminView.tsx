@@ -39,34 +39,35 @@ export default function AdminView() {
 
   useEffect(() => {
     async function load() {
-      const [c, p, s, t, o, m] = await Promise.all([
-        supabase.from('clients').select('monthly_retainer', { count: 'exact' }).eq('status', 'active'),
-        supabase.from('prospects').select('icp_tier', { count: 'exact' }).neq('status', 'archived'),
-        supabase.from('proof_sprints').select('id', { count: 'exact' }).eq('status', 'active'),
-        supabase.from('tasks').select('*').eq('due_date', todayStr).order('category'),
-        supabase.from('ops_manager_status' as any).select('*'),
-        supabase.from('distro_metrics' as any).select('*').eq('date_key', todayStr)
-      ])
+      try {
+        const [c, p, s, t, o, m] = await Promise.all([
+          supabase.from('clients').select('monthly_retainer', { count: 'exact' }).eq('status', 'active'),
+          supabase.from('prospects').select('icp_tier', { count: 'exact' }).neq('status', 'archived'),
+          supabase.from('proof_sprints').select('id', { count: 'exact' }).eq('status', 'active'),
+          supabase.from('tasks').select('*').eq('due_date', todayStr).order('category'),
+          supabase.from('ops_manager_status' as any).select('*'),
+          supabase.from('distro_metrics' as any).select('*').eq('date_key', todayStr)
+        ])
 
-      setClients(c.count || 0)
-      setMrr((c.data as any[] || []).reduce((sum: number, r: any) => sum + (r.monthly_retainer || 0), 0))
-      setProspects(p.count || 0)
-      setTop((p.data as any[] || []).filter((r: any) => r.icp_tier === '★★★').length)
-      setSprints(s.count || 0)
-      setTasks(t.data || [])
-      setOps(o.data || [])
-      
-      // Aggregate full funnel data from all active distro managers
-      const metricsData = (m.data as any[]) || []
-      setFunnel({
-        scraped:  metricsData.reduce((acc, curr) => acc + (Number(curr.prospects_scraped) || 0), 0),
-        enriched: metricsData.reduce((acc, curr) => acc + (Number(curr.prospects_enriched) || 0), 0),
-        outreach: metricsData.reduce((acc, curr) => acc + (Number(curr.outreach_sent) || 0), 0),
-        mjrs:     metricsData.reduce((acc, curr) => acc + (Number(curr.mjrs_sent) || 0), 0),
-        calls:    metricsData.reduce((acc, curr) => acc + (Number(curr.calls_booked) || 0), 0),
-      })
-      
-      setLoading(false)
+        setClients(c.count || 0)
+        setMrr((c.data as any[] || []).reduce((sum: number, r: any) => sum + (r.monthly_retainer || 0), 0))
+        setProspects(p.count || 0)
+        setTop((p.data as any[] || []).filter((r: any) => r.icp_tier === '★★★').length)
+        setSprints(s.count || 0)
+        setTasks(t.data || [])
+        setOps(o.data || [])
+
+        const metricsData = (m.data as any[]) || []
+        setFunnel({
+          scraped:  metricsData.reduce((acc, curr) => acc + (Number(curr.prospects_scraped) || 0), 0),
+          enriched: metricsData.reduce((acc, curr) => acc + (Number(curr.prospects_enriched) || 0), 0),
+          outreach: metricsData.reduce((acc, curr) => acc + (Number(curr.outreach_sent) || 0), 0),
+          mjrs:     metricsData.reduce((acc, curr) => acc + (Number(curr.mjrs_sent) || 0), 0),
+          calls:    metricsData.reduce((acc, curr) => acc + (Number(curr.calls_booked) || 0), 0),
+        })
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [todayStr])

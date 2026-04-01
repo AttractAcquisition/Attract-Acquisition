@@ -5,22 +5,23 @@ import DistributionDashboard from '../components/views/Dashboard/DistributionDas
 import DeliveryDashboard     from '../components/views/Dashboard/DeliveryDashboard'
 
 export default function Dashboard() {
-  const { role } = useAuth()
+  const { role, loading } = useAuth()
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', fontFamily: 'DM Mono', fontSize: 12, color: 'var(--grey)' }}>
+      Initializing...
+    </div>
+  )
 
   switch (role) {
-    case 'admin':        
-      return <AdminView />
-    case 'distribution': 
-      return <DistributionDashboard />
-    case 'delivery':     
-      return <DeliveryDashboard />
-    case 'client':       
-      return <ClientView />
-    default:             
-      return (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--grey)' }}>
-          Accessing Command Center...
-        </div>
-      )
+    case 'admin':        return <AdminView />
+    case 'distribution': return <DistributionDashboard />
+    case 'delivery':     return <DeliveryDashboard />
+    case 'client':       return <ClientView />
+    default:             return (
+      <div style={{ padding: 40, textAlign: 'center', color: 'var(--grey)', fontFamily: 'DM Mono', fontSize: 12 }}>
+        No dashboard configured for this role.
+      </div>
+    )
   }
 }

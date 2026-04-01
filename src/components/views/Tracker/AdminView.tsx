@@ -31,9 +31,12 @@ export default function AdminView() {
 
   async function loadTasks() {
     setLoading(true)
-    const { data } = await supabase.from('tasks').select('*').eq('month_key', currentMonth.key).order('due_date')
-    setTasks(data || [])
-    setLoading(false)
+    try {
+      const { data } = await supabase.from('tasks').select('*').eq('month_key', currentMonth.key).order('due_date')
+      setTasks(data || [])
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function toggleTask(task: Task) {

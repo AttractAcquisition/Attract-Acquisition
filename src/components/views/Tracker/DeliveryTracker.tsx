@@ -43,25 +43,26 @@ export default function DeliveryTracker() {
 
   useEffect(() => {
     if (user?.id) loadProgress()
+    else setLoading(false)
   }, [user?.id])
 
   async function loadProgress() {
-    if (!user?.id) return
+    if (!user?.id) { setLoading(false); return }
     setLoading(true)
-    const { data, error } = await (supabase.from('delivery_progress' as any))
-      .select('task_id, is_completed')
-      .eq('manager_id', user.id)
-      .in('date_key', [today, weekKey, monthKey])
+    try {
+      const { data, error } = await (supabase.from('delivery_progress' as any))
+        .select('task_id, is_completed')
+        .eq('manager_id', user.id)
+        .in('date_key', [today, weekKey, monthKey])
 
-    if (error) {
+      if (!error && data) {
+        const map: Record<string, boolean> = {}
+        data.forEach((item: any) => { map[item.task_id] = item.is_completed })
+        setProgress(map)
+      }
+    } finally {
       setLoading(false)
-      return
     }
-
-    const map: Record<string, boolean> = {}
-    data?.forEach((item: any) => { map[item.task_id] = item.is_completed })
-    setProgress(map)
-    setLoading(false)
   }
 
   async function toggleTask(taskId: string, frequency: string) {

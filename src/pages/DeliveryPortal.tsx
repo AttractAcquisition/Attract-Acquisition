@@ -11,7 +11,8 @@ import {
 type Tab = 'tasks' | 'documents' | 'messages'
 
 interface ClientRow {
-  id: string
+  id: string           // clients.id — used as storage-path key and UI list key
+  profile_id: string   // profiles.id (auth UUID) — satisfies portal FK → profiles.id
   business_name: string | null
   owner_name: string | null
 }
@@ -46,19 +47,47 @@ export default function DeliveryPortal() {
   const [sending, setSending] = useState(false)
 
   // ── Load managed clients ──
-  // Mirrors the exact logic from Clients.tsx: .eq('account_manager', metadata_id)
+  // Two-step fetch because portal tables FK to profiles.id, not clients.id.
+  // Step 1: get business rows where account_manager = this delivery user.
+  // Step 2: resolve the auth UUID (profiles.id) for each client so portal
+  //         inserts use the correct UUID for the FK constraint.
   useEffect(() => {
     if (!metadata_id) { setClientsLoading(false); return }
-    supabase
-      .from('clients')
-      .select('id, business_name, owner_name')
-      .eq('account_manager', metadata_id)
-      .order('business_name', { ascending: true })
-      .then(({ data, error }) => {
-        if (error) toast(error.message, 'error')
-        setClients((data as ClientRow[]) || [])
-        setClientsLoading(false)
-      })
+
+    async function fetchClients() {
+      // Step 1: business records
+      const { data: clientRows, error } = await supabase
+        .from('clients')
+        .select('id, business_name, owner_name')
+        .eq('account_manager', metadata_id)
+        .order('business_name', { ascending: true })
+
+      if (error) { toast(error.message, 'error'); setClientsLoading(false); return }
+      if (!clientRows?.length) { setClients([]); setClientsLoading(false); return }
+
+      // Step 2: resolve profiles.id for each client
+      // profiles.client_id stores the clients.id of the client user's account
+      const clientIds = clientRows.map(c => c.id)
+      const { data: profileRows } = await supabase
+        .from('profiles')
+        .select('id, client_id')
+        .in('client_id', clientIds)
+
+      // Merge: pair every client business record with its auth-user UUID
+      const merged: ClientRow[] = clientRows.map(c => ({
+        id:             c.id,
+        business_name:  c.business_name,
+        owner_name:     c.owner_name,
+        // Fall back to clients.id only if no profile is found (shouldn't happen
+        // in a correctly seeded database, but prevents a null crash)
+        profile_id:     profileRows?.find(p => p.client_id === c.id)?.id ?? c.id,
+      }))
+
+      setClients(merged)
+      setClientsLoading(false)
+    }
+
+    fetchClients()
   }, [metadata_id])
 
   // ── Reload portal data when a client is selected ──
@@ -70,18 +99,19 @@ export default function DeliveryPortal() {
   }, [selected?.id])
 
   // ── Realtime: new messages for selected client ──
+  // Filter must use profile_id (profiles.id) — the value stored in client_id column
   useEffect(() => {
     if (!selected) return
     const channel = supabase
-      .channel(`portal_messages_mgr_${selected.id}`)
+      .channel(`portal_messages_mgr_${selected.profile_id}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'portal_messages', filter: `client_id=eq.${selected.id}` },
+        { event: 'INSERT', schema: 'public', table: 'portal_messages', filter: `client_id=eq.${selected.profile_id}` },
         (payload) => setMessages(prev => [...prev, payload.new as PortalMessage])
       )
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [selected?.id])
+  }, [selected?.profile_id])
 
   async function loadTasks() {
     if (!selected) return
@@ -89,7 +119,7 @@ export default function DeliveryPortal() {
     const { data, error } = await supabase
       .from('portal_tasks')
       .select('*')
-      .eq('client_id', selected.id)
+      .eq('client_id', selected.profile_id)
       .order('created_at', { ascending: false })
     if (error) toast(error.message, 'error')
     setTasks(data || [])
@@ -102,7 +132,7 @@ export default function DeliveryPortal() {
     const { data, error } = await supabase
       .from('portal_documents')
       .select('*')
-      .eq('client_id', selected.id)
+      .eq('client_id', selected.profile_id)
       .order('created_at', { ascending: false })
     if (error) toast(error.message, 'error')
     setDocuments(data || [])
@@ -115,7 +145,7 @@ export default function DeliveryPortal() {
     const { data, error } = await supabase
       .from('portal_messages')
       .select('*')
-      .eq('client_id', selected.id)
+      .eq('client_id', selected.profile_id)
       .order('created_at', { ascending: true })
     if (error) toast(error.message, 'error')
     setMessages(data || [])
@@ -136,8 +166,8 @@ export default function DeliveryPortal() {
     const { data, error } = await supabase
       .from('portal_tasks')
       .insert({
-        client_id:   selected.id,
-        manager_id:  metadata_id,
+        client_id:   selected.profile_id,  // profiles.id — satisfies FK constraint
+        manager_id:  metadata_id,          // delivery user's auth UUID = profiles.id ✓
         title:       taskTitle.trim(),
         description: taskDesc.trim() || null,
         due_date:    taskDue || null,
@@ -157,7 +187,8 @@ export default function DeliveryPortal() {
     const file = e.target.files?.[0]
     if (!file || !selected || !user || !metadata_id) return
     setUploading(true)
-    const filePath = `${selected.id}/${file.name}`
+    // Storage path uses profile_id so it matches the client_id written to the DB row
+    const filePath = `${selected.profile_id}/${file.name}`
 
     const { error: storageError } = await supabase.storage
       .from('client_portal')
@@ -167,8 +198,8 @@ export default function DeliveryPortal() {
     const { data, error: dbError } = await supabase
       .from('portal_documents')
       .insert({
-        client_id:   selected.id,
-        manager_id:  metadata_id,
+        client_id:   selected.profile_id,  // profiles.id — satisfies FK constraint
+        manager_id:  metadata_id,          // delivery user's auth UUID = profiles.id ✓
         file_name:   file.name,
         file_path:   filePath,
         uploaded_by: user.id,
@@ -189,8 +220,8 @@ export default function DeliveryPortal() {
     const { error } = await supabase
       .from('portal_messages')
       .insert({
-        client_id:    selected.id,
-        manager_id:   metadata_id,
+        client_id:    selected.profile_id,  // profiles.id — satisfies FK constraint
+        manager_id:   metadata_id,          // delivery user's auth UUID = profiles.id ✓
         message_text: reply.trim(),
         sender_id:    user.id,
       })

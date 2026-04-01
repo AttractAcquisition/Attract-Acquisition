@@ -35,7 +35,7 @@ const LoadingScreen = () => (
 );
 
 function AppRoutes() {
-  const { loading, role } = useAuth();
+  const { loading } = useAuth();
 
   const generatedRoutes = useMemo(() => {
     return Object.keys(pageModules).map((path) => {

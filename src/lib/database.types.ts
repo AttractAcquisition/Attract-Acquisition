@@ -42,15 +42,7 @@ export type Database = {
           id?: string
           uploaded_by?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "app_files_associated_sop_id_fkey"
-            columns: ["associated_sop_id"]
-            isOneToOne: false
-            referencedRelation: "sops"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       audit_claims: {
         Row: {
@@ -588,6 +580,99 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      portal_documents: {
+        Row: {
+          client_id: string
+          created_at: string
+          file_name: string
+          file_path: string
+          id: string
+          manager_id: string
+          status: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          file_name: string
+          file_path: string
+          id?: string
+          manager_id: string
+          status?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          manager_id?: string
+          status?: string | null
+          uploaded_by?: string
+        }
+        Relationships: []
+      }
+      portal_messages: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          manager_id: string
+          message_text: string
+          sender_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          manager_id: string
+          message_text: string
+          sender_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          manager_id?: string
+          message_text?: string
+          sender_id?: string
+        }
+        Relationships: []
+      }
+      portal_tasks: {
+        Row: {
+          client_id: string
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          manager_id: string
+          status: string | null
+          title: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          manager_id: string
+          status?: string | null
+          title: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          manager_id?: string
+          status?: string | null
+          title?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {

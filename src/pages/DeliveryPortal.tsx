@@ -10,9 +10,9 @@ import {
 
 type Tab = 'tasks' | 'documents' | 'messages'
 
+// clients.id is the single source of truth for all portal operations
 interface ClientRow {
-  id: string           // clients.id — used as storage-path key and UI list key
-  profile_id: string   // profiles.id (auth UUID) — satisfies portal FK → profiles.id
+  id: string            // clients.id — used for all portal queries and inserts
   business_name: string | null
   owner_name: string | null
 }
@@ -47,59 +47,20 @@ export default function DeliveryPortal() {
   const [sending, setSending] = useState(false)
 
   // ── Load managed clients ──
-  // Two-step fetch because portal tables FK to profiles.id, not clients.id.
-  // Step 1: get business rows where account_manager = this delivery user.
-  // Step 2: resolve the auth UUID (profiles.id) for each client so portal
-  //         inserts use the correct UUID for the FK constraint.
+  // Uses clients.id as the single identifier for all portal operations.
+  // portal_tasks, portal_documents, portal_messages all store clients.id in client_id.
   useEffect(() => {
     if (!metadata_id) { setClientsLoading(false); return }
 
- async function fetchClients() {
-      // Step 1: business records
+    async function fetchClients() {
       const { data: clientRows, error } = await supabase
         .from('clients')
         .select('id, business_name, owner_name')
-        .eq('account_manager', metadata_id!) // Added '!' here
+        .eq('account_manager', metadata_id!)
         .order('business_name', { ascending: true })
 
       if (error) { toast(error.message, 'error'); setClientsLoading(false); return }
-      if (!clientRows?.length) { setClients([]); setClientsLoading(false); return }
-
-      // Step 2: resolve profiles.id for each client
-      // profiles.client_id stores the clients.id of the client user's account
-      const clientIds = clientRows.map(c => c.id)
-      const { data: profileRows } = await supabase
-        .from('profiles')
-        .select('id, client_id')
-        .in('client_id', clientIds)
-
-      // Warn if the profiles step returned nothing at all
-      if (!profileRows?.length) {
-        console.warn('[DeliveryPortal] fetchClients — profileRows is empty. ' +
-          'No profiles matched the client IDs. All profile_id values will fall back to clients.id, ' +
-          'which WILL cause FK violations. Client IDs queried:', clientIds)
-      }
-
-      // Merge: pair every client business record with its auth-user UUID
-      const merged: ClientRow[] = clientRows.map(c => {
-        const matchedProfile = profileRows?.find(p => p.client_id === c.id)
-        if (!matchedProfile) {
-          console.warn(
-            `[DeliveryPortal] fetchClients — no profile found for client "${c.business_name}" (clients.id: ${c.id}). ` +
-            'Falling back to clients.id as profile_id. FK inserts will fail for this client.'
-          )
-        }
-        return {
-          id:             c.id,
-          business_name:  c.business_name,
-          owner_name:     c.owner_name,
-          // Fall back to clients.id only if no profile is found (shouldn't happen
-          // in a correctly seeded database, but prevents a null crash)
-          profile_id:     matchedProfile?.id ?? c.id,
-        }
-      })
-
-      setClients(merged)
+      setClients(clientRows || [])
       setClientsLoading(false)
     }
 
@@ -115,19 +76,18 @@ export default function DeliveryPortal() {
   }, [selected?.id])
 
   // ── Realtime: new messages for selected client ──
-  // Filter must use profile_id (profiles.id) — the value stored in client_id column
   useEffect(() => {
     if (!selected) return
     const channel = supabase
-      .channel(`portal_messages_mgr_${selected.profile_id}`)
+      .channel(`portal_messages_mgr_${selected.id}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'portal_messages', filter: `client_id=eq.${selected.profile_id}` },
+        { event: 'INSERT', schema: 'public', table: 'portal_messages', filter: `client_id=eq.${selected.id}` },
         (payload) => setMessages(prev => [...prev, payload.new as PortalMessage])
       )
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [selected?.profile_id])
+  }, [selected?.id])
 
   async function loadTasks() {
     if (!selected) return
@@ -135,7 +95,7 @@ export default function DeliveryPortal() {
     const { data, error } = await supabase
       .from('portal_tasks')
       .select('*')
-      .eq('client_id', selected.profile_id)
+      .eq('client_id', selected.id)
       .order('created_at', { ascending: false })
     if (error) toast(error.message, 'error')
     setTasks(data || [])
@@ -148,7 +108,7 @@ export default function DeliveryPortal() {
     const { data, error } = await supabase
       .from('portal_documents')
       .select('*')
-      .eq('client_id', selected.profile_id)
+      .eq('client_id', selected.id)
       .order('created_at', { ascending: false })
     if (error) toast(error.message, 'error')
     setDocuments(data || [])
@@ -161,7 +121,7 @@ export default function DeliveryPortal() {
     const { data, error } = await supabase
       .from('portal_messages')
       .select('*')
-      .eq('client_id', selected.profile_id)
+      .eq('client_id', selected.id)
       .order('created_at', { ascending: true })
     if (error) toast(error.message, 'error')
     setMessages(data || [])
@@ -169,12 +129,6 @@ export default function DeliveryPortal() {
   }
 
   function selectClient(client: ClientRow) {
-    console.table({
-      'Business ID (clients.id)':  client.id,
-      'Profile ID  (profiles.id)': client.profile_id,
-      'Manager ID  (metadata_id)': metadata_id,
-      'FK fallback warning':       client.profile_id === client.id ? '⚠️  profile_id === id — two-step fetch found no matching profile' : '✓ OK',
-    })
     setSelected(client)
     setTab('tasks')
     setShowForm(false)
@@ -188,8 +142,8 @@ export default function DeliveryPortal() {
     const { data, error } = await supabase
       .from('portal_tasks')
       .insert({
-        client_id:   selected.profile_id,  // profiles.id — satisfies FK constraint
-        manager_id:  metadata_id,          // delivery user's auth UUID = profiles.id ✓
+        client_id:   selected.id,   // clients.id — source of truth
+        manager_id:  metadata_id,   // delivery user's profiles.id ✓
         title:       taskTitle.trim(),
         description: taskDesc.trim() || null,
         due_date:    taskDue || null,
@@ -209,8 +163,7 @@ export default function DeliveryPortal() {
     const file = e.target.files?.[0]
     if (!file || !selected || !user || !metadata_id) return
     setUploading(true)
-    // Storage path uses profile_id so it matches the client_id written to the DB row
-    const filePath = `${selected.profile_id}/${file.name}`
+    const filePath = `${selected.id}/${file.name}`
 
     const { error: storageError } = await supabase.storage
       .from('client_portal')
@@ -220,8 +173,8 @@ export default function DeliveryPortal() {
     const { data, error: dbError } = await supabase
       .from('portal_documents')
       .insert({
-        client_id:   selected.profile_id,  // profiles.id — satisfies FK constraint
-        manager_id:  metadata_id,          // delivery user's auth UUID = profiles.id ✓
+        client_id:   selected.id,   // clients.id — source of truth
+        manager_id:  metadata_id,   // delivery user's profiles.id ✓
         file_name:   file.name,
         file_path:   filePath,
         uploaded_by: user.id,
@@ -242,8 +195,8 @@ export default function DeliveryPortal() {
     const { error } = await supabase
       .from('portal_messages')
       .insert({
-        client_id:    selected.profile_id,  // profiles.id — satisfies FK constraint
-        manager_id:   metadata_id,          // delivery user's auth UUID = profiles.id ✓
+        client_id:    selected.id,  // clients.id — source of truth
+        manager_id:   metadata_id,  // delivery user's profiles.id ✓
         message_text: reply.trim(),
         sender_id:    user.id,
       })
@@ -598,40 +551,6 @@ export default function DeliveryPortal() {
               </div>
             )}
 
-          </div>
-        )}
-
-        {/* ── DEBUG OVERLAY ── remove before production ── */}
-        {selected && (
-          <div style={{
-            position: 'absolute', bottom: 16, right: 16,
-            background: 'var(--bg2)', border: '1px solid var(--border2)',
-            borderRadius: 8, padding: '12px 16px', fontFamily: 'DM Mono',
-            fontSize: 10, lineHeight: 1.8, zIndex: 99, maxWidth: 420,
-          }}>
-            <div style={{ color: 'var(--grey)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
-              Debug — ID Resolution
-            </div>
-            <div>
-              <span style={{ color: 'var(--grey)' }}>Business ID&nbsp;&nbsp;</span>
-              <span style={{ color: 'var(--white)' }}>{selected.id}</span>
-            </div>
-            <div>
-              <span style={{ color: 'var(--grey)' }}>Profile ID&nbsp;&nbsp;&nbsp;</span>
-              <span style={{ color: selected.profile_id === selected.id ? 'var(--red, #e24b4a)' : 'var(--teal)' }}>
-                {selected.profile_id}
-              </span>
-            </div>
-            <div>
-              <span style={{ color: 'var(--grey)' }}>Manager ID&nbsp;&nbsp;</span>
-              <span style={{ color: 'var(--white)' }}>{metadata_id ?? '—'}</span>
-            </div>
-            {selected.profile_id === selected.id && (
-              <div style={{ marginTop: 8, color: 'var(--red, #e24b4a)', fontWeight: 700 }}>
-                ⚠ profile_id === id — two-step fetch returned no matching profile.
-                FK inserts will fail for this client.
-              </div>
-            )}
           </div>
         )}
       </div>

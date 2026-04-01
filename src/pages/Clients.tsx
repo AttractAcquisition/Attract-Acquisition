@@ -18,21 +18,31 @@ const TIERS = [
 type SlideTab = 'overview' | 'sprints' | 'notes'
 
 export default function Clients() {
-  const { role, metadata_id }   = useAuth()
-  const [clients, setClients]   = useState<Client[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [selected, setSelected] = useState<Client | null>(null)
-  const [slideTab, setSlideTab] = useState<SlideTab>('overview')
-  const [showNew, setShowNew]   = useState(false)
+  const { role, metadata_id }         = useAuth()
+  const [clients, setClients]         = useState<Client[]>([])
+  const [loading, setLoading]         = useState(true)
+  const [selected, setSelected]       = useState<Client | null>(null)
+  const [slideTab, setSlideTab]       = useState<SlideTab>('overview')
+  const [showNew, setShowNew]         = useState(false)
   const [importProspect, setImportProspect] = useState<Prospect | null>(null)
-  const { toast }               = useToast()
-  const location                = useLocation()
+  const [deliveryUsers, setDeliveryUsers]   = useState<{ id: string; email: string }[]>([])
+  const { toast }                     = useToast()
+  const location                      = useLocation()
 
   useEffect(() => {
     load()
     if (location.state?.importProspect) {
       setImportProspect(location.state.importProspect)
       setShowNew(true)
+    }
+    // Load delivery/admin users so the Growth Operator dropdown uses real UUIDs
+    if (role !== 'client') {
+      supabase
+        .from('profiles' as any)
+        .select('id, email')
+        .in('role', ['admin', 'delivery'])
+        .order('email')
+        .then(({ data }) => setDeliveryUsers(data || []))
     }
   }, [metadata_id, role])
 
@@ -293,10 +303,12 @@ export default function Clients() {
                         <CF label="Meta Ad Account ID" field="meta_ad_account_id" value={selected.meta_ad_account_id} onSave={v => saveField(selected.id, 'meta_ad_account_id', v)} placeholder="act_..." />
                         <div>
                           <div className="label">Growth Operator</div>
-                          <select className="input" value={selected.account_manager || 'principal'}
+                          <select className="input" value={selected.account_manager || ''}
                             onChange={e => saveField(selected.id, 'account_manager', e.target.value)}>
-                            <option value="principal">Principal</option>
-                            <option value="va_delivery">VA Delivery</option>
+                            <option value="">— Unassigned —</option>
+                            {deliveryUsers.map(u => (
+                              <option key={u.id} value={u.id}>{u.email}</option>
+                            ))}
                           </select>
                         </div>
                       </div>

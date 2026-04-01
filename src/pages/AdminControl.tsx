@@ -5,35 +5,31 @@ import { Users, Shield, Link } from 'lucide-react';
 
 export default function AdminControl() {
   const [profiles, setProfiles] = useState<any[]>([]);
+  const [clientRecords, setClientRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const toast = useToast() as any;
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: profileData, error: pError } = await (supabase as any)
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const [profileRes, clientRes] = await Promise.all([
+        (supabase as any)
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false }),
+        (supabase as any)
+          .from('clients')
+          .select('id, business_name, owner_name, account_manager')
+          .order('business_name', { ascending: true }),
+      ]);
 
-      const { data: clientData, error: cError } = await (supabase as any)
-        .from('clients')
-        .select('email, account_manager');
+      if (profileRes.error) throw profileRes.error;
+      if (clientRes.error) throw clientRes.error;
 
-      if (pError || cError) throw pError || cError;
-
-      if (profileData && clientData) {
-        const mergedData = profileData.map((p: any) => {
-          const mapping = clientData.find((c: any) => c.email === p.email);
-          return {
-            ...p,
-            account_manager: mapping ? mapping.account_manager : null
-          };
-        });
-        setProfiles(mergedData);
-      }
+      setProfiles(profileRes.data || []);
+      setClientRecords(clientRes.data || []);
     } catch (err: any) {
-      console.error("Fetch error:", err.message);
+      console.error('Fetch error:', err.message);
       toast.addToast?.('Failed to load data', 'error');
     } finally {
       setLoading(false);
@@ -58,19 +54,20 @@ export default function AdminControl() {
     }
   };
 
-  const updateMapping = async (clientEmail: string, managerId: string) => {
+  // Uses clients.id (UUID) as the identifier — not email
+  const updateMapping = async (clientId: string, managerId: string) => {
     const { error } = await (supabase as any)
       .from('clients')
       .update({ account_manager: managerId || null })
-      .eq('email', clientEmail);
+      .eq('id', clientId);
 
     if (error) {
-      console.error("Mapping Error:", error.message);
+      console.error('Mapping Error:', error.message);
       toast.addToast?.('Mapping failed: ' + error.message, 'error');
     } else {
       toast.addToast?.('Client assigned successfully', 'success');
-      setProfiles(prev => prev.map(p => 
-        p.email === clientEmail ? { ...p, account_manager: managerId } : p
+      setClientRecords(prev => prev.map(c =>
+        c.id === clientId ? { ...c, account_manager: managerId } : c
       ));
     }
   };
@@ -85,7 +82,6 @@ export default function AdminControl() {
 
   // Filter for anyone who can manage an account
   const managers = profiles.filter(p => ['admin', 'delivery', 'distribution'].includes(p.role));
-  const clients = profiles.filter(p => p.role === 'client');
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-700">
@@ -121,8 +117,8 @@ export default function AdminControl() {
                   </td>
                   <td className="py-5 text-center">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${
-                      user.role === 'admin' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 
-                      user.role === 'delivery' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
+                      user.role === 'admin' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                      user.role === 'delivery' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
                       user.role === 'distribution' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
                       'bg-teal-500/10 text-teal-400 border-teal-500/20'
                     }`}>
@@ -130,7 +126,7 @@ export default function AdminControl() {
                     </span>
                   </td>
                   <td className="py-5 text-right">
-                    <select 
+                    <select
                       onChange={(e) => updateRole(user.id, e.target.value)}
                       className="bg-zinc-950 border border-white/10 text-xs text-zinc-400 rounded-lg px-3 py-1.5 focus:outline-none focus:border-teal-500 hover:text-white transition-all cursor-pointer"
                       defaultValue={user.role}
@@ -148,7 +144,7 @@ export default function AdminControl() {
         </div>
       </section>
 
-      {/* Section 2: Account Mapping */}
+      {/* Section 2: Account Mapping — uses clients table as source of truth */}
       <section className="bg-zinc-900/40 p-8 rounded-2xl border border-white/5 backdrop-blur-md shadow-2xl">
         <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 text-white">
           <Link size={20} className="text-teal-400" /> Infrastructure Mapping
@@ -162,17 +158,17 @@ export default function AdminControl() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {clients.map(client => (
+              {clientRecords.map(client => (
                 <tr key={client.id} className="hover:bg-white/[0.02] transition-colors">
                   <td className="py-5">
-                    <div className="text-teal-400 font-medium">{client.email}</div>
-                    <div className="text-[10px] text-zinc-600 font-mono mt-0.5">FUNNEL ACTIVE</div>
+                    <div className="text-teal-400 font-medium">{client.business_name || '—'}</div>
+                    <div className="text-[10px] text-zinc-600 font-mono mt-0.5">{client.owner_name || 'FUNNEL ACTIVE'}</div>
                   </td>
                   <td className="py-5 text-right">
-                    <select 
-                      onChange={(e) => updateMapping(client.email, e.target.value)}
+                    <select
+                      onChange={(e) => updateMapping(client.id, e.target.value)}
                       className="w-full max-w-sm bg-zinc-950 border border-white/10 text-xs text-zinc-400 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 hover:text-white transition-all cursor-pointer"
-                      defaultValue={client.account_manager || ""}
+                      defaultValue={client.account_manager || ''}
                     >
                       <option value="">-- No Lead Assigned --</option>
                       {managers.map(op => (

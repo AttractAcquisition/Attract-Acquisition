@@ -30,13 +30,13 @@ export default function Layout() {
     }];
 
     const groups: Record<string, any[]> = {};
-    
+
     Object.entries(ROUTE_CONFIG).forEach(([path, config]) => {
-      // FIX: Check roles AND ensure we aren't adding the utility viewer to the sidebar
-      if (path !== 'template-view' && (!config.roles || config.roles.includes(role || ''))) {
-        if (!groups[config.section]) groups[config.section] = [];
-        groups[config.section].push({ ...config, path: `/${path}` });
-      }
+      // Skip hidden utility routes and entries the current role can't access
+      if (config.hidden) return;
+      if (!config.roles || !config.roles.includes(role || '')) return;
+      if (!groups[config.section]) groups[config.section] = [];
+      groups[config.section].push({ ...config, path: `/${path}` });
     });
 
     return Object.entries(groups).map(([section, items]) => ({ section, items }));

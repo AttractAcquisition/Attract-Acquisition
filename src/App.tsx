@@ -41,26 +41,31 @@ function AppRoutes() {
       const fileName = path.split('/').pop()?.replace('.tsx', '') || '';
       const lowerName = fileName.toLowerCase();
 
+      // Skip pages that are handled outside the Layout shell
       if (['Login', 'Portal', 'Layout'].includes(fileName)) return null;
+      // template-view has its own standalone route below
+      if (lowerName === 'template-view') return null;
 
       const routeKey = fileToRouteKey[lowerName] || lowerName;
-      
-      if (routeKey === 'template-view') return null;
-
-      const Component = React.lazy(pageModules[path] as any);
       const config = ROUTE_CONFIG[routeKey];
 
+      // Skip page files that have no entry in ROUTE_CONFIG — prevents ghost routes
+      // with empty allowedRoles from blocking access or polluting the route tree.
+      if (!config) return null;
+
+      const Component = React.lazy(pageModules[path] as any);
+
       return (
-        <Route 
-          key={routeKey} 
-          path={routeKey} 
+        <Route
+          key={routeKey}
+          path={routeKey}
           element={
             <Suspense fallback={<LoadingScreen />}>
-              <RoleWrapper allowedRoles={config?.roles || []}>
+              <RoleWrapper allowedRoles={config.roles || []}>
                 <Component />
               </RoleWrapper>
             </Suspense>
-          } 
+          }
         />
       );
     });
@@ -87,16 +92,8 @@ function AppRoutes() {
 
       {/* --- DASHBOARD ROUTES (WITH SIDEBAR) --- */}
       <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
-        <Route index element={
-          <Navigate 
-            to={
-              role === 'distribution' ? 'distribution' : 
-              role === 'delivery' ? 'delivery-dash' : 
-              'dashboard'
-            } 
-            replace 
-          />
-        } />
+        {/* All roles land on /dashboard — Dashboard.tsx switches on role internally */}
+        <Route index element={<Navigate to="dashboard" replace />} />
         {generatedRoutes}
         <Route path="sprints/:id" element={<Suspense fallback={<LoadingScreen />}><RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>SprintDetailHere</RoleWrapper></Suspense>} />
       </Route>

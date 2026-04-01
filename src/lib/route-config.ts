@@ -6,17 +6,16 @@ export interface RouteMetadata {
   section: string;
   icon: any;
   roles?: string[];
+  /** Hides route from sidebar nav but keeps it routable */
+  hidden?: boolean;
   /** Page filename (without .tsx) when it differs from the route key */
   file?: string;
 }
 
 export const ROUTE_CONFIG: Record<string, Omit<RouteMetadata, 'path'>> = {
-  dashboard: { label: 'Dashboard', section: 'Overview', icon: Icons.LayoutDashboard, roles: ['admin'] },
-  distribution: { label: 'Ops Dashboard', section: 'Overview', icon: Icons.Activity, roles: ['distribution'] },
-  'delivery-dash': { label: 'Ops Dashboard', section: 'Overview', icon: Icons.Target, roles: ['delivery'] },
-  'distro-tracker': { label: 'Ops Tracker', section: 'Overview', icon: Icons.CalendarCheck, roles: ['distribution'] },
-  'delivery-tracker': { label: 'Ops Tracker', section: 'Overview', icon: Icons.CalendarCheck, roles: ['delivery'] },
-  tracker:     { label: 'Execution Tracker', section: 'Overview', icon: Icons.ClipboardList, roles: ['admin', 'client'] },
+  // Unified traffic-controller routes — Dashboard.tsx and Tracker.tsx switch on role internally
+  dashboard: { label: 'Dashboard', section: 'Overview', icon: Icons.LayoutDashboard, roles: ['admin', 'distribution', 'delivery', 'client'] },
+  tracker:   { label: 'Execution Tracker', section: 'Overview', icon: Icons.ClipboardList, roles: ['admin', 'distribution', 'delivery', 'client'] },
   scraper:     { label: 'Scraper', section: 'Distribution Hub', icon: Icons.Search, roles: ['distribution', 'admin'] },
   prospects:   { label: 'Prospects', section: 'Distribution Hub', icon: Icons.Users, roles: ['admin', 'distribution'] },
   outreach:     { label: 'Outreach', section: 'Distribution Hub', icon: Icons.MessageSquare, roles: ['distribution', 'admin'] },
@@ -32,13 +31,13 @@ export const ROUTE_CONFIG: Record<string, Omit<RouteMetadata, 'path'>> = {
   sops:     { label: 'SOP Library', section: 'Build', icon: Icons.BookOpen, roles: ['admin', 'distribution', 'delivery'] },
   templates: { label: 'Templates', section: 'Build', icon: Icons.FileCode, roles: ['admin', 'distribution', 'delivery'] },
   
-  // ADDED: Template View Utility (Hidden from sidebar by using an empty section if needed)
-  'template-view': { 
-    label: 'Template Viewer', 
-    section: 'System', 
-    icon: Icons.Eye, 
-    roles: ['admin', 'distribution', 'delivery'], 
-    file: 'TemplateView' 
+  'template-view': {
+    label: 'Template Viewer',
+    section: 'System',
+    icon: Icons.Eye,
+    roles: ['admin', 'distribution', 'delivery'],
+    hidden: true,
+    file: 'TemplateView'
   },
 
   income: { label: 'Capital Flow', section: 'Finance', icon: Icons.Activity, roles: ['admin'], file: 'IncomeTracking' },

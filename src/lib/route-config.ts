@@ -21,6 +21,7 @@ export const ROUTE_CONFIG: Record<string, Omit<RouteMetadata, 'path'>> = {
   outreach:     { label: 'Outreach', section: 'Distribution Hub', icon: Icons.MessageSquare, roles: ['distribution', 'admin'] },
   crm:         { label: 'CRM Pipeline', section: 'Distribution Hub', icon: Icons.LayoutDashboard, roles: ['admin', 'distribution'] },
   clients:     { label: 'Clients', section: 'Distribution Hub', icon: Icons.Briefcase, roles: ['admin', 'delivery'] },
+  deliveryportal: { label: 'Client Portal', section: 'Delivery Tools', icon: Icons.FolderOpen, roles: ['admin', 'delivery'], file: 'DeliveryPortal' },
   studio:     { label: 'MJR Studio', section: 'Delivery Tools', icon: Icons.FileText, roles: ['distribution', 'admin', 'delivery'] },
   html:       { label: 'PDF Tool', section: 'Delivery Tools', icon: Icons.Printer, roles: ['admin', 'distribution'] },
   spoa:       { label: 'SPOA Studio', section: 'Delivery Tools', icon: Icons.Target, roles: ['admin', 'distribution'] },

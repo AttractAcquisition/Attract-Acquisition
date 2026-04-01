@@ -54,12 +54,12 @@ export default function DeliveryPortal() {
   useEffect(() => {
     if (!metadata_id) { setClientsLoading(false); return }
 
-    async function fetchClients() {
+ async function fetchClients() {
       // Step 1: business records
       const { data: clientRows, error } = await supabase
         .from('clients')
         .select('id, business_name, owner_name')
-        .eq('account_manager', metadata_id)
+        .eq('account_manager', metadata_id!) // Added '!' here
         .order('business_name', { ascending: true })
 
       if (error) { toast(error.message, 'error'); setClientsLoading(false); return }

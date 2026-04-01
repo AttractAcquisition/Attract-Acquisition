@@ -1,5 +1,6 @@
 import React, { Suspense, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import SprintDetail from './pages/SprintDetail';
 import { ToastProvider } from './lib/toast';
 import { AuthProvider, useAuth } from './lib/auth';
 import RoleWrapper from './components/RoleWrapper';
@@ -95,7 +96,7 @@ function AppRoutes() {
         {/* All roles land on /dashboard — Dashboard.tsx switches on role internally */}
         <Route index element={<Navigate to="dashboard" replace />} />
         {generatedRoutes}
-        <Route path="sprints/:id" element={<Suspense fallback={<LoadingScreen />}><RoleWrapper allowedRoles={['admin', 'delivery', 'client']}>SprintDetailHere</RoleWrapper></Suspense>} />
+        <Route path="sprints/:id" element={<RoleWrapper allowedRoles={['admin', 'delivery', 'client']}><SprintDetail /></RoleWrapper>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

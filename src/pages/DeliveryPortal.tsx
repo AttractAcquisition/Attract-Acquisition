@@ -73,15 +73,31 @@ export default function DeliveryPortal() {
         .select('id, client_id')
         .in('client_id', clientIds)
 
+      // Warn if the profiles step returned nothing at all
+      if (!profileRows?.length) {
+        console.warn('[DeliveryPortal] fetchClients — profileRows is empty. ' +
+          'No profiles matched the client IDs. All profile_id values will fall back to clients.id, ' +
+          'which WILL cause FK violations. Client IDs queried:', clientIds)
+      }
+
       // Merge: pair every client business record with its auth-user UUID
-      const merged: ClientRow[] = clientRows.map(c => ({
-        id:             c.id,
-        business_name:  c.business_name,
-        owner_name:     c.owner_name,
-        // Fall back to clients.id only if no profile is found (shouldn't happen
-        // in a correctly seeded database, but prevents a null crash)
-        profile_id:     profileRows?.find(p => p.client_id === c.id)?.id ?? c.id,
-      }))
+      const merged: ClientRow[] = clientRows.map(c => {
+        const matchedProfile = profileRows?.find(p => p.client_id === c.id)
+        if (!matchedProfile) {
+          console.warn(
+            `[DeliveryPortal] fetchClients — no profile found for client "${c.business_name}" (clients.id: ${c.id}). ` +
+            'Falling back to clients.id as profile_id. FK inserts will fail for this client.'
+          )
+        }
+        return {
+          id:             c.id,
+          business_name:  c.business_name,
+          owner_name:     c.owner_name,
+          // Fall back to clients.id only if no profile is found (shouldn't happen
+          // in a correctly seeded database, but prevents a null crash)
+          profile_id:     matchedProfile?.id ?? c.id,
+        }
+      })
 
       setClients(merged)
       setClientsLoading(false)
@@ -153,6 +169,12 @@ export default function DeliveryPortal() {
   }
 
   function selectClient(client: ClientRow) {
+    console.table({
+      'Business ID (clients.id)':  client.id,
+      'Profile ID  (profiles.id)': client.profile_id,
+      'Manager ID  (metadata_id)': metadata_id,
+      'FK fallback warning':       client.profile_id === client.id ? '⚠️  profile_id === id — two-step fetch found no matching profile' : '✓ OK',
+    })
     setSelected(client)
     setTab('tasks')
     setShowForm(false)
@@ -304,7 +326,7 @@ export default function DeliveryPortal() {
       </div>
 
       {/* ── MAIN PANEL ── */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '0 0 40px 32px' }}>
+      <div style={{ flex: 1, overflow: 'auto', padding: '0 0 40px 32px', position: 'relative' }}>
         {!selected ? (
           <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
             <Users size={40} color="var(--grey2)" />
@@ -576,6 +598,40 @@ export default function DeliveryPortal() {
               </div>
             )}
 
+          </div>
+        )}
+
+        {/* ── DEBUG OVERLAY ── remove before production ── */}
+        {selected && (
+          <div style={{
+            position: 'absolute', bottom: 16, right: 16,
+            background: 'var(--bg2)', border: '1px solid var(--border2)',
+            borderRadius: 8, padding: '12px 16px', fontFamily: 'DM Mono',
+            fontSize: 10, lineHeight: 1.8, zIndex: 99, maxWidth: 420,
+          }}>
+            <div style={{ color: 'var(--grey)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+              Debug — ID Resolution
+            </div>
+            <div>
+              <span style={{ color: 'var(--grey)' }}>Business ID&nbsp;&nbsp;</span>
+              <span style={{ color: 'var(--white)' }}>{selected.id}</span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--grey)' }}>Profile ID&nbsp;&nbsp;&nbsp;</span>
+              <span style={{ color: selected.profile_id === selected.id ? 'var(--red, #e24b4a)' : 'var(--teal)' }}>
+                {selected.profile_id}
+              </span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--grey)' }}>Manager ID&nbsp;&nbsp;</span>
+              <span style={{ color: 'var(--white)' }}>{metadata_id ?? '—'}</span>
+            </div>
+            {selected.profile_id === selected.id && (
+              <div style={{ marginTop: 8, color: 'var(--red, #e24b4a)', fontWeight: 700 }}>
+                ⚠ profile_id === id — two-step fetch returned no matching profile.
+                FK inserts will fail for this client.
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -65,7 +65,7 @@ export default function Outreach() {
 
   // Preview Logic
   useEffect(() => {
-    const prospect = prospects.find(p => p.id === selectedProspectId) || null
+    const prospect = prospects.find(p => p.id === selectedProspectId)
     if (selectedTemplate && prospect) {
       setPreview(buildPreview(selectedTemplate, prospect))
     } else {
@@ -74,13 +74,43 @@ export default function Outreach() {
     setCopied(false)
   }, [selectedProspectId, selectedTemplate, prospects])
 
-  function buildPreview(template: Template, prospect: Prospect | null) {
+  function buildPreview(template: Template, prospect: Prospect): string {
     if (!template?.content) return ''
+
+    // Build a complete variable map from the prospect record.
+    // Fallbacks use readable placeholders so a missing value never silently blanks the message.
+    const p = prospect as any
+    const vars: Record<string, string> = {
+      business_name:  prospect.business_name                     || '[Business Name]',
+      owner_name:     prospect.owner_name                        || '[Owner Name]',
+      vertical:       p.vertical                                 || '[Vertical]',
+      suburb:         prospect.suburb                            || '[Suburb]',
+      city:           prospect.city                              || '[City]',
+      phone:          prospect.phone                             || '[Phone]',
+      whatsapp:       prospect.whatsapp || prospect.phone        || '[WhatsApp]',
+      website:        prospect.website                           || '[Website]',
+      email:          prospect.email                             || '[Email]',
+      google_rating:  prospect.google_rating != null ? String(prospect.google_rating) : '',
+      google_reviews: prospect.google_review_count != null ? String(prospect.google_review_count) : '',
+      ig_handle:      prospect.instagram_handle                  || '',
+      ig_followers:   prospect.ig_follower_count != null ? String(prospect.ig_follower_count) : '',
+      icp_score:      prospect.icp_total_score != null ? String(prospect.icp_total_score) : '',
+      missed_revenue: prospect.mjr_missed_revenue != null
+                        ? `R${Number(prospect.mjr_missed_revenue).toLocaleString()}`
+                        : '[Revenue Figure]',
+    }
+
     return template.content
-      .replace(/{business_name}/g, prospect?.business_name ?? '{business_name}')
-      .replace(/{owner_name}/g, prospect?.owner_name ?? '{owner_name}')
-      .replace(/{vertical}/g, (prospect as any)?.vertical ?? '{vertical}')
-      .replace(/{suburb}/g, (prospect as any)?.suburb ?? '{suburb}')
+      // Replace {{double_brace}} variables first (Handlebars-style)
+      .replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+        const k = key.trim()
+        return k in vars ? vars[k] : match
+      })
+      // Replace {single_brace} variables
+      .replace(/\{([^}]+)\}/g, (match, key) => {
+        const k = key.trim()
+        return k in vars ? vars[k] : match
+      })
   }
 
   const handleCopy = async () => {

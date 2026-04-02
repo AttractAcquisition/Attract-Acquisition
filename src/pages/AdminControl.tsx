@@ -3,11 +3,22 @@ import { supabase } from '../lib/supabase';
 import { useToast } from '../lib/toast';
 import { Users, Shield, Link } from 'lucide-react';
 
+// Validates that a string is a well-formed UUID v4 before writing it to the DB.
+// This prevents silent RLS failures caused by whitespace or malformed pastes.
+function isValidUUID(val: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim())
+}
+
 export default function AdminControl() {
   const [clientRecords, setClientRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [roleForm, setRoleForm] = useState({ userId: '', role: 'delivery', metadataId: '' });
   const [roleUpdating, setRoleUpdating] = useState(false);
+  // Controlled state for Section 2 inputs: keyed by client.id → manager UUID string
+  const [managerInputs, setManagerInputs] = useState<Record<string, string>>({});
+  // After a successful Section 1 role assignment, surface that UUID so admin can
+  // carry it straight into the Section 2 mapping without re-typing.
+  const [lastAssignedUUID, setLastAssignedUUID] = useState<string>('');
   const toast = useToast() as any;
 
   const fetchData = async () => {
@@ -32,7 +43,23 @@ export default function AdminControl() {
     fetchData();
   }, []);
 
-  const updateRole = async (userId: string, newRole: string, metadataId?: string) => {
+  // Seed controlled inputs whenever clientRecords are loaded / refreshed
+  useEffect(() => {
+    const seed: Record<string, string> = {}
+    clientRecords.forEach(c => { seed[c.id] = c.account_manager || '' })
+    setManagerInputs(seed)
+  }, [clientRecords]);
+
+  const updateRole = async (userId: string, newRole: string, metadataId?: string): Promise<boolean> => {
+    if (!isValidUUID(userId)) {
+      toast.addToast?.('Invalid Auth User UUID format.', 'error');
+      return false;
+    }
+    if (newRole === 'client' && (!metadataId || !isValidUUID(metadataId))) {
+      toast.addToast?.('Client role requires a valid metadata_id (clients.id UUID).', 'error');
+      return false;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     const { error } = await supabase.functions.invoke('update-user-role', {
       body: { userId, role: newRole, metadata_id: metadataId ?? null },
@@ -40,26 +67,37 @@ export default function AdminControl() {
     });
 
     if (error) {
-      toast.addToast?.('Error updating role', 'error');
-    } else {
-      toast.addToast?.('Role updated in auth metadata ✓', 'success');
+      toast.addToast?.('Error updating role: ' + error.message, 'error');
+      return false;
     }
+    toast.addToast?.('Role updated in auth metadata ✓', 'success');
+    return true;
   };
 
-  // Uses clients.id (UUID) as the identifier — not email
+  // account_manager is a uuid column — validate before writing to avoid silent RLS failures
   const updateMapping = async (clientId: string, managerId: string) => {
+    const trimmed = managerId.trim()
+
+    // Allow clearing the assignment (empty string → null) but reject non-empty non-UUIDs
+    if (trimmed && !isValidUUID(trimmed)) {
+      toast.addToast?.('Invalid UUID format. Paste the exact Auth User UUID from Section 1.', 'error');
+      // Reset the input back to its last saved value
+      setManagerInputs(prev => ({ ...prev, [clientId]: clientRecords.find(c => c.id === clientId)?.account_manager || '' }))
+      return;
+    }
+
     const { error } = await (supabase as any)
       .from('clients')
-      .update({ account_manager: managerId || null })
+      .update({ account_manager: trimmed || null })
       .eq('id', clientId);
 
     if (error) {
       console.error('Mapping Error:', error.message);
       toast.addToast?.('Mapping failed: ' + error.message, 'error');
     } else {
-      toast.addToast?.('Client assigned successfully', 'success');
+      toast.addToast?.('Client assigned successfully ✓', 'success');
       setClientRecords(prev => prev.map(c =>
-        c.id === clientId ? { ...c, account_manager: managerId } : c
+        c.id === clientId ? { ...c, account_manager: trimmed || null } : c
       ));
     }
   };
@@ -131,8 +169,15 @@ export default function AdminControl() {
             disabled={!roleForm.userId || roleUpdating}
             onClick={async () => {
               setRoleUpdating(true);
-              await updateRole(roleForm.userId, roleForm.role, roleForm.metadataId || undefined);
-              setRoleForm(f => ({ ...f, userId: '', metadataId: '' }));
+              const success = await updateRole(roleForm.userId, roleForm.role, roleForm.metadataId || undefined);
+              if (success) {
+                // For delivery/distribution: the auth UUID IS the metadata_id used in account_manager.
+                // Surface it so admin can paste it directly into Section 2 without re-typing.
+                if (roleForm.role === 'delivery' || roleForm.role === 'distribution') {
+                  setLastAssignedUUID(roleForm.userId);
+                }
+                setRoleForm(f => ({ ...f, userId: '', metadataId: '' }));
+              }
               setRoleUpdating(false);
             }}
             className="w-fit px-5 py-2 rounded-lg text-xs font-mono font-semibold uppercase tracking-widest transition-all disabled:opacity-40 disabled:cursor-not-allowed"
@@ -140,6 +185,21 @@ export default function AdminControl() {
           >
             {roleUpdating ? 'Updating...' : 'Apply Role →'}
           </button>
+
+          {lastAssignedUUID && (
+            <div className="mt-2 p-3 rounded-lg border border-teal-500/20 bg-teal-500/5 flex items-center gap-3">
+              <div className="flex-1">
+                <div className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-1">Manager UUID (copy into Section 2)</div>
+                <div className="font-mono text-xs text-teal-400 break-all">{lastAssignedUUID}</div>
+              </div>
+              <button
+                onClick={() => { navigator.clipboard.writeText(lastAssignedUUID); toast.addToast?.('UUID copied', 'success'); }}
+                className="text-[10px] font-mono text-zinc-400 border border-white/10 rounded px-2 py-1 hover:border-teal-500 hover:text-teal-400 transition-all whitespace-nowrap"
+              >
+                Copy
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
@@ -179,15 +239,23 @@ export default function AdminControl() {
                     <input
                       type="text"
                       placeholder="Paste manager UUID..."
-                      defaultValue={client.account_manager || ''}
-                      onBlur={(e) => {
-                        const val = e.target.value.trim()
-                        if (val !== (client.account_manager || '')) {
-                          updateMapping(client.id, val)
+                      value={managerInputs[client.id] ?? ''}
+                      onChange={e => setManagerInputs(prev => ({ ...prev, [client.id]: e.target.value }))}
+                      onBlur={() => {
+                        const current = managerInputs[client.id] ?? ''
+                        if (current !== (client.account_manager || '')) {
+                          updateMapping(client.id, current)
                         }
                       }}
-                      className="w-full max-w-xs bg-zinc-950 border border-white/10 text-xs text-zinc-400 rounded-lg px-3 py-1.5 focus:outline-none focus:border-teal-500 font-mono placeholder-zinc-700"
+                      className={`w-full max-w-xs bg-zinc-950 border text-xs rounded-lg px-3 py-1.5 focus:outline-none font-mono placeholder-zinc-700 transition-colors ${
+                        managerInputs[client.id] && !isValidUUID(managerInputs[client.id])
+                          ? 'border-red-500/50 text-red-400 focus:border-red-500'
+                          : 'border-white/10 text-zinc-400 focus:border-teal-500'
+                      }`}
                     />
+                    {managerInputs[client.id] && !isValidUUID(managerInputs[client.id]) && (
+                      <div className="text-[9px] text-red-400 font-mono mt-1 text-right">Invalid UUID format</div>
+                    )}
                   </td>
                 </tr>
               ))}

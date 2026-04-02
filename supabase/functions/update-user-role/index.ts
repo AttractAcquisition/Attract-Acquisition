@@ -27,8 +27,20 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'userId and role are required' }), { status: 400 })
   }
 
+  // Build user_metadata patch.
+  // - For 'client' role: client_id must be set so auth.tsx extractMetadataId() can read it
+  //   (auth.tsx reads user_metadata.client_id for the client role, NOT user_metadata.metadata_id)
+  // - For all other roles: clear client_id so stale values from a prior client role don't leak.
+  //   Non-client metadata_id is derived from session.user.id in the frontend, so it is not
+  //   stored in user_metadata — writing it here is only for human auditability.
+  const userMetaPatch: Record<string, string | null> = {
+    role,
+    metadata_id: metadata_id ?? null,
+    client_id: role === 'client' ? (metadata_id ?? null) : null,
+  }
+
   const { error } = await supabase.auth.admin.updateUserById(userId, {
-    user_metadata: { role, metadata_id: metadata_id ?? null }
+    user_metadata: userMetaPatch,
   })
 
   if (error) {

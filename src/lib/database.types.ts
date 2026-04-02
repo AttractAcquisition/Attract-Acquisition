@@ -44,88 +44,16 @@ export type Database = {
         }
         Relationships: []
       }
-      audit_claims: {
-        Row: {
-          business_name: string
-          contact_info: string
-          contact_method: string | null
-          created_at: string | null
-          google_reviews: string | null
-          id: string
-          location: string
-          status: string | null
-        }
-        Insert: {
-          business_name: string
-          contact_info: string
-          contact_method?: string | null
-          created_at?: string | null
-          google_reviews?: string | null
-          id?: string
-          location: string
-          status?: string | null
-        }
-        Update: {
-          business_name?: string
-          contact_info?: string
-          contact_method?: string | null
-          created_at?: string | null
-          google_reviews?: string | null
-          id?: string
-          location?: string
-          status?: string | null
-        }
-        Relationships: []
-      }
-      client_deliverables: {
-        Row: {
-          client_id: string | null
-          id: string
-          is_completed: boolean | null
-          notes: string | null
-          position: number | null
-          title: string
-          updated_at: string | null
-        }
-        Insert: {
-          client_id?: string | null
-          id?: string
-          is_completed?: boolean | null
-          notes?: string | null
-          position?: number | null
-          title: string
-          updated_at?: string | null
-        }
-        Update: {
-          client_id?: string | null
-          id?: string
-          is_completed?: boolean | null
-          notes?: string | null
-          position?: number | null
-          title?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "client_deliverables_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       clients: {
         Row: {
           account_manager: string | null
+          account_manager_name: string | null
           business_name: string
           churn_risk_flag: boolean | null
           client_delivery_va: string | null
           contract_end_date: string | null
           contract_start_date: string | null
           created_at: string | null
-          delivery_manager: string | null
-          distribution_manager: string | null
           email: string | null
           id: string
           last_results_meeting: string | null
@@ -136,7 +64,6 @@ export type Database = {
           notes: string | null
           owner_name: string
           phone: string | null
-          portal_login_email: string | null
           prospect_id: string | null
           setup_fee: number | null
           status: string | null
@@ -147,14 +74,13 @@ export type Database = {
         }
         Insert: {
           account_manager?: string | null
+          account_manager_name?: string | null
           business_name: string
           churn_risk_flag?: boolean | null
           client_delivery_va?: string | null
           contract_end_date?: string | null
           contract_start_date?: string | null
           created_at?: string | null
-          delivery_manager?: string | null
-          distribution_manager?: string | null
           email?: string | null
           id?: string
           last_results_meeting?: string | null
@@ -165,7 +91,6 @@ export type Database = {
           notes?: string | null
           owner_name: string
           phone?: string | null
-          portal_login_email?: string | null
           prospect_id?: string | null
           setup_fee?: number | null
           status?: string | null
@@ -176,14 +101,13 @@ export type Database = {
         }
         Update: {
           account_manager?: string | null
+          account_manager_name?: string | null
           business_name?: string
           churn_risk_flag?: boolean | null
           client_delivery_va?: string | null
           contract_end_date?: string | null
           contract_start_date?: string | null
           created_at?: string | null
-          delivery_manager?: string | null
-          distribution_manager?: string | null
           email?: string | null
           id?: string
           last_results_meeting?: string | null
@@ -194,7 +118,6 @@ export type Database = {
           notes?: string | null
           owner_name?: string
           phone?: string | null
-          portal_login_email?: string | null
           prospect_id?: string | null
           setup_fee?: number | null
           status?: string | null
@@ -262,60 +185,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      delivery_progress: {
-        Row: {
-          date_key: string
-          id: string
-          is_completed: boolean | null
-          manager_id: string | null
-          task_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          date_key: string
-          id?: string
-          is_completed?: boolean | null
-          manager_id?: string | null
-          task_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          date_key?: string
-          id?: string
-          is_completed?: boolean | null
-          manager_id?: string | null
-          task_id?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      distribution_progress: {
-        Row: {
-          date_key: string
-          id: string
-          is_completed: boolean | null
-          manager_id: string | null
-          task_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          date_key: string
-          id?: string
-          is_completed?: boolean | null
-          manager_id?: string | null
-          task_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          date_key?: string
-          id?: string
-          is_completed?: boolean | null
-          manager_id?: string | null
-          task_id?: string
-          updated_at?: string | null
-        }
-        Relationships: []
       }
       distro_metrics: {
         Row: {
@@ -519,68 +388,6 @@ export type Database = {
         }
         Relationships: []
       }
-      outreach_messages: {
-        Row: {
-          batch_id: string | null
-          channel: string | null
-          created_at: string | null
-          follow_up_count: number | null
-          id: string
-          last_contact: string | null
-          message_body: string | null
-          message_type: string | null
-          outcome: string | null
-          prospect_id: string | null
-          response_at: string | null
-          response_received: boolean | null
-          response_text: string | null
-          sent_at: string | null
-          sent_by: string | null
-        }
-        Insert: {
-          batch_id?: string | null
-          channel?: string | null
-          created_at?: string | null
-          follow_up_count?: number | null
-          id?: string
-          last_contact?: string | null
-          message_body?: string | null
-          message_type?: string | null
-          outcome?: string | null
-          prospect_id?: string | null
-          response_at?: string | null
-          response_received?: boolean | null
-          response_text?: string | null
-          sent_at?: string | null
-          sent_by?: string | null
-        }
-        Update: {
-          batch_id?: string | null
-          channel?: string | null
-          created_at?: string | null
-          follow_up_count?: number | null
-          id?: string
-          last_contact?: string | null
-          message_body?: string | null
-          message_type?: string | null
-          outcome?: string | null
-          prospect_id?: string | null
-          response_at?: string | null
-          response_received?: boolean | null
-          response_text?: string | null
-          sent_at?: string | null
-          sent_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "outreach_messages_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "prospects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       portal_documents: {
         Row: {
           client_id: string
@@ -612,7 +419,22 @@ export type Database = {
           status?: string | null
           uploaded_by?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "portal_documents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_documents_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       portal_messages: {
         Row: {
@@ -639,7 +461,22 @@ export type Database = {
           message_text?: string
           sender_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "portal_messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_messages_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       portal_tasks: {
         Row: {
@@ -672,7 +509,22 @@ export type Database = {
           status?: string | null
           title?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "portal_tasks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_tasks_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -817,14 +669,11 @@ export type Database = {
           icp_total_score: number | null
           id: string
           ig_follower_count: number | null
-          instagram_followers: number | null
           instagram_handle: string | null
-          instagram_last_post_date: string | null
           is_archived: boolean | null
           last_scraped_at: string | null
           meta_ads_running: boolean | null
           mjr_delivered_at: string | null
-          mjr_estimated_monthly_missed_revenue: number | null
           mjr_link: string | null
           mjr_missed_revenue: number | null
           mjr_notes: string | null
@@ -873,14 +722,11 @@ export type Database = {
           icp_total_score?: number | null
           id?: string
           ig_follower_count?: number | null
-          instagram_followers?: number | null
           instagram_handle?: string | null
-          instagram_last_post_date?: string | null
           is_archived?: boolean | null
           last_scraped_at?: string | null
           meta_ads_running?: boolean | null
           mjr_delivered_at?: string | null
-          mjr_estimated_monthly_missed_revenue?: number | null
           mjr_link?: string | null
           mjr_missed_revenue?: number | null
           mjr_notes?: string | null
@@ -929,14 +775,11 @@ export type Database = {
           icp_total_score?: number | null
           id?: string
           ig_follower_count?: number | null
-          instagram_followers?: number | null
           instagram_handle?: string | null
-          instagram_last_post_date?: string | null
           is_archived?: boolean | null
           last_scraped_at?: string | null
           meta_ads_running?: boolean | null
           mjr_delivered_at?: string | null
-          mjr_estimated_monthly_missed_revenue?: number | null
           mjr_link?: string | null
           mjr_missed_revenue?: number | null
           mjr_notes?: string | null
@@ -1069,30 +912,6 @@ export type Database = {
           },
         ]
       }
-      studio_assets: {
-        Row: {
-          category: string | null
-          created_at: string | null
-          id: string
-          name: string
-          url: string
-        }
-        Insert: {
-          category?: string | null
-          created_at?: string | null
-          id?: string
-          name: string
-          url: string
-        }
-        Update: {
-          category?: string | null
-          created_at?: string | null
-          id?: string
-          name?: string
-          url?: string
-        }
-        Relationships: []
-      }
       tasks: {
         Row: {
           assigned_to: string | null
@@ -1199,6 +1018,7 @@ export type Database = {
     }
     Functions: {
       auth_role: { Args: never; Returns: string }
+      check_is_staff: { Args: never; Returns: boolean }
       get_monthly_stats: {
         Args: { month_date: string }
         Returns: {
@@ -1208,6 +1028,7 @@ export type Database = {
         }[]
       }
       get_my_client_id: { Args: never; Returns: string }
+      get_my_metadata_id: { Args: never; Returns: string }
       get_my_role: { Args: never; Returns: string }
       get_ops_manager_status: {
         Args: never

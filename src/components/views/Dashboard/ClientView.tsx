@@ -36,9 +36,11 @@ export default function ClientView() {
         setSprints(sprintsRes.data || [])
 
         if (clientData?.account_manager) {
-          const { data: mgrData } = await supabase
-            .from('profiles' as any).select('*').eq('id', clientData.account_manager).maybeSingle()
-          setManager(mgrData)
+          setManager({
+            id: clientData.account_manager,
+            full_name: clientData.account_manager_name ?? 'Your Account Manager',
+            phone: null,
+          })
         }
       } catch (err) {
         console.error('Dashboard load error:', err)

@@ -4,7 +4,6 @@ import { useToast } from '../lib/toast';
 import { Users, Shield, Link } from 'lucide-react';
 
 export default function AdminControl() {
-  const [profiles, setProfiles] = useState<any[]>([]);
   const [clientRecords, setClientRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const toast = useToast() as any;
@@ -12,22 +11,13 @@ export default function AdminControl() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [profileRes, clientRes] = await Promise.all([
-        (supabase as any)
-          .from('profiles')
-          .select('*')
-          .order('created_at', { ascending: false }),
-        (supabase as any)
-          .from('clients')
-          .select('id, business_name, owner_name, account_manager')
-          .order('business_name', { ascending: true }),
-      ]);
+      const { data, error } = await (supabase as any)
+        .from('clients')
+        .select('id, business_name, owner_name, account_manager, account_manager_name')
+        .order('business_name', { ascending: true });
 
-      if (profileRes.error) throw profileRes.error;
-      if (clientRes.error) throw clientRes.error;
-
-      setProfiles(profileRes.data || []);
-      setClientRecords(clientRes.data || []);
+      if (error) throw error;
+      setClientRecords(data || []);
     } catch (err: any) {
       console.error('Fetch error:', err.message);
       toast.addToast?.('Failed to load data', 'error');
@@ -40,17 +30,17 @@ export default function AdminControl() {
     fetchData();
   }, []);
 
-  const updateRole = async (userId: string, newRole: string) => {
-    const { error } = await (supabase as any)
-      .from('profiles')
-      .update({ role: newRole })
-      .eq('id', userId);
+  const updateRole = async (userId: string, newRole: string, metadataId?: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const { error } = await supabase.functions.invoke('update-user-role', {
+      body: { userId, role: newRole, metadata_id: metadataId ?? null },
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    });
 
     if (error) {
       toast.addToast?.('Error updating role', 'error');
     } else {
-      toast.addToast?.('Role updated successfully', 'success');
-      fetchData();
+      toast.addToast?.('Role updated in auth metadata ✓', 'success');
     }
   };
 
@@ -80,9 +70,6 @@ export default function AdminControl() {
     </div>
   );
 
-  // Filter for anyone who can manage an account
-  const managers = profiles.filter(p => ['admin', 'delivery', 'distribution'].includes(p.role));
-
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-700">
       <header className="flex items-center justify-between border-b border-white/5 pb-6">
@@ -94,53 +81,15 @@ export default function AdminControl() {
         </div>
       </header>
 
-      {/* Section 1: User Permissions */}
+      {/* Section 1: User Permissions — managed via JWT user_metadata */}
       <section className="bg-zinc-900/40 p-8 rounded-2xl border border-white/5 backdrop-blur-md shadow-2xl">
         <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 text-white">
           <Users size={20} className="text-teal-400" /> System Permissions
         </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="text-zinc-600 border-b border-white/5 text-[11px] uppercase tracking-[0.2em]">
-                <th className="pb-4 font-semibold">User Identity</th>
-                <th className="pb-4 font-semibold text-center">Current Role</th>
-                <th className="pb-4 text-right font-semibold">Access Control</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {profiles.map(user => (
-                <tr key={user.id} className="hover:bg-white/[0.02] transition-colors group">
-                  <td className="py-5">
-                    <div className="text-zinc-300 font-medium">{user.email}</div>
-                    <div className="text-[10px] text-zinc-600 font-mono mt-0.5">{user.id}</div>
-                  </td>
-                  <td className="py-5 text-center">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${
-                      user.role === 'admin' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                      user.role === 'delivery' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                      user.role === 'distribution' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                      'bg-teal-500/10 text-teal-400 border-teal-500/20'
-                    }`}>
-                      {user.role}
-                    </span>
-                  </td>
-                  <td className="py-5 text-right">
-                    <select
-                      onChange={(e) => updateRole(user.id, e.target.value)}
-                      className="bg-zinc-950 border border-white/10 text-xs text-zinc-400 rounded-lg px-3 py-1.5 focus:outline-none focus:border-teal-500 hover:text-white transition-all cursor-pointer"
-                      defaultValue={user.role}
-                    >
-                      <option value="admin">Admin Access</option>
-                      <option value="delivery">Delivery Ops</option>
-                      <option value="distribution">Distribution Ops</option>
-                      <option value="client">Client Portal</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="p-4 rounded-lg border border-white/10 bg-zinc-950/50 text-zinc-500 font-mono text-xs leading-relaxed">
+          <p className="text-zinc-400 mb-2">Role management now operates via JWT <code className="text-teal-400">user_metadata</code>.</p>
+          <p>To update a user's role, invoke the <code className="text-teal-400">update-user-role</code> Edge Function with the target user's Auth UUID, new role, and their <code className="text-teal-400">metadata_id</code>. Role changes take effect on next session refresh.</p>
+          <p className="mt-2 text-zinc-600">A staff management UI will be available once the <code>staff</code> table is provisioned.</p>
         </div>
       </section>
 
@@ -154,7 +103,8 @@ export default function AdminControl() {
             <thead>
               <tr className="text-zinc-600 border-b border-white/5 text-[11px] uppercase tracking-[0.2em]">
                 <th className="pb-4 font-semibold">Client Brand</th>
-                <th className="pb-4 font-semibold text-right">Assigned Strategic Lead</th>
+                <th className="pb-4 font-semibold">Current Lead (UUID)</th>
+                <th className="pb-4 text-right font-semibold">Assign Manager UUID</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -164,19 +114,30 @@ export default function AdminControl() {
                     <div className="text-teal-400 font-medium">{client.business_name || '—'}</div>
                     <div className="text-[10px] text-zinc-600 font-mono mt-0.5">{client.owner_name || 'FUNNEL ACTIVE'}</div>
                   </td>
+                  <td className="py-5">
+                    <div className="text-[10px] text-zinc-500 font-mono">
+                      {client.account_manager_name
+                        ? <span className="text-zinc-300">{client.account_manager_name}</span>
+                        : <span className="text-zinc-600">Unassigned</span>
+                      }
+                    </div>
+                    {client.account_manager && (
+                      <div className="text-[9px] text-zinc-700 font-mono mt-0.5 truncate max-w-[180px]">{client.account_manager}</div>
+                    )}
+                  </td>
                   <td className="py-5 text-right">
-                    <select
-                      onChange={(e) => updateMapping(client.id, e.target.value)}
-                      className="w-full max-w-sm bg-zinc-950 border border-white/10 text-xs text-zinc-400 rounded-lg px-4 py-2 focus:outline-none focus:border-teal-500 hover:text-white transition-all cursor-pointer"
+                    <input
+                      type="text"
+                      placeholder="Paste manager UUID..."
                       defaultValue={client.account_manager || ''}
-                    >
-                      <option value="">-- No Lead Assigned --</option>
-                      {managers.map(op => (
-                        <option key={op.id} value={op.id}>
-                          {op.email} ({op.role.toUpperCase()})
-                        </option>
-                      ))}
-                    </select>
+                      onBlur={(e) => {
+                        const val = e.target.value.trim()
+                        if (val !== (client.account_manager || '')) {
+                          updateMapping(client.id, val)
+                        }
+                      }}
+                      className="w-full max-w-xs bg-zinc-950 border border-white/10 text-xs text-zinc-400 rounded-lg px-3 py-1.5 focus:outline-none focus:border-teal-500 font-mono placeholder-zinc-700"
+                    />
                   </td>
                 </tr>
               ))}

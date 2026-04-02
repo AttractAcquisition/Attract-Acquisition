@@ -35,15 +35,8 @@ export default function Clients() {
       setImportProspect(location.state.importProspect)
       setShowNew(true)
     }
-    // Load delivery/admin users so the Growth Operator dropdown uses real UUIDs
-    if (role !== 'client') {
-      supabase
-        .from('profiles' as any)
-        .select('id, email')
-        .in('role', ['admin', 'delivery'])
-        .order('email')
-        .then(({ data }) => setDeliveryUsers(data || []))
-    }
+    // NOTE: Growth Operator dropdown requires a staff table.
+    // profiles table is deprecated. deliveryUsers stays empty until staff table is provisioned.
   }, [metadata_id, role])
 
   async function load() {
@@ -421,7 +414,7 @@ function NewClientForm({ initialProspect, onSave, onCancel }: {
     monthly_ad_spend:    5000,
     contract_start_date: new Date().toISOString().split('T')[0],
     meta_ad_account_id:  '',
-    account_manager:     'principal',
+    account_manager:     null,
   })
 
   async function searchProspects(q: string) {

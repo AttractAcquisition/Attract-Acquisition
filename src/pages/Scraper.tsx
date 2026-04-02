@@ -188,7 +188,11 @@ export default function Scraper() {
 
       if (data.status === 'SUCCEEDED') {
         stopPolling(); stopTimer()
-        const { data: existing } = await supabase.from('prospects').select('business_name')
+        const batchNames = (data.prospects || []).map((p: ProspectRow) => p.business_name)
+        const { data: existing } = await supabase
+          .from('prospects')
+          .select('business_name')
+          .in('business_name', batchNames)
         const existingNames = new Set((existing || []).map((p: any) => p.business_name.toLowerCase().trim()))
         const withDupFlag = (data.prospects || []).map((p: ProspectRow) => ({ ...p, duplicate: existingNames.has(p.business_name.toLowerCase().trim()) }))
         setResults(withDupFlag)

@@ -60,24 +60,10 @@ export default function Sops() {
       category: s.category || 'General',
       status: s.status || 'draft',
       title: s.title || 'Untitled SOP',
-      files: [], 
+      files: [],
     }))
 
-    const { data: filesData, error: filesError } = await supabase
-      .from('app_files')
-      .select('*')
-
-    if (filesError) {
-      console.error('Error fetching files:', filesError)
-      toast('Failed to load associated files', 'error')
-    }
-
-    const sopsWithFiles = normalizedSops.map(sop => ({
-      ...sop,
-      files: (filesData || []).filter(file => file.associated_sop_id === sop.id)
-    }))
-
-    setSops(sopsWithFiles)
+    setSops(normalizedSops)
   }
 
   const handleDragEnd = async (result: DropResult) => {
@@ -116,13 +102,21 @@ export default function Sops() {
     }
   }
 
+  async function loadFilesForSop(sopId: string) {
+    const { data } = await supabase
+      .from('app_files')
+      .select('*')
+      .eq('associated_sop_id', sopId)
+    setAssociatedFiles(data || [])
+  }
+
   function selectSop(s: Sop) {
     setSelected(s)
     setContent(s.content || '')
     setEditTitle(s.title || '')
     setEditCategory(s.category || 'General')
     setEditing(false)
-    setAssociatedFiles(s.files || [])
+    loadFilesForSop(s.id)
   }
 
   async function createNewSop() {

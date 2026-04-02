@@ -25,7 +25,7 @@ export default function Clients() {
   const [slideTab, setSlideTab]       = useState<SlideTab>('overview')
   const [showNew, setShowNew]         = useState(false)
   const [importProspect, setImportProspect] = useState<Prospect | null>(null)
-  const [deliveryUsers, setDeliveryUsers]   = useState<{ id: string; email: string }[]>([])
+  const [deliveryUsers]   = useState<{ id: string; email: string }[]>([])
   const { toast }                     = useToast()
   const location                      = useLocation()
 

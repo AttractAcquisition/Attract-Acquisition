@@ -167,11 +167,7 @@ export default function ProspectDetailView({ prospect, onClose, onUpdate, onDele
               <div className="section-label">Instagram Footprint</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <CF label="IG Handle" field="instagram_handle" value={prospect.instagram_handle} onSave={v => updateField('instagram_handle', v)} />
-                <CF label="Followers" field="ig_follower_count" value={prospect.ig_follower_count || prospect.instagram_followers} type="number" onSave={v => updateField('ig_follower_count', v)} />
-                <div>
-                  <div className="label">Last IG Post</div>
-                  <input className="input" type="date" value={prospect.instagram_last_post_date || ''} onChange={e => updateField('instagram_last_post_date', e.target.value)} />
-                </div>
+                <CF label="Followers" field="ig_follower_count" value={prospect.ig_follower_count} type="number" onSave={v => updateField('ig_follower_count', v)} />
               </div>
               
               <div className="section-label" style={{ marginTop: 8 }}>Google & Meta</div>
@@ -217,7 +213,7 @@ export default function ProspectDetailView({ prospect, onClose, onUpdate, onDele
             <>
               <div className="section-label">Strategy & Assets</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
-                <CF label="Est. Missed Revenue (ZAR)" field="mjr_missed_revenue" value={prospect.mjr_missed_revenue || prospect.mjr_estimated_monthly_missed_revenue} type="number" onSave={v => updateField('mjr_missed_revenue', v)} />
+                <CF label="Est. Missed Revenue (ZAR)" field="mjr_missed_revenue" value={prospect.mjr_missed_revenue} type="number" onSave={v => updateField('mjr_missed_revenue', v)} />
                 <CF label="MJR Loom Link" field="mjr_link" value={prospect.mjr_link} onSave={v => updateField('mjr_link', v)} placeholder="https://loom.com/..." />
               </div>
               

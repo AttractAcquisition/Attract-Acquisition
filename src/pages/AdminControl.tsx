@@ -6,6 +6,8 @@ import { Users, Shield, Link } from 'lucide-react';
 export default function AdminControl() {
   const [clientRecords, setClientRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [roleForm, setRoleForm] = useState({ userId: '', role: 'delivery', metadataId: '' });
+  const [roleUpdating, setRoleUpdating] = useState(false);
   const toast = useToast() as any;
 
   const fetchData = async () => {
@@ -86,10 +88,58 @@ export default function AdminControl() {
         <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 text-white">
           <Users size={20} className="text-teal-400" /> System Permissions
         </h2>
-        <div className="p-4 rounded-lg border border-white/10 bg-zinc-950/50 text-zinc-500 font-mono text-xs leading-relaxed">
-          <p className="text-zinc-400 mb-2">Role management now operates via JWT <code className="text-teal-400">user_metadata</code>.</p>
-          <p>To update a user's role, invoke the <code className="text-teal-400">update-user-role</code> Edge Function with the target user's Auth UUID, new role, and their <code className="text-teal-400">metadata_id</code>. Role changes take effect on next session refresh.</p>
-          <p className="mt-2 text-zinc-600">A staff management UI will be available once the <code>staff</code> table is provisioned.</p>
+        <p className="text-zinc-600 font-mono text-xs mb-6">
+          Roles live in JWT <code className="text-teal-500">user_metadata</code>. Changes take effect on the user's next session refresh.
+        </p>
+        <div className="grid grid-cols-1 gap-4 max-w-xl">
+          <div>
+            <label className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest block mb-1">Auth User UUID *</label>
+            <input
+              type="text"
+              placeholder="e.g. xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              value={roleForm.userId}
+              onChange={e => setRoleForm(f => ({ ...f, userId: e.target.value.trim() }))}
+              className="w-full bg-zinc-950 border border-white/10 text-xs text-zinc-300 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-500 font-mono placeholder-zinc-700"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest block mb-1">New Role *</label>
+              <select
+                value={roleForm.role}
+                onChange={e => setRoleForm(f => ({ ...f, role: e.target.value }))}
+                className="w-full bg-zinc-950 border border-white/10 text-xs text-zinc-300 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-500 cursor-pointer"
+              >
+                <option value="admin">Admin</option>
+                <option value="delivery">Delivery</option>
+                <option value="distribution">Distribution</option>
+                <option value="client">Client</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest block mb-1">metadata_id (UUID)</label>
+              <input
+                type="text"
+                placeholder="clients.id for client role"
+                value={roleForm.metadataId}
+                onChange={e => setRoleForm(f => ({ ...f, metadataId: e.target.value.trim() }))}
+                className="w-full bg-zinc-950 border border-white/10 text-xs text-zinc-400 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-500 font-mono placeholder-zinc-700"
+              />
+            </div>
+          </div>
+          <button
+            disabled={!roleForm.userId || roleUpdating}
+            onClick={async () => {
+              setRoleUpdating(true);
+              await updateRole(roleForm.userId, roleForm.role, roleForm.metadataId || undefined);
+              setRoleForm(f => ({ ...f, userId: '', metadataId: '' }));
+              setRoleUpdating(false);
+            }}
+            className="w-fit px-5 py-2 rounded-lg text-xs font-mono font-semibold uppercase tracking-widest transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: 'var(--teal)', color: 'var(--bg)' }}
+          >
+            {roleUpdating ? 'Updating...' : 'Apply Role →'}
+          </button>
         </div>
       </section>
 

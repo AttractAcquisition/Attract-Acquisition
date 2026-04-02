@@ -310,7 +310,7 @@ export default function Clients() {
                 </>
               )}
 
-              {slideTab === 'sprints' && <ClientSprints clientId={selected.id} />}
+              {slideTab === 'sprints' && <ClientSprints clientId={selected.id} accountManager={selected.account_manager} />}
 
               {slideTab === 'notes' && (
                 <div>
@@ -362,19 +362,90 @@ function CF({ label, field, value, onSave, type = 'text', placeholder = '' }: {
   )
 }
 
-function ClientSprints({ clientId }: { clientId: string }) {
-  const [sprints, setSprints] = useState<any[]>([])
-  useEffect(() => {
-    supabase.from('proof_sprints').select('*').eq('client_id', clientId).order('created_at', { ascending: false }).then(({ data }) => setSprints(data || []))
-  }, [clientId])
+function dayX(startDate: string) {
+  return Math.max(1, Math.min(Math.floor((Date.now() - new Date(startDate).getTime()) / 86400000) + 1, 14))
+}
 
-  if (sprints.length === 0) return <div style={{ color: 'var(--grey)', fontSize: 13, textAlign: 'center', padding: 32 }}>No active sprints for this client.</div>
+function ClientSprints({ clientId, accountManager }: { clientId: string; accountManager: string | null }) {
+  const { role, metadata_id } = useAuth()
+  const { toast } = useToast()
+  const canEdit = role === 'admin' || (role === 'delivery' && metadata_id === accountManager)
+
+  const [sprints, setSprints] = useState<any[]>([])
+  const [activeSprint, setActiveSprint] = useState<any | null>(null)
+  const [logs, setLogs] = useState<any[]>([])
+  const [showLogForm, setShowLogForm] = useState(false)
+  const [logForm, setLogForm] = useState({ reach: 0, impressions: 0, link_clicks: 0, leads: 0, spend: 0, notes: '' })
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { loadSprints() }, [clientId])
+
+  async function loadSprints() {
+    const { data } = await supabase.from('proof_sprints').select('*').eq('client_id', clientId).order('created_at', { ascending: false })
+    const all = data || []
+    setSprints(all)
+    const active = all.find((s: any) => s.status === 'active') || null
+    setActiveSprint(active)
+    if (active) loadLogs(active.id)
+  }
+
+  async function loadLogs(sprintId: string) {
+    const { data } = await supabase.from('sprint_daily_log').select('*').eq('sprint_id', sprintId).order('log_date')
+    setLogs((data || []).map((l: any) => ({
+      ...l,
+      day_number: l.day_number ?? dayX(l.log_date || new Date().toISOString()),
+      reach: l.reach ?? 0, impressions: l.impressions ?? 0,
+      link_clicks: l.link_clicks ?? 0, leads: l.leads ?? 0,
+      spend: l.spend ?? 0, notes: l.notes ?? ''
+    })))
+  }
+
+  async function addLog() {
+    if (!activeSprint) return
+    setSaving(true)
+    const today = new Date().toISOString().split('T')[0]
+    const dayNum = dayX(activeSprint.start_date)
+
+    const { error } = await supabase.from('sprint_daily_log').upsert(
+      { sprint_id: activeSprint.id, log_date: today, day_number: dayNum, ...logForm },
+      { onConflict: 'sprint_id,log_date' }
+    )
+
+    if (error) { toast('Failed to save log', 'error'); setSaving(false); return }
+
+    const totalSpend = logs.reduce((sum: number, l: any) => sum + (l.spend ?? 0), 0) + (logForm.spend ?? 0)
+    const totalLeads = logs.reduce((sum: number, l: any) => sum + (l.leads ?? 0), 0) + (logForm.leads ?? 0)
+    const newCpl = totalLeads > 0 ? totalSpend / totalLeads : 0
+
+    await supabase.from('proof_sprints').update({ actual_ad_spend: totalSpend, leads_generated: totalLeads, cpl: newCpl }).eq('id', activeSprint.id)
+
+    toast('Daily log saved ✓')
+    setSaving(false)
+    setShowLogForm(false)
+    setLogForm({ reach: 0, impressions: 0, link_clicks: 0, leads: 0, spend: 0, notes: '' })
+    loadSprints()
+  }
+
+  async function saveDay7(field: 'day7_notes' | 'day7_sentiment', value: string) {
+    if (!activeSprint) return
+    await supabase.from('proof_sprints').update({ [field]: value }).eq('id', activeSprint.id)
+    setActiveSprint((prev: any) => prev ? { ...prev, [field]: value } : prev)
+  }
+
+  if (sprints.length === 0) return <div style={{ color: 'var(--grey)', fontSize: 13, textAlign: 'center', padding: 32 }}>No sprints for this client.</div>
+
+  const totalSpend = logs.reduce((sum: number, l: any) => sum + (l.spend ?? 0), 0)
+  const totalLeads = logs.reduce((sum: number, l: any) => sum + (l.leads ?? 0), 0)
+  const cpl = totalLeads > 0 ? totalSpend / totalLeads : 0
+  const cplColor = cpl === 0 ? 'var(--grey)' : cpl < 150 ? 'var(--teal)' : cpl < 300 ? 'var(--amber)' : 'var(--red)'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {sprints.map(s => {
-        const cpl = s.cpl || 0
-        const cplColor = cpl === 0 ? 'var(--grey)' : cpl < 150 ? 'var(--green)' : cpl < 300 ? 'var(--amber)' : 'var(--red)'
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* Completed sprint summary cards */}
+      {sprints.filter((s: any) => s.status !== 'active').map((s: any) => {
+        const sCpl = s.cpl || 0
+        const sCplColor = sCpl === 0 ? 'var(--grey)' : sCpl < 150 ? 'var(--teal)' : sCpl < 300 ? 'var(--amber)' : 'var(--red)'
         return (
           <div key={s.id} style={{ background: 'var(--bg3)', borderRadius: 8, padding: 16, border: '1px solid var(--border2)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -383,12 +454,185 @@ function ClientSprints({ clientId }: { clientId: string }) {
             </div>
             <div style={{ display: 'flex', gap: 24, fontSize: 13 }}>
               <div><span style={{ color: 'var(--grey)' }}>Leads: </span><span style={{ color: 'var(--white)' }}>{s.leads_generated || 0}</span></div>
-              <div><span style={{ color: 'var(--grey)' }}>CPL: </span><span style={{ color: cplColor, fontFamily: 'DM Mono' }}>{cpl > 0 ? `R${cpl.toFixed(0)}` : '—'}</span></div>
+              <div><span style={{ color: 'var(--grey)' }}>CPL: </span><span style={{ color: sCplColor, fontFamily: 'DM Mono' }}>{sCpl > 0 ? `R${sCpl.toFixed(0)}` : '—'}</span></div>
               <div><span style={{ color: 'var(--grey)' }}>Spend: </span><span style={{ color: 'var(--white)' }}>R{(s.actual_ad_spend || 0).toFixed(0)}</span></div>
             </div>
           </div>
         )
       })}
+
+      {/* Active sprint — read-only for non-editors */}
+      {activeSprint && !canEdit && (
+        <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: 16, border: '1px solid var(--teal)' }}>
+          <div style={{ fontFamily: 'DM Mono', fontSize: 11, color: 'var(--teal)', textTransform: 'uppercase', marginBottom: 8 }}>Active Sprint {activeSprint.sprint_number || 1}</div>
+          <div style={{ display: 'flex', gap: 24, fontSize: 13 }}>
+            <div><span style={{ color: 'var(--grey)' }}>Leads: </span><span style={{ color: 'var(--white)' }}>{totalLeads}</span></div>
+            <div><span style={{ color: 'var(--grey)' }}>CPL: </span><span style={{ color: cplColor, fontFamily: 'DM Mono' }}>{cpl > 0 ? `R${cpl.toFixed(0)}` : '—'}</span></div>
+            <div><span style={{ color: 'var(--grey)' }}>Spend: </span><span style={{ color: 'var(--white)' }}>{formatRand(totalSpend)}</span></div>
+          </div>
+        </div>
+      )}
+
+      {/* Active sprint — full management for admin / assigned delivery user */}
+      {activeSprint && canEdit && (
+        <>
+          {/* Active Sprint Stats */}
+          <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: 16, border: '1px solid var(--teal)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+              <div>
+                <div style={{ fontFamily: 'DM Mono', fontSize: 11, color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Active · Sprint {activeSprint.sprint_number || 1}</div>
+                <div style={{ fontSize: 12, color: 'var(--grey)', marginTop: 2 }}>Started {formatDate(activeSprint.start_date)}</div>
+              </div>
+              <div style={{ fontFamily: 'DM Mono', fontSize: 24, fontWeight: 500, color: 'var(--teal)' }}>
+                Day {dayX(activeSprint.start_date)}<span style={{ fontSize: 14, color: 'var(--grey)' }}>/14</span>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              {[
+                { label: 'Spend', value: formatRand(totalSpend) },
+                { label: 'Leads', value: totalLeads, color: 'var(--white)' },
+                { label: 'CPL', value: cpl > 0 ? formatRand(cpl) : '—', color: cplColor },
+              ].map(s => (
+                <div key={s.label}>
+                  <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--grey)', textTransform: 'uppercase' }}>{s.label}</div>
+                  <div style={{ fontFamily: 'DM Mono', fontSize: 16, color: s.color || 'var(--teal)', marginTop: 4 }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Daily Log */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div className="section-label" style={{ margin: 0 }}>Daily Log</div>
+              <button className="btn-primary" onClick={() => setShowLogForm(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px' }}>
+                <Plus size={11} /> Add Today's Log
+              </button>
+            </div>
+
+            {showLogForm && (
+              <div style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 6, padding: 14, marginBottom: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 10 }}>
+                  {[{ label: 'Reach', field: 'reach' }, { label: 'Impressions', field: 'impressions' }, { label: 'Clicks', field: 'link_clicks' }, { label: 'Leads', field: 'leads' }, { label: 'Spend (R)', field: 'spend' }].map(f => (
+                    <div key={f.field}>
+                      <div className="label">{f.label}</div>
+                      <input className="input" type="number" value={(logForm as any)[f.field] ?? 0} onChange={e => setLogForm(prev => ({ ...prev, [f.field]: Number(e.target.value) || 0 }))} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <div className="label">Notes</div>
+                  <input className="input" placeholder="Observations, optimisations made..." value={logForm.notes ?? ''} onChange={e => setLogForm(prev => ({ ...prev, notes: e.target.value }))} />
+                </div>
+                <button className="btn-primary" onClick={addLog} disabled={saving}>{saving ? 'Saving...' : 'Save Log Entry →'}</button>
+              </div>
+            )}
+
+            {logs.length === 0 ? (
+              <div style={{ color: 'var(--grey)', fontSize: 13, textAlign: 'center', padding: 16 }}>No log entries yet.</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="aa-table">
+                  <thead><tr><th>Day</th><th>Date</th><th>Leads</th><th>Spend</th><th>CPL</th><th>Notes</th></tr></thead>
+                  <tbody>
+                    {logs.map((l: any) => (
+                      <tr key={l.id}>
+                        <td style={{ fontFamily: 'DM Mono', color: 'var(--teal)' }}>Day {l.day_number ?? '?'}</td>
+                        <td style={{ color: 'var(--grey)', fontSize: 12 }}>{formatDate(l.log_date)}</td>
+                        <td style={{ color: 'var(--teal)', fontFamily: 'DM Mono' }}>{l.leads ?? 0}</td>
+                        <td>{formatRand(l.spend ?? 0)}</td>
+                        <td style={{ fontFamily: 'DM Mono', color: cplColor }}>{l.leads && l.leads > 0 ? formatRand((l.spend ?? 0) / l.leads) : '—'}</td>
+                        <td style={{ color: 'var(--grey)', fontSize: 12 }}>{l.notes ?? ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Day 7 Check-in */}
+          <div className="card">
+            <div className="section-label">Day 7 Check-in</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+              <div>
+                <div className="label">Notes from Day 7 call</div>
+                <textarea className="input" rows={3} placeholder="Client feedback, questions raised, sentiment notes..." defaultValue={activeSprint.day7_notes ?? ''} onBlur={e => saveDay7('day7_notes', e.target.value)} style={{ resize: 'vertical' }} />
+              </div>
+              <div>
+                <div className="label">Client Sentiment</div>
+                <select className="input" value={activeSprint.day7_sentiment ?? ''} onChange={e => saveDay7('day7_sentiment', e.target.value)}>
+                  <option value="">Not recorded</option>
+                  <option value="satisfied">Satisfied</option>
+                  <option value="neutral">Neutral</option>
+                  <option value="concerned">Concerned</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Results Meeting Prep */}
+          <div className="card">
+            <div className="section-label">Results Meeting Prep</div>
+            <div style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 6, padding: 14, marginBottom: 14, fontSize: 13, color: 'var(--grey)', lineHeight: 1.8 }}>
+              <div style={{ fontFamily: 'DM Mono', fontSize: 10, color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Auto-populated from sprint data</div>
+              <div>Ad spend: <span style={{ color: 'var(--white)' }}>{formatRand(totalSpend)}</span></div>
+              <div>Leads generated: <span style={{ color: 'var(--white)' }}>{totalLeads}</span></div>
+              <div>CPL: <span style={{ color: cplColor }}>{cpl > 0 ? formatRand(cpl) : '—'}</span></div>
+              <div>Days run: <span style={{ color: 'var(--white)' }}>{dayX(activeSprint.start_date)} of 14</span></div>
+              <div>Client sentiment (Day 7): <span style={{ color: 'var(--white)' }}>{activeSprint.day7_sentiment || 'Not recorded'}</span></div>
+            </div>
+            <div>
+              <div className="label">Editable Talking Points</div>
+              <textarea
+                className="input"
+                rows={5}
+                placeholder={"1. Lead with the numbers\n2. Frame CPL against industry average\n3. Show full system capacity\n4. Present Proof Brand investment\n5. Close with the guarantee"}
+                defaultValue={activeSprint.talking_points ?? ''}
+                onBlur={async e => {
+                  await supabase.from('proof_sprints').update({ talking_points: e.target.value }).eq('id', activeSprint.id)
+                }}
+                style={{ resize: 'vertical', fontFamily: 'DM Mono', fontSize: 12 }}
+              />
+            </div>
+            <SprintReportButton sprintId={activeSprint.id} sprint={activeSprint} logs={logs} />
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function SprintReportButton({ sprintId, sprint, logs }: { sprintId: string; sprint: any; logs: any[] }) {
+  const [report, setReport] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const { toast } = useToast()
+
+  async function generate() {
+    setGenerating(true)
+    setReport('')
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-sprint-report', { body: { sprint, logs } })
+      if (error) throw error
+      setReport(data.report)
+      await supabase.from('proof_sprints').update({ talking_points: data.report }).eq('id', sprintId)
+      toast('Results report generated ✓')
+    } catch {
+      toast('Generation failed — check Supabase Edge Functions', 'error')
+    }
+    setGenerating(false)
+  }
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <button className="btn-primary" onClick={generate} disabled={generating} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+        {generating ? 'Generating...' : '✦ Generate Results Report →'}
+      </button>
+      {report && (
+        <div style={{ marginTop: 14, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 6, padding: 16, fontSize: 13, color: 'var(--white)', lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>
+          {report}
+        </div>
+      )}
     </div>
   )
 }

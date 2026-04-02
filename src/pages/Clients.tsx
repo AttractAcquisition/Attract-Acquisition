@@ -375,7 +375,7 @@ function ClientSprints({ clientId, accountManager }: { clientId: string; account
   const [activeSprint, setActiveSprint] = useState<any | null>(null)
   const [logs, setLogs] = useState<any[]>([])
   const [showLogForm, setShowLogForm] = useState(false)
-  const [logForm, setLogForm] = useState({ reach: 0, impressions: 0, link_clicks: 0, leads: 0, spend: 0, notes: '' })
+  const [logForm, setLogForm] = useState({ reach: 0, impressions: 0, link_clicks: 0, leads: 0, spend: 0, bookings: 0, revenue: 0, notes: '' })
   const [saving, setSaving] = useState(false)
 
   useEffect(() => { loadSprints() }, [clientId])
@@ -396,7 +396,8 @@ function ClientSprints({ clientId, accountManager }: { clientId: string; account
       day_number: l.day_number ?? dayX(l.log_date || new Date().toISOString()),
       reach: l.reach ?? 0, impressions: l.impressions ?? 0,
       link_clicks: l.link_clicks ?? 0, leads: l.leads ?? 0,
-      spend: l.spend ?? 0, notes: l.notes ?? ''
+      spend: l.spend ?? 0, bookings: l.bookings ?? 0,
+      revenue: l.revenue ?? 0, notes: l.notes ?? ''
     })))
   }
 
@@ -413,16 +414,10 @@ function ClientSprints({ clientId, accountManager }: { clientId: string; account
 
     if (error) { toast('Failed to save log', 'error'); setSaving(false); return }
 
-    const totalSpend = logs.reduce((sum: number, l: any) => sum + (l.spend ?? 0), 0) + (logForm.spend ?? 0)
-    const totalLeads = logs.reduce((sum: number, l: any) => sum + (l.leads ?? 0), 0) + (logForm.leads ?? 0)
-    const newCpl = totalLeads > 0 ? totalSpend / totalLeads : 0
-
-    await supabase.from('proof_sprints').update({ actual_ad_spend: totalSpend, leads_generated: totalLeads, cpl: newCpl }).eq('id', activeSprint.id)
-
     toast('Daily log saved ✓')
     setSaving(false)
     setShowLogForm(false)
-    setLogForm({ reach: 0, impressions: 0, link_clicks: 0, leads: 0, spend: 0, notes: '' })
+    setLogForm({ reach: 0, impressions: 0, link_clicks: 0, leads: 0, spend: 0, bookings: 0, revenue: 0, notes: '' })
     loadSprints()
   }
 
@@ -512,8 +507,17 @@ function ClientSprints({ clientId, accountManager }: { clientId: string; account
 
             {showLogForm && (
               <div style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 6, padding: 14, marginBottom: 14 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 10 }}>
-                  {[{ label: 'Reach', field: 'reach' }, { label: 'Impressions', field: 'impressions' }, { label: 'Clicks', field: 'link_clicks' }, { label: 'Leads', field: 'leads' }, { label: 'Spend (R)', field: 'spend' }].map(f => (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 10 }}>
+                  {[{ label: 'Reach', field: 'reach' }, { label: 'Impressions', field: 'impressions' }, { label: 'Clicks', field: 'link_clicks' }].map(f => (
+                    <div key={f.field}>
+                      <div className="label">{f.label}</div>
+                      <input className="input" type="number" value={(logForm as any)[f.field] ?? 0} onChange={e => setLogForm(prev => ({ ...prev, [f.field]: Number(e.target.value) || 0 }))} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontFamily: 'DM Mono', fontSize: 9, color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Success Metrics</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 10 }}>
+                  {[{ label: 'Leads', field: 'leads' }, { label: 'Spend (R)', field: 'spend' }, { label: 'Bookings', field: 'bookings' }, { label: 'Revenue (R)', field: 'revenue' }].map(f => (
                     <div key={f.field}>
                       <div className="label">{f.label}</div>
                       <input className="input" type="number" value={(logForm as any)[f.field] ?? 0} onChange={e => setLogForm(prev => ({ ...prev, [f.field]: Number(e.target.value) || 0 }))} />
@@ -533,7 +537,7 @@ function ClientSprints({ clientId, accountManager }: { clientId: string; account
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table className="aa-table">
-                  <thead><tr><th>Day</th><th>Date</th><th>Leads</th><th>Spend</th><th>CPL</th><th>Notes</th></tr></thead>
+                  <thead><tr><th>Day</th><th>Date</th><th>Leads</th><th>Spend</th><th>CPL</th><th>Bookings</th><th>Revenue</th><th>Notes</th></tr></thead>
                   <tbody>
                     {logs.map((l: any) => (
                       <tr key={l.id}>
@@ -542,6 +546,8 @@ function ClientSprints({ clientId, accountManager }: { clientId: string; account
                         <td style={{ color: 'var(--teal)', fontFamily: 'DM Mono' }}>{l.leads ?? 0}</td>
                         <td>{formatRand(l.spend ?? 0)}</td>
                         <td style={{ fontFamily: 'DM Mono', color: cplColor }}>{l.leads && l.leads > 0 ? formatRand((l.spend ?? 0) / l.leads) : '—'}</td>
+                        <td style={{ color: 'var(--white)', fontFamily: 'DM Mono' }}>{l.bookings ?? 0}</td>
+                        <td style={{ color: 'var(--teal)', fontFamily: 'DM Mono' }}>{l.revenue ? formatRand(l.revenue) : '—'}</td>
                         <td style={{ color: 'var(--grey)', fontSize: 12 }}>{l.notes ?? ''}</td>
                       </tr>
                     ))}
